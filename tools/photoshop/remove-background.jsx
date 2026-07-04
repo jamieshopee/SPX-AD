@@ -1,10 +1,12 @@
 /*
  * SPX AD Photoshop Adapter MVP
- * Phase 2B-1 Contract Test
+ * Phase 2B-2 Remove Background Prototype
  *
- * This script intentionally does not remove backgrounds yet.
  * It reads photoshop-job-manifest.json, opens each source image, saves a PNG
  * using item.output.filename, and writes photoshop-run-report.json.
+ *
+ * Background removal is attempted for product / person / singleProduct.
+ * Logo assets are copied to processed PNG without background removal.
  */
 
 (function () {
@@ -67,6 +69,13 @@ function processItem(item, originalFolder, outputFolder, report) {
     if (!sourceFile.exists) throw new Error('source file not found: ' + sourceFilename);
 
     doc = app.open(sourceFile);
+    var backgroundResult = { attempted: false, removed: false, method: 'copy', error: '' };
+    if (shouldRemoveBackground(item)) {
+      backgroundResult = removeBackgroundForDocument(doc);
+      if (!backgroundResult.removed) {
+        throw new Error('remove background failed: ' + backgroundResult.error);
+      }
+    }
 
     var outputFile = new File(joinPath(outputFolder.fsName, outputFilename));
     saveDocumentAsPng(doc, outputFile);
@@ -77,7 +86,8 @@ function processItem(item, originalFolder, outputFolder, report) {
       role: item.role || '',
       mode: item.mode || '',
       sourceFilename: sourceFilename,
-      outputFilename: outputFilename
+      outputFilename: outputFilename,
+      background: backgroundResult
     });
     report.summary.success++;
   } catch (error) {
@@ -98,6 +108,72 @@ function processItem(item, originalFolder, outputFolder, report) {
       } catch (_) {}
     }
   }
+}
+
+function shouldRemoveBackground(item) {
+  if (!item) return false;
+  if (item.role === 'logo') return false;
+  if (item.operations && item.operations.removeBackground === false) return false;
+  return item.role === 'product' || item.role === 'person' || item.role === 'singleProduct';
+}
+
+function removeBackgroundForDocument(doc) {
+  try {
+    prepareActiveLayerForTransparency(doc);
+    tryRemoveBackgroundQuickAction();
+    return { attempted: true, removed: true, method: 'removeBackground', error: '' };
+  } catch (quickActionError) {
+    try {
+      prepareActiveLayerForTransparency(doc);
+      trySelectSubjectLayerMask();
+      return { attempted: true, removed: true, method: 'selectSubjectLayerMask', error: '' };
+    } catch (maskError) {
+      return {
+        attempted: true,
+        removed: false,
+        method: 'none',
+        error: String(maskError && maskError.message ? maskError.message : maskError) +
+          ' | quickAction: ' + String(quickActionError && quickActionError.message ? quickActionError.message : quickActionError)
+      };
+    }
+  }
+}
+
+function prepareActiveLayerForTransparency(doc) {
+  app.activeDocument = doc;
+  try {
+    if (doc.activeLayer && doc.activeLayer.isBackgroundLayer) {
+      doc.activeLayer.isBackgroundLayer = false;
+    }
+  } catch (_) {}
+}
+
+function tryRemoveBackgroundQuickAction() {
+  var desc = new ActionDescriptor();
+  executeAction(stringIDToTypeID('removeBackground'), desc, DialogModes.NO);
+}
+
+function trySelectSubjectLayerMask() {
+  selectSubject();
+  makeLayerMaskFromSelection();
+}
+
+function selectSubject() {
+  var desc = new ActionDescriptor();
+  try {
+    desc.putBoolean(stringIDToTypeID('sampleAllLayers'), false);
+  } catch (_) {}
+  executeAction(stringIDToTypeID('autoCutout'), desc, DialogModes.NO);
+}
+
+function makeLayerMaskFromSelection() {
+  var desc = new ActionDescriptor();
+  var ref = new ActionReference();
+  desc.putClass(charIDToTypeID('Nw  '), charIDToTypeID('Chnl'));
+  ref.putEnumerated(charIDToTypeID('Chnl'), charIDToTypeID('Chnl'), charIDToTypeID('Msk '));
+  desc.putReference(charIDToTypeID('At  '), ref);
+  desc.putEnumerated(charIDToTypeID('Usng'), charIDToTypeID('UsrM'), charIDToTypeID('RvlS'));
+  executeAction(charIDToTypeID('Mk  '), desc, DialogModes.NO);
 }
 
 function getSourceFilename(item) {

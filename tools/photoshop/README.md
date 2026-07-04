@@ -1,9 +1,9 @@
 # Photoshop Adapter MVP
 
-Version: 2026.07.05-2B1  
-Scope: Phase 2B-1 Contract Test. This adapter reads `photoshop-job-manifest.json`, opens original assets in Photoshop, saves processed PNG files using `item.output.filename`, and writes `photoshop-run-report.json`.
+Version: 2026.07.05-2B2  
+Scope: Phase 2B-2 Remove Background Prototype. This adapter reads `photoshop-job-manifest.json`, opens original assets in Photoshop, removes backgrounds for product / person / singleProduct assets, saves processed PNG files using `item.output.filename`, and writes `photoshop-run-report.json`.
 
-This MVP does not remove backgrounds yet. It only verifies the manifest-to-processed-assets contract.
+This prototype keeps the manifest-to-processed-assets contract unchanged.
 
 ## State Boundary
 
@@ -42,6 +42,32 @@ tools/photoshop/run-photoshop-manifest.command
 6. Select the processed output folder.
 7. Wait for Photoshop to finish.
 8. In the control panel, click `匯入 Processed Folder` and select the processed output folder.
+
+## Background Removal
+
+Background removal runs only for:
+
+- `role = product`
+- `role = person`
+- `role = singleProduct`
+
+Logo assets are not background-removed. They are opened and saved as processed PNG copies so the output contract remains consistent.
+
+The JSX core is shared by macOS and future Windows runners. The AppleScript file is only the macOS runner.
+
+Primary target:
+
+- Photoshop 2025
+
+Best-effort compatibility:
+
+- Photoshop 2024
+
+Removal strategy:
+
+1. Try Photoshop Quick Action via Action Manager command `removeBackground`.
+2. If that fails, try Select Subject via `autoCutout`, then create a reveal-selection layer mask.
+3. If both fail, mark that item as `error` in `photoshop-run-report.json` and continue with the next item.
 
 ## Output Filename Contract
 
@@ -91,7 +117,13 @@ Example:
       "assetKey": "JOB001__product__slot0__A001_主品",
       "status": "success",
       "sourceFilename": "A001_主品.png",
-      "outputFilename": "JOB001__product__slot0__A001_主品__processed.png"
+      "outputFilename": "JOB001__product__slot0__A001_主品__processed.png",
+      "background": {
+        "attempted": true,
+        "removed": true,
+        "method": "removeBackground",
+        "error": ""
+      }
     }
   ]
 }
@@ -99,7 +131,7 @@ Example:
 
 ## MVP Limitation
 
-- No background removal yet.
 - No review / approve flow.
 - No crop / trim / normalize.
 - No Canvas integration.
+- Windows runner is not implemented yet. The shared JSX is designed to be reused by a future `.bat` / PowerShell runner.
