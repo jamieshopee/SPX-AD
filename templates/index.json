@@ -1,0 +1,38 @@
+{
+  "version": "2.0.0",
+  "schema": "spx-ad-template-style-index",
+  "templates": [
+    {
+      "size": "984x309",
+      "template": "template",
+      "path": "templates/984x309/template.json",
+      "stylesPath": "templates/984x309/styles",
+      "styleCount": 16,
+      "implemented": true
+    },
+    {
+      "size": "1080x1920",
+      "template": "template",
+      "path": "templates/1080x1920/template.json",
+      "stylesPath": "templates/1080x1920/styles",
+      "styleCount": 16,
+      "implemented": true
+    },
+    {
+      "size": "1599x1080",
+      "template": "template",
+      "path": "templates/1599x1080/template.json",
+      "stylesPath": "templates/1599x1080/styles",
+      "styleCount": 16,
+      "implemented": true
+    },
+    {
+      "size": "3189x3992",
+      "template": "template",
+      "path": "templates/3189x3992/template.json",
+      "stylesPath": "templates/3189x3992/styles",
+      "styleCount": 16,
+      "implemented": true
+    }
+  ]
+}

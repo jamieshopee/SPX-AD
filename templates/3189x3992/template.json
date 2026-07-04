@@ -1,0 +1,260 @@
+{
+  "version": "1.0.0",
+  "templateId": "3189x3992-template",
+  "templateCode": "template",
+  "templateName": "預設版型",
+  "placementId": "智取店繳費機BN_3189x3992",
+  "size": "3189x3992",
+  "width": 3189,
+  "height": 3992,
+  "editorTitle": "智取店繳費機 BN｜預設版型",
+  "implemented": true,
+  "canvas": {
+    "infoStyle": {
+      "position": "absolute",
+      "left": "0px",
+      "bottom": "0px",
+      "width": "3189px",
+      "zIndex": "47",
+      "pointerEvents": "none"
+    }
+  },
+  "guides": {
+    "threeProducts": "assets/source/3189x3992/guide_品.png",
+    "personProduct": "assets/source/3189x3992/guide_1人1品.png"
+  },
+  "sourceAssets": {
+    "threeProductsGuide": "assets/source/3189x3992/guide_品.png",
+    "personProductGuide": "assets/source/3189x3992/guide_1人1品.png"
+  },
+  "fonts": [
+    {
+      "family": "ShopeeNotoSans (content)",
+      "weight": "300",
+      "src": "assets/fonts/ShopeeNotoSans(content)-Regular.ttf"
+    },
+    {
+      "family": "ShopeeNotoSans (content)",
+      "weight": "400",
+      "src": "assets/fonts/ShopeeNotoSans(content)-Medium.ttf"
+    },
+    {
+      "family": "ShopeeNotoSans (content)",
+      "weight": "700",
+      "src": "assets/fonts/ShopeeNotoSans(content)-Bold.ttf"
+    }
+  ],
+  "textFields": {
+    "main": {
+      "label": "主標",
+      "className": "主標可08個字以內",
+      "defaultText": "主標可08個字以內",
+      "limit": 8,
+      "style": {
+        "position": "absolute",
+        "left": "0px",
+        "top": "707px",
+        "width": "3189px",
+        "fontSize": "238px",
+        "fontFamily": "ShopeeNotoSans (content)",
+        "fontWeight": "400",
+        "lineHeight": "1.2",
+        "textAlign": "center",
+        "zIndex": "15"
+      }
+    },
+    "sub": {
+      "label": "副標",
+      "className": "副標07個字以內",
+      "defaultText": "副標07個字以內",
+      "limit": 7,
+      "style": {
+        "position": "absolute",
+        "left": "0px",
+        "top": "997px",
+        "width": "3189px",
+        "fontSize": "325px",
+        "fontFamily": "ShopeeNotoSans (content)",
+        "fontWeight": "700",
+        "lineHeight": "1.2",
+        "textAlign": "center",
+        "zIndex": "14"
+      }
+    },
+    "small": {
+      "label": "小字",
+      "className": "不放案型日期或警語可在14個字",
+      "defaultText": "不放案型日期或警語可在14個字",
+      "limit": 14,
+      "style": {
+        "position": "absolute",
+        "left": "0px",
+        "top": "1418px",
+        "width": "3189px",
+        "fontSize": "148px",
+        "fontFamily": "ShopeeNotoSans (content)",
+        "fontWeight": "400",
+        "lineHeight": "1.2",
+        "textAlign": "center",
+        "zIndex": "13"
+      }
+    }
+  },
+  "logo": {
+    "max": 3,
+    "className": "LOGO範圍",
+    "trim": {
+      "transparent": true,
+      "solidBorder": true,
+      "paddingRatio": 0.01
+    },
+    "style": {
+      "position": "absolute",
+      "left": "695px",
+      "top": "271px",
+      "width": "1800px",
+      "height": "400px",
+      "zIndex": "18",
+      "backgroundColor": "rgb(255, 255, 255)",
+      "borderRadius": "30px",
+      "opacity": "1",
+      "display": "none"
+    },
+    "layout": {
+      "canvasWidth": 3189,
+      "maxWidth": 1800,
+      "blockHeight": 400,
+      "maxLogoHeight": 340,
+      "horizontalPadding": 100,
+      "verticalPadding": 30,
+      "gap": 60,
+      "shrinkToContent": true,
+      "borderRadius": "30px",
+      "itemBorderRadius": "30px",
+      "squareSize": 400,
+      "squarePadding": 29,
+      "circlePadding": 48
+    }
+  },
+  "productZones": {
+    "threeProducts": {
+      "className": "商品圖範圍",
+      "style": {
+        "position": "absolute",
+        "left": "144px",
+        "top": "1669px",
+        "width": "2901px",
+        "height": "1300px",
+        "zIndex": "24",
+        "backgroundColor": "transparent",
+        "opacity": "1",
+        "overflow": "visible"
+      },
+      "defaultLayout": {
+        "maxItems": 3,
+        "layoutMode": "heightBottom",
+        "objectPosition": "center bottom",
+        "sizeRatios": [
+          1,
+          0.85,
+          0.72
+        ],
+        "overlap": 0,
+        "overlapRatio": 0,
+        "bottomAlign": true,
+        "roles": [
+          "主品",
+          "左配品",
+          "右配品"
+        ],
+        "padding": 0,
+        "gap": 24,
+        "maxHeightRatio": 1,
+        "topPadding": 0,
+        "bottomPadding": 0,
+        "ctaGap": 24,
+        "ctaHeightRatio": 0.96,
+        "initialHeightRatio": 0.55,
+        "initialMaxWidthRatio": 0.65,
+        "dragBounds": {
+          "minWidth": 118,
+          "minHeight": 89,
+          "maxWidthRatio": 0.95,
+          "maxHeightRatio": 0.95
+        },
+        "autoShadow": true
+      }
+    },
+    "person": {
+      "className": "_1人",
+      "style": {
+        "position": "absolute",
+        "left": "1532px",
+        "top": "1669px",
+        "width": "1513px",
+        "height": "2323px",
+        "zIndex": "23",
+        "overflow": "hidden",
+        "display": "none"
+      },
+      "defaultLayout": {
+        "sizingMode": "contentWidth",
+        "resetZoneOnUpload": true,
+        "fitWidth": 1513,
+        "fitHeight": 2323,
+        "analysisMaxDimension": 3189,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    },
+    "singleProduct": {
+      "className": "_1品",
+      "style": {
+        "position": "absolute",
+        "left": "145px",
+        "top": "1669px",
+        "width": "1300px",
+        "height": "1300px",
+        "zIndex": "22",
+        "backgroundColor": "transparent",
+        "overflow": "hidden",
+        "display": "none"
+      },
+      "defaultLayout": {
+        "sizingMode": "zone",
+        "objectFit": "contain",
+        "maxWidth": 1300,
+        "maxHeight": 1300,
+        "landscapeZoneHeight": 1300,
+        "offsetY": 0,
+        "manualStep": 10,
+        "dragBounds": {
+          "minVisibleRatioX": 0.5,
+          "minVisibleRatioY": 0.5
+        },
+        "autoShadow": true
+      }
+    }
+  },
+  "layerOrder": {
+    "background": 1,
+    "smallText": 13,
+    "subText": 14,
+    "mainText": 15,
+    "logo": 18,
+    "singleProduct": 22,
+    "person": 23,
+    "products": 24,
+    "info": 47
+  },
+  "output": {
+    "format": "png",
+    "width": 3189,
+    "height": 3992,
+    "fileName": "智取店繳費機BN_02.png",
+    "projectFileName": "智取店繳費機BN_02.project.json"
+  },
+  "schema": "spx-ad-template",
+  "defaultStyleId": "01",
+  "stylesBasePath": "templates/3189x3992/styles"
+}

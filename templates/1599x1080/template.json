@@ -1,0 +1,261 @@
+{
+  "version": "1.0.0",
+  "templateId": "1599x1080-template",
+  "templateCode": "template",
+  "templateName": "預設版型",
+  "placementId": "TVBN-一般門市_1599x1080",
+  "size": "1599x1080",
+  "width": 1599,
+  "height": 1080,
+  "editorTitle": "TVBN 一般門市｜預設版型",
+  "implemented": true,
+  "canvas": {
+    "infoStyle": {
+      "position": "absolute",
+      "left": "0px",
+      "bottom": "0px",
+      "width": "1599px",
+      "zIndex": "47",
+      "pointerEvents": "none"
+    }
+  },
+  "guides": {
+    "threeProducts": "assets/source/1599x1080/guide_品.png",
+    "personProduct": "assets/source/1599x1080/guide_1人1品.png"
+  },
+  "sourceAssets": {
+    "threeProductsGuide": "assets/source/1599x1080/guide_品.png",
+    "personProductGuide": "assets/source/1599x1080/guide_1人1品.png"
+  },
+  "fonts": [
+    {
+      "family": "ShopeeNotoSans (content)",
+      "weight": "300",
+      "src": "assets/fonts/ShopeeNotoSans(content)-Regular.ttf"
+    },
+    {
+      "family": "ShopeeNotoSans (content)",
+      "weight": "400",
+      "src": "assets/fonts/ShopeeNotoSans(content)-Medium.ttf"
+    },
+    {
+      "family": "ShopeeNotoSans (content)",
+      "weight": "700",
+      "src": "assets/fonts/ShopeeNotoSans(content)-Bold.ttf"
+    }
+  ],
+  "textFields": {
+    "main": {
+      "label": "主標",
+      "className": "主標可08個字以內",
+      "defaultText": "主標可08個字以內",
+      "limit": 8,
+      "style": {
+        "position": "absolute",
+        "left": "63px",
+        "top": "387px",
+        "width": "700px",
+        "fontSize": "83px",
+        "fontFamily": "ShopeeNotoSans (content)",
+        "fontWeight": "400",
+        "lineHeight": "1.2",
+        "textAlign": "left",
+        "zIndex": "15"
+      }
+    },
+    "sub": {
+      "label": "副標",
+      "className": "副標07個字以內",
+      "defaultText": "副標07個字以內",
+      "limit": 7,
+      "style": {
+        "position": "absolute",
+        "left": "63px",
+        "top": "490px",
+        "width": "700px",
+        "fontSize": "94px",
+        "fontFamily": "ShopeeNotoSans (content)",
+        "fontWeight": "700",
+        "lineHeight": "1.2",
+        "textAlign": "left",
+        "zIndex": "14"
+      }
+    },
+    "small": {
+      "label": "小字",
+      "className": "不放案型日期或警語可在14個字",
+      "defaultText": "不放案型日期或警語可在14個字",
+      "limit": 14,
+      "style": {
+        "position": "absolute",
+        "left": "63px",
+        "top": "609px",
+        "width": "700px",
+        "fontSize": "40px",
+        "fontFamily": "ShopeeNotoSans (content)",
+        "fontWeight": "400",
+        "lineHeight": "1.2",
+        "textAlign": "left",
+        "zIndex": "13"
+      }
+    }
+  },
+  "logo": {
+    "max": 3,
+    "className": "LOGO範圍",
+    "trim": {
+      "transparent": true,
+      "solidBorder": true,
+      "paddingRatio": 0.01
+    },
+    "style": {
+      "position": "absolute",
+      "left": "63px",
+      "top": "211px",
+      "width": "630px",
+      "height": "150px",
+      "zIndex": "18",
+      "backgroundColor": "rgb(255, 255, 255)",
+      "borderRadius": "15px",
+      "opacity": "1",
+      "display": "none"
+    },
+    "layout": {
+      "canvasWidth": 1599,
+      "maxWidth": 630,
+      "blockHeight": 150,
+      "maxLogoHeight": 130,
+      "horizontalPadding": 30,
+      "verticalPadding": 10,
+      "gap": 30,
+      "shrinkToContent": true,
+      "align": "left",
+      "borderRadius": "15px",
+      "itemBorderRadius": "15px",
+      "squareSize": 150,
+      "squarePadding": 10,
+      "circlePadding": 15
+    }
+  },
+  "productZones": {
+    "threeProducts": {
+      "className": "商品圖範圍",
+      "style": {
+        "position": "absolute",
+        "left": "771px",
+        "top": "100px",
+        "width": "780px",
+        "height": "650px",
+        "zIndex": "24",
+        "backgroundColor": "transparent",
+        "opacity": "1",
+        "overflow": "visible"
+      },
+      "defaultLayout": {
+        "maxItems": 3,
+        "layoutMode": "heightBodyCentered",
+        "objectPosition": "center center",
+        "sizeRatios": [
+          1,
+          0.85,
+          0.72
+        ],
+        "overlap": 0,
+        "overlapRatio": 0,
+        "bottomAlign": true,
+        "roles": [
+          "主品",
+          "左配品",
+          "右配品"
+        ],
+        "padding": 0,
+        "gap": 10,
+        "maxHeightRatio": 1,
+        "topPadding": 0,
+        "bottomPadding": 0,
+        "ctaGap": 10,
+        "ctaHeightRatio": 0.96,
+        "initialHeightRatio": 0.55,
+        "initialMaxWidthRatio": 0.65,
+        "dragBounds": {
+          "minWidth": 40,
+          "minHeight": 30,
+          "maxWidthRatio": 0.95,
+          "maxHeightRatio": 0.95
+        },
+        "autoShadow": true
+      }
+    },
+    "person": {
+      "className": "_1人",
+      "style": {
+        "position": "absolute",
+        "left": "1141px",
+        "top": "100px",
+        "width": "430px",
+        "height": "980px",
+        "zIndex": "23",
+        "overflow": "hidden",
+        "display": "none"
+      },
+      "defaultLayout": {
+        "sizingMode": "contentWidth",
+        "resetZoneOnUpload": true,
+        "fitWidth": 430,
+        "fitHeight": 980,
+        "analysisMaxDimension": 1599,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    },
+    "singleProduct": {
+      "className": "_1品",
+      "style": {
+        "position": "absolute",
+        "left": "771px",
+        "top": "210px",
+        "width": "355px",
+        "height": "540px",
+        "zIndex": "22",
+        "backgroundColor": "transparent",
+        "overflow": "hidden",
+        "display": "none"
+      },
+      "defaultLayout": {
+        "sizingMode": "zone",
+        "objectFit": "contain",
+        "maxWidth": 355,
+        "maxHeight": 540,
+        "landscapeZoneHeight": 540,
+        "offsetY": 0,
+        "manualStep": 10,
+        "dragBounds": {
+          "minVisibleRatioX": 0.5,
+          "minVisibleRatioY": 0.5
+        },
+        "autoShadow": true
+      }
+    }
+  },
+  "layerOrder": {
+    "background": 1,
+    "smallText": 13,
+    "subText": 14,
+    "mainText": 15,
+    "logo": 18,
+    "singleProduct": 22,
+    "person": 23,
+    "products": 24,
+    "info": 47
+  },
+  "output": {
+    "format": "png",
+    "width": 1599,
+    "height": 1080,
+    "fileName": "TVBN一般門市_02.png",
+    "projectFileName": "TVBN一般門市_02.project.json"
+  },
+  "schema": "spx-ad-template",
+  "defaultStyleId": "01",
+  "stylesBasePath": "templates/1599x1080/styles"
+}

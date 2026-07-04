@@ -1,0 +1,411 @@
+# Architecture
+
+Version: 2026.07.04-u  
+Last Updated: 2026-07-04  
+Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界與新增 Style 流程。
+
+## What's New
+
+- 新增 Asset shared modules 與 Asset Payload 邊界。
+- 新增 Main Canvas、Thumbnail、Batch Render、Project State、Asset Payload、Photoshop Pipeline 的 State Boundary。
+- `layoutStates` 以 `placementId|templateId` 作為 per size/template transform source。
+- 明確規定 Thumbnail / Batch Render 為 read-only render projection，不得回寫 layout state。
+
+## Table of Contents
+
+1. [最新架構圖](#最新架構圖)
+2. [Render Flow](#render-flow)
+3. [Template](#template)
+4. [Style](#style)
+5. [Project State](#project-state)
+6. [Asset Payload](#asset-payload)
+7. [State Boundary](#state-boundary)
+8. [Photoshop Pipeline 邊界](#photoshop-pipeline-邊界)
+9. [資料夾結構](#資料夾結構)
+10. [新增 Style 流程](#新增-style-流程)
+11. [維護原則](#維護原則)
+
+## 最新架構圖
+
+```text
+index.html
+  ↓
+src/app.js
+  ↓
+Project State
+  ↓
+canvas.html (Render Engine)
+  ↓
+js/template-loader.js
+  ↓
+template.json + styles/{styleId}.json
+  ↓
+js/canvas-entry.js
+  ↓
+js/layout-runtime.js
+  ↓
+Preview / Thumbnail / Export
+```
+
+模組關係：
+
+```text
+控制台 UI
+  ├─ CSV import
+  ├─素材資料夾
+  ├─暫存 JSON
+  ├─Style 下拉
+  └─下載 / 重設
+        ↓
+Project State
+        ↓
+Canvas Render Engine
+        ↓
+Template + Style + Assets
+```
+
+Asset shared modules：
+
+```text
+素材資料夾
+  ↓
+asset-classifier.js
+  ↓
+asset-processing.js
+  ↓
+asset-render-payload.js
+  ↓
+Canvas postMessage payload
+```
+
+## Render Flow
+
+```text
+CSV
++
+素材
+  ↓
+Project State
+  ↓
+template.json
++
+style.json
+  ↓
+Canvas (Render Engine)
+  ↓
+Preview / Export
+```
+
+實際流程：
+
+1. 控制台建立或匯入 Project State。
+2. 每個 job 保存 size、template、style、文字、素材、layoutState、thumbnail。
+3. Canvas iframe 載入 `canvas.html?template=...&style=...`。
+4. `template-loader.js` 讀取並合併 Template 與 Style。
+5. `canvas-entry.js` 建立 DOM 並套用背景、資訊圖、文字色。
+6. `layout-runtime.js` 依 Template 排版 Logo、商品、Person、SingleProduct。
+7. `box-transform-utils.js` 控制可手動 transform 的物件。
+8. Capture 輸出 preview、thumbnail 或 PNG。
+
+## Template
+
+Template 負責排版結構。
+
+檔案：
+
+```text
+templates/{size}/template.json
+```
+
+Template 保存：
+
+- 位置
+- 尺寸
+- 圖層
+- 文字區域
+- Logo 區域
+- 三商品區域
+- Person 區域
+- SingleProduct 區域
+- Transform 初始排版
+- `sizeRatios`
+- `layoutMode`
+- `autoShadow`
+- baseline 相關設定
+
+Template 不保存：
+
+- 背景圖
+- 資訊圖
+- 文字顏色
+- 使用者拖曳後的 transform
+- thumbnail
+
+## Style
+
+Style 負責視覺樣式。
+
+檔案：
+
+```text
+templates/{size}/styles/{styleId}.json
+```
+
+Style 保存：
+
+- 背景
+- 資訊圖
+- 主標顏色
+- 副標顏色
+- 小字顏色
+
+Style 範例：
+
+```json
+{
+  "id": "01",
+  "name": "樣式 01",
+  "background": "assets/source/1599x1080/backgrounds/bg_01.png",
+  "infoGraphic": "assets/source/1599x1080/info/info_01.png",
+  "headlineColor": "#ffffff",
+  "subHeadlineColor": "#ffffff",
+  "smallTextColor": "#ffffff"
+}
+```
+
+## Project State
+
+Project State 是控制台目前工作區的資料來源。
+
+保存：
+
+- CSV jobs
+- 文字
+- size
+- template
+- style
+- Logo assets
+- Product assets
+- Person assets
+- SingleProduct state
+- Transform
+- layoutStates
+- thumbnail / quickThumbnail
+
+規則：
+
+- CSV 匯入會建立全新 Project State。
+- 暫存 JSON 匯入會恢復 Project State。
+- 匯入暫存後不需要原素材資料夾。
+- 匯出暫存 JSON 需包含恢復畫面所需的素材 dataUrl。
+- `layoutStates` key 固定為 `placementId|templateId`。
+- 有 `layoutStates` map 時只能讀目前 key；目前 key 不存在時使用該 template 預設 layout。
+- `layoutState` 僅保留 legacy 相容，不作為跨尺寸同步機制。
+
+## Asset Payload
+
+Asset Payload 是素材到 Canvas message 的轉換層，不是 Project State owner。
+
+模組：
+
+- `js/asset-classifier.js`：Logo 排序、三商品分類、1人＋1品分類。
+- `js/asset-processing.js`：trim / autoTrim。
+- `js/asset-render-payload.js`：建立 Canvas postMessage payload。
+
+輸出 payload：
+
+- `bn-logos`
+- `bn-product-add`
+- `bn-person-add`
+- `bn-single-product-add`
+
+規則：
+
+- Asset Payload 可讀取 filenames、asset handles、template default layout。
+- Asset Payload 不讀寫 `job.layoutStates`。
+- Asset Payload 不讀寫 thumbnail。
+- Asset Payload 不處理使用者 transform restore。
+- 使用者 transform restore 必須在 payload 套入 Canvas 並等待圖片載入後執行。
+
+## State Boundary
+
+State Boundary 定義哪些流程可以讀或寫 state。
+
+| 流程 | 讀取 | 寫入 | 邊界 |
+|---|---|---|---|
+| Main Canvas | active job、Template、Style、Asset Payload、目前 key 的 `layoutStates` | `job.layoutStates[current placement|template]` | 唯一互動編輯來源 |
+| Thumbnail | 指定 job 的文字、素材、Style、Template、`layoutStates` | `job.thumbnail`、`thumbnailStatus` | hidden iframe 只產縮圖，不寫 transform |
+| Batch Render | render job 自己的文字、素材、Style、Template、`layoutStates` | PNG ZIP、可更新 UI thumbnail | deterministic renderer，不寫 layout state |
+| Project State Export | jobs、assets、style、`layoutStates`、thumbnail | `single-state.json` / `project-state.json` | 只序列化目前狀態 |
+| Project State Import | 暫存 JSON | jobs、assets、style、`layoutStates`、thumbnail | 合法 replace workspace 邊界 |
+| Asset Payload | assets、template default layout | Canvas payload messages | 不碰 Project State |
+| Photoshop Pipeline | original / processed / approved assets | asset processing status、approved asset mapping | 不碰 Canvas transform |
+
+Render restore 順序：
+
+```text
+load template
+  ↓
+apply text
+  ↓
+apply asset payload
+  ↓
+wait images
+  ↓
+apply layoutStates[current placement|template]
+  ↓
+capture / thumbnail / export
+```
+
+重要限制：
+
+- Thumbnail hidden iframe 不得呼叫 `setJobLayoutState()`。
+- Batch Render 不得回寫 `layoutStates`。
+- Background render 不得使用 currentJob 當作 render job 的 transform source。
+- 有 `layoutStates` map 時，不得 fallback 到其他尺寸 key。
+- 1人＋1品不跨尺寸同步；每個尺寸使用自己的 layoutState 或 template 預設。
+- 三商品未來可以新增 Linked Product Transform，但需另設 state schema，不可偷用目前 per-template `layoutStates` fallback。
+
+## Photoshop Pipeline 邊界
+
+Photoshop Pipeline 是未來 Asset Pipeline 的 adapter，不屬於 Render Engine。
+
+建議資料流：
+
+```text
+Asset Folder
+  ↓
+Asset Pipeline
+  ↓
+Photoshop Adapter
+  ↓
+Processed Assets
+  ↓
+Review / Approved Assets
+  ↓
+Asset Payload
+  ↓
+Canvas Render
+  ↓
+Thumbnail / Export
+```
+
+Photoshop Pipeline 可寫：
+
+- asset processing status
+- processed asset path / dataUrl
+- review status
+- approved asset mapping
+
+Photoshop Pipeline 不可寫：
+
+- `layoutStates`
+- Canvas DOM
+- Product / SingleProduct transform
+- Template placement
+- Batch Render runtime state
+
+## 資料夾結構
+
+```text
+templates/
+  {size}/
+    template.json
+    styles/
+      01.json
+      ...
+      16.json
+
+assets/source/
+  {size}/
+    backgrounds/
+      bg_01.png
+      ...
+      bg_16.png
+    info/
+      info_01.png
+      ...
+      info_16.png
+    guide_品.png
+    guide_1人1品.png
+
+js/
+  template-loader.js
+  canvas-entry.js
+  layout-runtime.js
+  product-slot-utils.js
+  asset-classifier.js
+  asset-processing.js
+  asset-render-payload.js
+  box-transform-utils.js
+  bn-image-utils.js
+
+src/
+  app.js
+  app.css
+
+config/
+  templates.js
+  templates.json
+```
+
+## 新增 Style 流程
+
+新增第 17 個 Style：
+
+1. 新增背景圖：
+
+```text
+assets/source/{size}/backgrounds/bg_17.png
+```
+
+2. 新增資訊圖：
+
+```text
+assets/source/{size}/info/info_17.png
+```
+
+3. 新增 Style JSON：
+
+```text
+templates/{size}/styles/17.json
+```
+
+4. Style JSON 填入：
+
+```json
+{
+  "id": "17",
+  "name": "樣式 17",
+  "background": "assets/source/{size}/backgrounds/bg_17.png",
+  "infoGraphic": "assets/source/{size}/info/info_17.png",
+  "headlineColor": "#ffffff",
+  "subHeadlineColor": "#ffffff",
+  "smallTextColor": "#ffffff"
+}
+```
+
+5. 若控制台 Style 清單由 config 控制，需同步更新 config 或執行產生流程。
+
+不需要修改 Canvas 排版 JS，也不需要修改 Template。
+
+可選工具：
+
+```text
+node scripts/generate-style-json.js
+node scripts/generate-style-json.js --count 17
+```
+
+此工具只用於開發維護，Runtime 不依賴它。
+
+## 維護原則
+
+- Template 與 Style 不混用。
+- 控制台與 Editor 不各自實作相同行為。
+- 商品角色判斷集中在 `product-slot-utils.js`。
+- Transform 集中在 `box-transform-utils.js`。
+- Project State 匯入/匯出走同一套 serializer。
+- Thumbnail 不依賴 currentJob，必須能用指定 job 在 hidden iframe 產生。
+- Thumbnail / Batch Render 只能讀 `layoutStates`，不得回寫 transform。
+- Asset Payload 只負責素材初始套入，不負責使用者 transform restore。
+- Photoshop Pipeline 僅接 Asset Pipeline，不直接耦合 Render Engine。

@@ -1,0 +1,252 @@
+{
+  "version": "1.0.0",
+  "templateId": "1080x1920-template",
+  "templateCode": "template",
+  "templateName": "預設版型",
+  "placementId": "TVBN-智取店_1080x1920",
+  "size": "1080x1920",
+  "width": 1080,
+  "height": 1920,
+  "editorTitle": "TVBN 智取店｜預設版型",
+  "canvas": {
+    "infoStyle": {
+      "position": "absolute",
+      "left": "0px",
+      "bottom": "0px",
+      "width": "1080px",
+      "zIndex": "47",
+      "pointerEvents": "none"
+    }
+  },
+  "guides": {
+    "threeProducts": "assets/source/1080x1920/guide_品.png",
+    "personProduct": "assets/source/1080x1920/guide_1人1品.png"
+  },
+  "fonts": [
+    {
+      "family": "ShopeeNotoSans (content)",
+      "weight": "300",
+      "src": "assets/fonts/ShopeeNotoSans(content)-Regular.ttf"
+    },
+    {
+      "family": "ShopeeNotoSans (content)",
+      "weight": "400",
+      "src": "assets/fonts/ShopeeNotoSans(content)-Medium.ttf"
+    },
+    {
+      "family": "ShopeeNotoSans (content)",
+      "weight": "700",
+      "src": "assets/fonts/ShopeeNotoSans(content)-Bold.ttf"
+    }
+  ],
+  "textFields": {
+    "main": {
+      "label": "主標",
+      "className": "主標可08個字以內",
+      "defaultText": "主標可08個字以內",
+      "limit": 8,
+      "style": {
+        "position": "absolute",
+        "left": "0px",
+        "top": "348.034px",
+        "width": "1080px",
+        "fontSize": "90px",
+        "fontFamily": "ShopeeNotoSans (content)",
+        "fontWeight": "400",
+        "lineHeight": "1",
+        "textAlign": "center",
+        "zIndex": "15"
+      }
+    },
+    "sub": {
+      "label": "副標",
+      "className": "副標07個字以內",
+      "defaultText": "副標07個字以內",
+      "limit": 7,
+      "style": {
+        "position": "absolute",
+        "left": "0px",
+        "top": "459.883px",
+        "width": "1080px",
+        "fontSize": "120px",
+        "fontFamily": "ShopeeNotoSans (content)",
+        "fontWeight": "700",
+        "lineHeight": "1",
+        "textAlign": "center",
+        "zIndex": "14"
+      }
+    },
+    "small": {
+      "label": "小字",
+      "className": "不放案型日期或警語可在14個字",
+      "defaultText": "不放案型日期或警語可在14個字",
+      "limit": 14,
+      "style": {
+        "position": "absolute",
+        "left": "0px",
+        "top": "605.285px",
+        "width": "1080px",
+        "fontSize": "58px",
+        "fontFamily": "ShopeeNotoSans (content)",
+        "fontWeight": "400",
+        "lineHeight": "1",
+        "textAlign": "center",
+        "zIndex": "13"
+      }
+    }
+  },
+  "logo": {
+    "max": 3,
+    "className": "LOGO範圍",
+    "trim": {
+      "transparent": true,
+      "solidBorder": true,
+      "paddingRatio": 0.01
+    },
+    "style": {
+      "position": "absolute",
+      "left": "210px",
+      "top": "182px",
+      "width": "660px",
+      "height": "150px",
+      "zIndex": "18",
+      "backgroundColor": "rgb(255, 255, 255)",
+      "borderRadius": "15px",
+      "opacity": "1",
+      "display": "none"
+    },
+    "layout": {
+      "canvasWidth": 1080,
+      "maxWidth": 660,
+      "blockHeight": 150,
+      "maxLogoHeight": 130,
+      "horizontalPadding": 30,
+      "verticalPadding": 10,
+      "gap": 30,
+      "shrinkToContent": true,
+      "borderRadius": "15px",
+      "itemBorderRadius": "15px",
+      "squareSize": 165,
+      "squarePadding": 12,
+      "circlePadding": 20
+    }
+  },
+  "productZones": {
+    "threeProducts": {
+      "className": "商品範圍",
+      "style": {
+        "position": "absolute",
+        "left": "50px",
+        "top": "720px",
+        "width": "980px",
+        "height": "850px",
+        "zIndex": "23",
+        "backgroundColor": "transparent",
+        "opacity": "1",
+        "overflow": "hidden"
+      },
+      "defaultLayout": {
+        "maxItems": 3,
+        "sizeRatios": [
+          1,
+          0.85,
+          0.72
+        ],
+        "overlap": 0,
+        "bottomAlign": true,
+        "roles": [
+          "主品",
+          "左配品",
+          "右配品"
+        ],
+        "padding": 6,
+        "gap": 8,
+        "maxHeightRatio": 0.88,
+        "topPadding": 4,
+        "bottomPadding": 4,
+        "ctaGap": 8,
+        "ctaHeightRatio": 0.96,
+        "initialHeightRatio": 0.55,
+        "initialMaxWidthRatio": 0.65,
+        "dragBounds": {
+          "minWidth": 40,
+          "minHeight": 30,
+          "maxWidthRatio": 0.95,
+          "maxHeightRatio": 0.95
+        },
+        "autoShadow": true
+      }
+    },
+    "person": {
+      "className": "_1人",
+      "style": {
+        "position": "absolute",
+        "left": "540px",
+        "top": "720px",
+        "width": "535px",
+        "height": "1200px",
+        "zIndex": "22",
+        "overflow": "hidden",
+        "display": "none"
+      },
+      "defaultLayout": {
+        "fitWidth": 535,
+        "fitHeight": 1200,
+        "analysisMaxDimension": 1200,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    },
+    "singleProduct": {
+      "className": "_1品",
+      "style": {
+        "position": "absolute",
+        "left": "50px",
+        "top": "816px",
+        "width": "470px",
+        "height": "700px",
+        "zIndex": "21",
+        "overflow": "hidden",
+        "display": "none"
+      },
+      "defaultLayout": {
+        "maxWidth": 470,
+        "maxHeight": 700,
+        "landscapeZoneHeight": 700,
+        "offsetY": 0,
+        "manualStep": 10,
+        "dragBounds": {
+          "minVisibleRatioX": 0.5,
+          "minVisibleRatioY": 0.5
+        },
+        "autoShadow": true
+      }
+    }
+  },
+  "layerOrder": {
+    "background": 1,
+    "smallText": 13,
+    "subText": 14,
+    "mainText": 15,
+    "logo": 18,
+    "singleProduct": 21,
+    "person": 22,
+    "products": 23,
+    "info": 47
+  },
+  "output": {
+    "format": "png",
+    "width": 1080,
+    "height": 1920,
+    "fileName": "TVBN-智取店_02.png",
+    "projectFileName": "TVBN-智取店_02.project.json"
+  },
+  "sourceAssets": {
+    "threeProductsGuide": "assets/source/1080x1920/guide_品.png",
+    "personProductGuide": "assets/source/1080x1920/guide_1人1品.png"
+  },
+  "schema": "spx-ad-template",
+  "implemented": true,
+  "defaultStyleId": "01",
+  "stylesBasePath": "templates/1080x1920/styles"
+}

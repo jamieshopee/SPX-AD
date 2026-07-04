@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AD 電子版位管理器</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="src/app.css?v=20260701r">
+  <script src="js/banwords-engine-hbn.js?v=20260628"></script>
+  <script src="js/banwords-data.js?v=20260628"></script>
+</head>
+<body>
+  <!-- file:// 警告橫幅（HTTP server 下自動隱藏） -->
+  <div id="file-protocol-warn" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(6,9,15,.92);backdrop-filter:blur(12px);align-items:center;justify-content:center;flex-direction:column;gap:16px;color:#fff;font-family:system-ui,sans-serif;text-align:center;padding:32px">
+    <div style="font-size:48px">⚠️</div>
+    <div style="font-size:20px;font-weight:600">請用「launch/啟動 AD 管理器（Chrome）.command」開啟</div>
+    <div style="font-size:14px;color:#aaa;max-width:480px;line-height:1.6">
+      直接用 Chrome 開啟 .html 檔案會因為瀏覽器安全限制，導致模板無法載入。<br>
+      請雙擊資料夾內的 <strong style="color:#fff">「launch/啟動 AD 管理器（Chrome）.command」</strong> 檔案。
+    </div>
+    <div style="font-size:13px;color:#666;margin-top:8px">（若已在 localhost 開啟而看到此訊息，請忽略並關閉）</div>
+    <button onclick="document.getElementById('file-protocol-warn').style.display='none'"
+      style="margin-top:8px;padding:10px 24px;background:#0a84ff;border:none;border-radius:8px;color:#fff;font-size:14px;cursor:pointer">
+      我知道了，繼續（功能可能不完整）
+    </button>
+  </div>
+  <script>
+    if (location.protocol === 'file:') {
+      var w = document.getElementById('file-protocol-warn');
+      w.style.display = 'flex';
+    }
+  </script>
+
+  <div class="shell">
+
+    <!-- ── 頂欄 ── -->
+    <header class="topbar">
+      <div class="topbar-brand">
+        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M2 7l10 5 10-5M12 12v10" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        <span class="brand-name">AD 電子版位管理器</span>
+      </div>
+      <div class="topbar-center">
+        <div id="system-status" class="status-badge" style="display:none" aria-live="polite">
+          <span class="status-dot"></span>
+          <span class="status-text"></span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="folder-btn" class="btn-topbar" type="button">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.19a2 2 0 0 1 1.345.51l.33.33h5.02a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2.5a2 2 0 0 1-2-1.87L.54 3.87z"/></svg>
+          選擇素材資料夾
+        </button>
+        <div id="folder-status" class="status-badge success topbar-badge" style="display:none" aria-live="polite">
+          <span class="status-dot"></span>
+          <span id="folder-status-text">—</span>
+        </div>
+        <button id="import-btn" class="btn-topbar" type="button">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/></svg>
+          匯入 CSV
+        </button>
+        <button id="import-state-btn" class="btn-topbar" type="button">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 2A1.75 1.75 0 0 0 0 3.75v8.5C0 13.216.784 14 1.75 14h12.5A1.75 1.75 0 0 0 16 12.25v-8.5A1.75 1.75 0 0 0 14.25 2H1.75zm0 1.5h12.5a.25.25 0 0 1 .25.25v8.5a.25.25 0 0 1-.25.25H1.75a.25.25 0 0 1-.25-.25v-8.5a.25.25 0 0 1 .25-.25z"/><path d="M5.5 5.5h5v1h-5v-1zm0 2h5v1h-5v-1zm0 2h3v1h-3v-1z"/></svg>
+          匯入暫存
+        </button>
+        <button id="manifest-btn" class="btn-topbar" type="button">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1.5A1.5 1.5 0 0 1 5.5 0h5.086a1.5 1.5 0 0 1 1.06.44l2.914 2.914A1.5 1.5 0 0 1 15 4.414V12.5a1.5 1.5 0 0 1-1.5 1.5H12v-1h1.5a.5.5 0 0 0 .5-.5V5h-3.5A1.5 1.5 0 0 1 9 3.5V1H5.5a.5.5 0 0 0-.5.5V4H4V1.5z"/><path d="M1 6.5A1.5 1.5 0 0 1 2.5 5h5A1.5 1.5 0 0 1 9 6.5v8A1.5 1.5 0 0 1 7.5 16h-5A1.5 1.5 0 0 1 1 14.5v-8zM3 8v1h4V8H3zm0 2v1h4v-1H3zm0 2v1h3v-1H3z"/></svg>
+          匯出 Photoshop Manifest
+        </button>
+        <button id="processed-folder-btn" class="btn-topbar" type="button">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.19a2 2 0 0 1 1.345.51l.33.33h5.02a2 2 0 0 1 2 2v.66H1.05L.54 3.87zM0 5.5h16l-1.04 6.76A2 2 0 0 1 12.98 14H3.02a2 2 0 0 1-1.98-1.74L0 5.5z"/><path d="M8 7.25a.75.75 0 0 1 .75.75v1.25H10a.75.75 0 0 1 0 1.5H8.75V12a.75.75 0 0 1-1.5 0v-1.25H6a.75.75 0 0 1 0-1.5h1.25V8A.75.75 0 0 1 8 7.25z"/></svg>
+          匯入 Processed Folder
+        </button>
+        <div id="csv-status" class="status-badge success topbar-badge" style="display:none" aria-live="polite">
+          <span class="status-dot"></span>
+          <span id="csv-status-text">—</span>
+        </div>
+        <input id="import-file" type="file" accept=".xlsx,.xls,.csv" style="display:none" aria-hidden="true">
+        <input id="import-state-file" type="file" accept=".json,application/json" style="display:none" aria-hidden="true">
+      </div>
+    </header>
+
+    <!-- ── 工作區三欄 ── -->
+    <div class="workspace">
+
+      <!-- 左：工單列表 -->
+      <aside class="job-panel" id="job-panel">
+        <div class="job-panel-head">
+          <span class="panel-eyebrow">工單列表</span>
+          <button id="add-job-btn" class="btn-icon-round" title="新增空白工單">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div id="job-list" class="job-list"></div>
+
+        <!-- 驗證錯誤面板 -->
+        <div id="validation-panel" class="validation-panel" style="display:none">
+          <div class="validation-panel-head">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg>
+            <span>素材問題</span>
+          </div>
+          <div id="validation-errors" class="validation-errors"></div>
+        </div>
+
+        <div class="job-panel-foot">
+          <p class="job-hint">拖曳 CSV 到此處匯入</p>
+        </div>
+      </aside>
+
+      <!-- 中：預覽區 -->
+      <main class="preview-panel">
+        <div class="preview-toolbar">
+          <div class="toolbar-selectors">
+            <label class="toolbar-field">
+              <span class="toolbar-label">版位</span>
+              <select id="placement-select" class="toolbar-select"></select>
+            </label>
+            <label class="toolbar-field">
+              <span class="toolbar-label">模板</span>
+              <select id="template-select" class="toolbar-select"></select>
+            </label>
+            <label class="toolbar-field">
+              <span class="toolbar-label">樣式</span>
+              <select id="style-select" class="toolbar-select"></select>
+            </label>
+          </div>
+        </div>
+        <div class="preview-stage" id="preview-area">
+          <div class="preview-loader" id="preview-loader">
+            <div class="spinner"></div>
+            <span>載入模板…</span>
+          </div>
+          <div id="preview-wrap" class="preview-block">
+            <iframe id="canvas-frame" title="Banner 模板" style="display:none"></iframe>
+            <img id="align-overlay" alt="" style="display:none;position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;z-index:10;">
+            <div id="prev-label" style="position:absolute;bottom:-22px;left:0;font-size:11px;color:#687090;white-space:nowrap;"></div>
+          </div>
+        </div>
+      </main>
+
+      <!-- 右：控制面板 -->
+      <aside class="control-panel">
+
+        <section class="ctrl-section">
+          <label class="ctrl-label">
+            <span class="ctrl-label-text">主標 <span id="count-headline" class="char-count"></span></span>
+            <input id="field-headline" type="text" maxlength="40" placeholder="最多 8 字">
+          </label>
+          <label class="ctrl-label">
+            <span class="ctrl-label-text">副標 <span id="count-subheadline" class="char-count"></span></span>
+            <input id="field-subheadline" type="text" maxlength="40" placeholder="最多 7 字">
+          </label>
+          <label class="ctrl-label">
+            <span class="ctrl-label-text">日期／警語 <span id="count-disclaimer" class="char-count"></span></span>
+            <input id="field-disclaimer" type="text" maxlength="80" placeholder="最多 14 字">
+          </label>
+          <button id="apply-record" class="btn-primary" type="button">套用文字到模板</button>
+        </section>
+
+        <!-- Logo、商品圖、1人+1品 由 bn-editor-plugin.js 動態注入 -->
+        <div id="sidebar-scroll" style="display:flex;flex-direction:column;"></div>
+
+        <!-- 操作按鈕 -->
+        <div class="ctrl-actions">
+          <button id="download-btn" class="btn-secondary" type="button">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
+            下載單張圖檔
+          </button>
+          <button id="single-state-btn" class="btn-secondary" type="button">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2.5A1.5 1.5 0 0 1 3.5 1h6.086a1.5 1.5 0 0 1 1.06.44l2.914 2.914A1.5 1.5 0 0 1 14 5.414V13.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 13.5v-11zM3.5 2a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V6h-2.5A1.5 1.5 0 0 1 9 4.5V2H3.5z"/></svg>
+            下載單張暫存
+          </button>
+          <button id="batch-btn" class="btn-primary" type="button">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/></svg>
+            批次產圖
+          </button>
+          <button id="reset-workspace-btn" class="btn-danger" type="button">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 1h3a.5.5 0 0 1 .5.5V2h3.5a.5.5 0 0 1 0 1H13l-.64 10.2A2 2 0 0 1 10.36 15H5.64a2 2 0 0 1-1.996-1.8L3 3h-.5a.5.5 0 0 1 0-1H6v-.5a.5.5 0 0 1 .5-.5zM4 3l.64 10.14a1 1 0 0 0 .998.86h4.724a1 1 0 0 0 .998-.86L12 3H4z"/><path d="M6.5 5.5A.5.5 0 0 1 7 6v5a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 0A.5.5 0 0 1 10 6v5a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5z"/></svg>
+            重設工作區
+          </button>
+        </div>
+
+      </aside>
+    </div><!-- /workspace -->
+  </div><!-- /shell -->
+
+  <!-- ── 批次進度 Modal ── -->
+  <div id="batch-modal" class="batch-modal" style="display:none" role="dialog" aria-modal="true" aria-label="批次產圖進度">
+    <div class="batch-modal-box">
+      <div class="batch-modal-head">
+        <span class="batch-modal-title">批次產圖</span>
+        <button id="batch-cancel-btn" class="batch-cancel-btn" type="button" aria-label="關閉">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="batch-progress-track">
+        <div id="batch-progress-bar" class="batch-progress-bar" style="width:0%"></div>
+      </div>
+      <div id="batch-progress-text" class="batch-progress-text">準備中…</div>
+      <div id="batch-job-log" class="batch-job-log"></div>
+    </div>
+  </div>
+
+  <!-- ── 重設工作區確認 Modal ── -->
+  <div id="reset-modal" class="batch-modal reset-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="reset-modal-title">
+    <div class="batch-modal-box reset-modal-box">
+      <div class="batch-modal-head">
+        <span id="reset-modal-title" class="batch-modal-title">重設工作區？</span>
+        <button id="reset-close-btn" class="batch-cancel-btn" type="button" aria-label="關閉">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="reset-modal-body">
+        <p>這會清除目前尚未儲存的所有資料。</p>
+        <p>建議先下載暫存檔，以免遺失目前工作進度。</p>
+      </div>
+      <div class="reset-modal-actions">
+        <button id="reset-cancel-btn" class="btn-secondary" type="button">取消</button>
+        <button id="reset-confirm-btn" class="btn-danger" type="button">重設工作區</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- libs -->
+  <script src="config/templates.js"></script>
+  <script src="js/xlsx.full.min.js"></script>
+  <script src="js/jszip.min.js"></script>
+  <script src="js/template-loader.js?v=20260701r"></script>
+  <script src="js/bn-image-utils.js?v=20260701d"></script>
+  <script src="js/product-slot-utils.js?v=20260701e"></script>
+  <script src="js/asset-classifier.js?v=20260704a"></script>
+  <script src="js/asset-processing.js?v=20260704a"></script>
+  <script src="js/asset-render-payload.js?v=20260704-layoutstate-a"></script>
+  <script src="js/asset-pipeline-state.js?v=20260705-2a3"></script>
+  <script src="js/asset-pipeline-manifest.js?v=20260705-2a"></script>
+  <script src="js/asset-resolver.js?v=20260705-2a"></script>
+  <script defer src="src/app.js?v=20260705-phase2a3-a"></script>
+  <script src="js/template-controls.js?v=20260701h"></script>
+  <script src="js/logo-editor-plugin.js?v=20260629"></script>
+  <script src="js/editor-plugin.js?v=20260629"></script>
+  <script src="js/bn-editor-plugin.js?v=20260701h"></script>
+</body>
+</html>

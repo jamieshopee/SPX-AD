@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AD 電子版位共用編輯器</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../css/editor.css">
+  <link rel="stylesheet" href="../css/cropper.min.css">
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    window.AD_EDITOR_ENTRY = {
+      templatePath: new URLSearchParams(location.search).get('template')
+        || 'templates/1080x1920/template.json',
+      styleId: new URLSearchParams(location.search).get('style') || '01'
+    };
+  </script>
+  <script src="../js/banwords-engine-hbn.js?v=20260628"></script>
+  <script src="../js/banwords-data.js?v=20260628"></script>
+  <script src="../templates/template-registry.js?v=20260628"></script>
+  <script src="../js/template-loader.js?v=20260701r"></script>
+  <script src="../js/uploader.js?v=20260628"></script>
+  <script src="../js/downloader.js?v=20260628"></script>
+  <script src="../js/template-controls.js?v=20260701h"></script>
+  <script src="../js/editor-core.js?v=20260701r"></script>
+  <script src="../js/cropper.min.js"></script>
+  <script src="../js/bn-image-utils.js?v=20260701d"></script>
+  <script src="../js/product-slot-utils.js?v=20260701e"></script>
+  <script src="../js/logo-editor-plugin.js?v=20260628"></script>
+  <script src="../js/editor-plugin.js?v=20260628"></script>
+  <script src="../js/bn-editor-plugin.js?v=20260701e"></script>
+  <script src="../js/bn-state-plugin.js?v=20260628"></script>
+  <script src="../js/project-json.js?v=20260628"></script>
+</body>
+</html>

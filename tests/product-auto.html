@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>商品圖自動排版測試</title>
+</head>
+<body>
+  <pre id="result">RUNNING</pre>
+  <iframe id="batch-editor" src="../TVBN-智取店_1080x1920/02.html?v=22" hidden></iframe>
+  <iframe id="sequence-editor" src="../TVBN-智取店_1080x1920/02.html?v=22" hidden></iframe>
+  <script type="module">
+    const result = document.querySelector("#result");
+
+    const waitFor = async (predicate, timeout = 20000) => {
+      const started = Date.now();
+      while (Date.now() - started < timeout) {
+        const value = predicate();
+        if (value) return value;
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      throw new Error("測試逾時");
+    };
+
+    const loadFixture = async (path, name) => {
+      const response = await fetch(path);
+      if (!response.ok) throw new Error(`fixture 讀取失敗：${path}`);
+      return new File([await response.blob()], name, { type: "image/png" });
+    };
+
+    const waitForEditor = async iframe => {
+      await new Promise(resolve => iframe.addEventListener("load", resolve, { once: true }));
+      await waitFor(() => iframe.contentDocument.querySelector("#bn-prod-zone-inp"));
+      return iframe.contentDocument.querySelector("#bn-prod-zone-inp");
+    };
+
+    const upload = (input, files) => {
+      const transfer = new DataTransfer();
+      files.forEach(file => transfer.items.add(file));
+      input.files = transfer.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+
+    const projectProducts = iframe => iframe.contentWindow._bnProducts.map(product => ({
+      name: product.name,
+      position: product.position,
+      zOrder: product.zOrder,
+      shadowApplied: product.shadowApplied,
+      baselineRatio: product.baselineRatio
+    }));
+
+    try {
+      const batchEditor = document.querySelector("#batch-editor");
+      const sequenceEditor = document.querySelector("#sequence-editor");
+      const [batchInput, sequenceInput] = await Promise.all([
+        waitForEditor(batchEditor),
+        waitForEditor(sequenceEditor)
+      ]);
+
+      const batchFiles = await Promise.all([
+        loadFixture("../TVBN-智取店_1080x1920/img/對位_品.png", "活動01_右配品.png"),
+        loadFixture("../TVBN-智取店_1080x1920/下方資訊/2.png", "活動01_主品.png"),
+        loadFixture("../TVBN-智取店_1080x1920/img/對位_1人1品.png", "活動01_左配品.png")
+      ]);
+      upload(batchInput, batchFiles);
+      await waitFor(() => batchEditor.contentWindow._bnProducts?.length === 3);
+      const batchActual = projectProducts(batchEditor);
+      const batchExpected = ["活動01_主品", "活動01_左配品", "活動01_右配品"];
+      const batchPassed = batchActual.every((product, index) =>
+        product.name === batchExpected[index] &&
+        product.position === index &&
+        product.zOrder === index &&
+        product.shadowApplied === true
+      ) && !batchEditor.contentDocument.querySelector("#bn-prod-modal").classList.contains("show");
+
+      const sequenceFiles = await Promise.all([
+        loadFixture("../TVBN-智取店_1080x1920/下方資訊/2.png", "商品A.png"),
+        loadFixture("../TVBN-智取店_1080x1920/img/對位_1人1品.png", "商品B.png"),
+        loadFixture("../TVBN-智取店_1080x1920/img/對位_品.png", "商品C.png")
+      ]);
+      for (let index = 0; index < sequenceFiles.length; index += 1) {
+        upload(sequenceInput, [sequenceFiles[index]]);
+        await waitFor(() => sequenceEditor.contentWindow._bnProducts?.length === index + 1);
+      }
+      const sequenceActual = projectProducts(sequenceEditor);
+      const sequenceBasePassed = sequenceActual.every((product, index) =>
+        product.name === ["商品A", "商品B", "商品C"][index] &&
+        product.position === index &&
+        product.zOrder === index &&
+        product.shadowApplied === true
+      ) && !sequenceEditor.contentDocument.querySelector("#bn-prod-modal").classList.contains("show");
+
+      const canvasDocument = sequenceEditor.contentDocument
+        .querySelector("#canvas-frame").contentDocument;
+      const beforeReplacementBoxes = [...canvasDocument.querySelectorAll(".bn-prod-box")];
+      beforeReplacementBoxes.forEach(box => {
+        box.dataset.userAdjusted = "1";
+        box.style.left = "100px";
+        box.style.top = "100px";
+      });
+
+      const replacement = await loadFixture(
+        "../TVBN-智取店_1080x1920/img/對位_1人1品.png",
+        "CASE_02_左配品_新版.png"
+      );
+      upload(sequenceInput, [replacement]);
+      await waitFor(() =>
+        sequenceEditor.contentWindow._bnProducts?.length === 3 &&
+        sequenceEditor.contentWindow._bnProducts[1]?.name === "CASE_02_左配品_新版"
+      );
+      const replacementActual = projectProducts(sequenceEditor);
+      const replacementBoxes = [...canvasDocument.querySelectorAll(".bn-prod-box")];
+      const replacementRects = replacementBoxes.map(box => ({
+        left: parseFloat(box.style.left),
+        top: parseFloat(box.style.top),
+        height: parseFloat(box.style.height),
+        baselineRatio: parseFloat(box.dataset.baselineRatio),
+        width: parseFloat(box.style.width),
+        adjusted: box.dataset.userAdjusted === "1"
+      })).sort((a, b) => a.left - b.left);
+      const visualBaselines = replacementRects.map(rect =>
+        Math.round((rect.top + rect.height * rect.baselineRatio) * 10) / 10
+      );
+      const baselinesAligned =
+        Math.max(...visualBaselines) - Math.min(...visualBaselines) <= 1;
+      const boxesDoNotOverlap = replacementRects.every((rect, index) => {
+        if (index === replacementRects.length - 1) return true;
+        return rect.left + rect.width <= replacementRects[index + 1].left;
+      });
+      const replacementPassed =
+        replacementActual.length === 3 &&
+        replacementActual[0].name === "商品A" &&
+        replacementActual[1].name === "CASE_02_左配品_新版" &&
+        replacementActual[2].name === "商品C" &&
+        replacementActual.every((product, index) =>
+          product.position === index &&
+          product.zOrder === index &&
+          product.shadowApplied === true
+        ) &&
+        replacementRects.every(rect => !rect.adjusted) &&
+        boxesDoNotOverlap &&
+        baselinesAligned;
+
+      const savedBox = canvasDocument.querySelector('.bn-prod-box[data-position="0"]');
+      savedBox.dataset.userAdjusted = "1";
+      savedBox.dataset.rotation = "6";
+      savedBox.style.left = "77px";
+      savedBox.style.top = "88px";
+      savedBox.style.width = "333px";
+      savedBox.style.height = "222px";
+      savedBox.style.transform = "rotate(6deg)";
+      const project = await sequenceEditor.contentWindow.ADProjectJSON.collect();
+      savedBox.style.left = "1px";
+      savedBox.style.top = "2px";
+      savedBox.style.width = "100px";
+      savedBox.style.height = "100px";
+      savedBox.style.transform = "";
+      sequenceEditor.contentWindow.ADProjectJSON.apply(project);
+      await waitFor(() => {
+        const restored = canvasDocument.querySelector('.bn-prod-box[data-position="0"]');
+        return restored?.style.left === "77px" &&
+          restored.style.top === "88px" &&
+          restored.style.width === "333px" &&
+          restored.style.height === "222px" &&
+          restored.style.transform === "rotate(6deg)";
+      });
+      const projectLayoutPassed =
+        project.state.layout.products.length === 3 &&
+        project.state.products.length === 3 &&
+        project.state.products.every(product => product.src.startsWith("data:"));
+
+      const sequencePassed = sequenceBasePassed && replacementPassed && projectLayoutPassed;
+      const passed = batchPassed && sequencePassed;
+      result.textContent = JSON.stringify({
+        passed,
+        batch: { passed: batchPassed, actual: batchActual },
+        sequence: {
+          passed: sequencePassed,
+          appended: sequenceActual,
+          replacement: replacementActual,
+          replacementRects,
+          visualBaselines,
+          projectLayoutPassed
+        }
+      }, null, 2);
+      result.dataset.status = passed ? "passed" : "failed";
+    } catch (error) {
+      result.textContent = JSON.stringify({ passed: false, error: error.message }, null, 2);
+      result.dataset.status = "failed";
+    }
+  </script>
+</body>
+</html>

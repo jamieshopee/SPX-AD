@@ -1,0 +1,38 @@
+{
+  "version": "2.0.0",
+  "schema": "spx-ad-sizes",
+  "sizes": [
+    {
+      "id": "1599x1080",
+      "name": "TVBN 一般門市",
+      "width": 1599,
+      "height": 1080,
+      "template": "template",
+      "styleCount": 16
+    },
+    {
+      "id": "1080x1920",
+      "name": "TVBN 智取店",
+      "width": 1080,
+      "height": 1920,
+      "template": "template",
+      "styleCount": 16
+    },
+    {
+      "id": "984x309",
+      "name": "繳費機手機號碼輸入畫面下 BN",
+      "width": 984,
+      "height": 309,
+      "template": "template",
+      "styleCount": 16
+    },
+    {
+      "id": "3189x3992",
+      "name": "智取店繳費機 BN",
+      "width": 3189,
+      "height": 3992,
+      "template": "template",
+      "styleCount": 16
+    }
+  ]
+}

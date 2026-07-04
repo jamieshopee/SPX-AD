@@ -1,0 +1,10 @@
+{
+  "schema": "spx-ad-style",
+  "id": "06",
+  "name": "樣式 06",
+  "background": "assets/source/1599x1080/backgrounds/bg_06.png",
+  "infoGraphic": "assets/source/1599x1080/info/info_06.png",
+  "headlineColor": "#b98764",
+  "subHeadlineColor": "#864343",
+  "smallTextColor": "#b98764"
+}

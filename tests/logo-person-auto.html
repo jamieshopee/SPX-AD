@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>Logo 與 1人1品自動辨識測試</title>
+</head>
+<body>
+  <pre id="result">RUNNING</pre>
+  <iframe id="logo-editor" src="../TVBN-智取店_1080x1920/02.html?v=22" hidden></iframe>
+  <iframe id="pp-editor" src="../TVBN-智取店_1080x1920/02.html?v=22" hidden></iframe>
+  <script type="module">
+    const result = document.querySelector("#result");
+
+    const waitFor = async (predicate, timeout = 20000) => {
+      const started = Date.now();
+      while (Date.now() - started < timeout) {
+        const value = predicate();
+        if (value) return value;
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      throw new Error("測試逾時");
+    };
+
+    const loadFixture = async (path, name) => {
+      const response = await fetch(path);
+      if (!response.ok) throw new Error(`fixture 讀取失敗：${path}`);
+      return new File([await response.blob()], name, { type: "image/png" });
+    };
+
+    const waitForEditor = async (iframe, selector) => {
+      await new Promise(resolve => iframe.addEventListener("load", resolve, { once: true }));
+      return waitFor(() => iframe.contentDocument.querySelector(selector));
+    };
+
+    const upload = (input, files) => {
+      const transfer = new DataTransfer();
+      files.forEach(file => transfer.items.add(file));
+      input.files = transfer.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+
+    try {
+      const logoEditor = document.querySelector("#logo-editor");
+      const ppEditor = document.querySelector("#pp-editor");
+      const [logoInput, ppInput] = await Promise.all([
+        waitForEditor(logoEditor, "#bn-logo-inp"),
+        waitForEditor(ppEditor, "#bn-pp-auto-inp")
+      ]);
+
+      const logoFiles = await Promise.all([
+        loadFixture("../TVBN-智取店_1080x1920/img/對位_品.png", "TVBN-A-1_LOGO_03.png"),
+        loadFixture("../TVBN-智取店_1080x1920/下方資訊/2.png", "TVBN-A-1_LOGO_01.png"),
+        loadFixture("../TVBN-智取店_1080x1920/img/對位_1人1品.png", "TVBN-A-1_LOGO_02.png")
+      ]);
+      upload(logoInput, logoFiles);
+      const logos = await waitFor(() =>
+        logoEditor.contentWindow._bnLogos?.length === 3
+          ? logoEditor.contentWindow._bnLogos
+          : null
+      );
+      const logoActual = logos.map(logo => ({ name: logo.name, slot: logo.slot }));
+      const logoOrderPassed = logoActual.every((logo, index) =>
+        logo.slot === index &&
+        logo.name === `TVBN-A-1_LOGO_0${index + 1}`
+      );
+      const logoReplacement = await loadFixture(
+        "../TVBN-智取店_1080x1920/下方資訊/2.png",
+        "TVBN-A-1_LOGO_02_新版.png"
+      );
+      upload(logoInput, [logoReplacement]);
+      await waitFor(() =>
+        logoEditor.contentWindow._bnLogos?.[1]?.name === "TVBN-A-1_LOGO_02_新版"
+      );
+      const logoReplacementActual = logoEditor.contentWindow._bnLogos
+        .map(logo => ({ name: logo.name, slot: logo.slot }));
+      const logoPassed =
+        logoOrderPassed &&
+        logoReplacementActual.length === 3 &&
+        logoReplacementActual[0].name === "TVBN-A-1_LOGO_01" &&
+        logoReplacementActual[1].name === "TVBN-A-1_LOGO_02_新版" &&
+        logoReplacementActual[2].name === "TVBN-A-1_LOGO_03";
+
+      const ppFiles = await Promise.all([
+        loadFixture("../TVBN-智取店_1080x1920/img/對位_1人1品.png", "TVBN-A-2_PRODUCT_品.png"),
+        loadFixture("../TVBN-智取店_1080x1920/img/對位_品.png", "TVBN-A-2_PERSON_人.png")
+      ]);
+      upload(ppInput, ppFiles);
+      await waitFor(() =>
+        ppEditor.contentWindow._bnPerson &&
+        ppEditor.contentWindow._bnSingleProd
+      );
+      await waitFor(() =>
+        ppEditor.contentDocument.querySelector("#canvas-frame")
+          .contentDocument?.querySelectorAll("#bn-zone-person img").length === 1 &&
+        ppEditor.contentDocument.querySelector("#canvas-frame")
+          .contentDocument?.querySelectorAll("#bn-zone-singleprod img").length === 1
+      );
+      const person = ppEditor.contentWindow._bnPerson;
+      const product = ppEditor.contentWindow._bnSingleProd;
+      const ppActual = {
+        person: person.name,
+        product: product.name,
+        productShadow: product.shadowApplied
+      };
+      const ppPassed =
+        person.name === "TVBN-A-2_PERSON_人" &&
+        product.name === "TVBN-A-2_PRODUCT_品" &&
+        product.shadowApplied === true &&
+        ppEditor.contentDocument.querySelector("#canvas-frame")
+          .contentDocument.querySelectorAll("#bn-zone-person img").length === 1 &&
+        ppEditor.contentDocument.querySelector("#canvas-frame")
+          .contentDocument.querySelectorAll("#bn-zone-singleprod img").length === 1;
+
+      const replacement = await loadFixture(
+        "../TVBN-智取店_1080x1920/下方資訊/2.png",
+        "TVBN-A-2_PERSON_人物_新版.png"
+      );
+      upload(ppInput, [replacement]);
+      await waitFor(() =>
+        ppEditor.contentWindow._bnPerson?.name === "TVBN-A-2_PERSON_人物_新版"
+      );
+      const replacementPassed =
+        ppEditor.contentWindow._bnSingleProd?.name === "TVBN-A-2_PRODUCT_品";
+
+      const downButton = ppEditor.contentDocument.querySelector(
+        '#bn-sprod-list button[title="商品向下微調"]'
+      );
+      downButton.click();
+      downButton.click();
+      await waitFor(() =>
+        ppEditor.contentWindow._bnSingleProd?.offsetY === 20 &&
+        ppEditor.contentDocument.querySelector("#canvas-frame")
+          .contentDocument.querySelector("#bn-zone-singleprod img")?.style.transform === "translateY(20px)"
+      );
+      const productImage = ppEditor.contentDocument.querySelector("#canvas-frame")
+        .contentDocument.querySelector("#bn-zone-singleprod img");
+      const movePassed =
+        ppEditor.contentWindow._bnSingleProd.offsetY === 20 &&
+        productImage.style.transform === "translateY(20px)";
+
+      ppEditor.contentDocument.querySelector("#txt-main").value = "JSON往返";
+      ppEditor.contentDocument.querySelector("#txt-main")
+        .dispatchEvent(new Event("input", { bubbles: true }));
+      const project = await ppEditor.contentWindow.ADProjectJSON.collect();
+      ppEditor.contentDocument.querySelector("#txt-main").value = "已被修改";
+      ppEditor.contentWindow._bnSingleProd.offsetY = 0;
+      const projectFile = new File(
+        [JSON.stringify(project)],
+        "TVBN-智取店_02.project.json",
+        { type: "application/json" }
+      );
+      const projectTransfer = new DataTransfer();
+      projectTransfer.items.add(projectFile);
+      const projectInput = ppEditor.contentDocument.querySelector("#bn-project-file");
+      projectInput.files = projectTransfer.files;
+      projectInput.dispatchEvent(new Event("change", { bubbles: true }));
+      await waitFor(() =>
+        ppEditor.contentDocument.querySelector("#txt-main").value === "JSON往返" &&
+        ppEditor.contentWindow._bnSingleProd?.offsetY === 20 &&
+        ppEditor.contentDocument.querySelector("#bn-project-status").textContent.includes("完整還原")
+      );
+      let incompatibleRejected = false;
+      try {
+        ppEditor.contentWindow.ADProjectJSON.validate({
+          ...project,
+          templateId: "wrong-template"
+        });
+      } catch (error) {
+        incompatibleRejected = /模板不相容/.test(error.message);
+      }
+      const jsonPassed =
+        project.version === "1.0.0" &&
+        project.templateId === "1080x1920-template" &&
+        project.templateName === "預設版型" &&
+        project.canvasSize.width === 1080 &&
+        project.canvasSize.height === 1920 &&
+        !!project.createdAt &&
+        !!project.updatedAt &&
+        project.state.person.src.startsWith("data:") &&
+        project.state.singleProduct.src.startsWith("data:") &&
+        incompatibleRejected;
+
+      ppEditor.contentDocument.querySelector("#bn-dl-all").click();
+      await waitFor(() => ppEditor.contentWindow._bnLastSnapshotMeta, 45000);
+      const pngMeta = ppEditor.contentWindow._bnLastSnapshotMeta;
+      const pngPassed =
+        pngMeta.width === 1080 &&
+        pngMeta.height === 1920 &&
+        pngMeta.isPng === true &&
+        pngMeta.dataLength > 10000;
+
+      const passed = logoPassed && ppPassed && replacementPassed && movePassed && jsonPassed && pngPassed;
+      result.textContent = JSON.stringify({
+        passed,
+        logo: {
+          passed: logoPassed,
+          initial: logoActual,
+          replacement: logoReplacementActual
+        },
+        personProduct: {
+          passed: ppPassed && replacementPassed && movePassed,
+          initial: ppActual,
+          replacement: ppEditor.contentWindow._bnPerson.name,
+          offsetY: ppEditor.contentWindow._bnSingleProd.offsetY
+        },
+        projectJson: { passed: jsonPassed },
+        png: { passed: pngPassed, meta: pngMeta }
+      }, null, 2);
+      result.dataset.status = passed ? "passed" : "failed";
+    } catch (error) {
+      result.textContent = JSON.stringify({ passed: false, error: error.message }, null, 2);
+      result.dataset.status = "failed";
+    }
+  </script>
+</body>
+</html>
