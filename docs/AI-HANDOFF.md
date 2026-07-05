@@ -171,6 +171,43 @@ runtime cache 可用於目前 session 顯示或加速，但不可寫入 project-
 - hidden iframe runtime state
 - thumbnail queue transient state
 
+## Implementation Guardrails
+
+### Preserve Existing State
+
+若需求只是更新素材來源（例如 approved processed image）：
+
+優先更新既有 Canvas DOM 的圖片來源（`img.src`）。
+
+不要：
+
+- 重建 Product DOM
+- 重新 `applyProductsToCanvas()`
+- 重新依 template 排版
+- 重跑 template fit
+- 重設 transform
+
+所有圖片來源更新都應 Preserve：
+
+- layoutState
+- width / height
+- position
+- rotation
+- zIndex
+- filename identity
+
+原則：
+
+```text
+Preserve Existing State > Rebuild DOM
+```
+
+若需要跨越此 Boundary，必須先提出 Proposal，不可直接修改。
+
+### Minimal Change Principle
+
+若需求可以透過局部更新完成，不得改用重建整個模組、DOM 或 Render Flow 的方式實作。
+
 ## 5. 開發原則（Development Rules）
 
 - 小步修改，每次只處理一個明確問題。
