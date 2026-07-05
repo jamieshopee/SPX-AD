@@ -1025,9 +1025,144 @@ async function resolveReviewProcessedImage(asset) {
   return handle ? handleToDataUrl(handle) : '';
 }
 
+async function buildMainCanvasResolvedAssets(job) {
+  if (!job || !assetPipelineState || !window.BNAssetResolver?.resolveJobAssets) return null;
+  const resolved = window.BNAssetResolver.resolveJobAssets(assetPipelineState, job);
+  const processedItems = (resolved.items || []).filter(item => item.source === 'processed' && item.processedAsset);
+  if (!processedItems.length) return resolved;
+
+  for (const item of processedItems) {
+    const lookupKey = item.processedAsset?.lookupKey || String(item.processedAsset?.filename || '').trim().toLowerCase();
+    const handle = lookupKey ? processedAssetIndex[lookupKey] : null;
+    if (!handle) {
+      console.warn('[CC][assetResolver] approved processed missing runtime handle, fallback original', {
+        assetKey: item.assetKey,
+        filename: item.originalFilename,
+        processedFilename: item.processedFilename,
+      });
+      continue;
+    }
+    try {
+      item.dataUrl = await handleToDataUrl(handle);
+      console.log('[CC][assetResolver] main canvas processed source ready', {
+        assetKey: item.assetKey,
+        role: item.role,
+        filename: item.originalFilename,
+      });
+    } catch (error) {
+      console.warn('[CC][assetResolver] processed source read failed, fallback original', {
+        assetKey: item.assetKey,
+        filename: item.originalFilename,
+        error,
+      });
+    }
+  }
+  return resolved;
+}
+
 function formatReviewSummary(summary) {
   if (!summary) return 'review 0';
   return `reviewable ${summary.reviewable || 0} / approved ${summary.approved || 0} / needs_rerun ${summary.needs_rerun || 0} / rejected ${summary.rejected || 0}`;
+}
+
+function assetBelongsToJob(asset, job) {
+  if (!asset || !job) return false;
+  const jobKeys = [job.jobId, job.id, job.outputFilename].filter(value => value !== undefined && value !== null).map(String);
+  return (asset.jobIds || []).map(String).some(jobId => jobKeys.includes(jobId));
+}
+
+function findMainCanvasProductBox(doc, product) {
+  const boxes = Array.from(doc.querySelectorAll('.bn-prod-box'));
+  const filename = String(product?.filename || '').trim();
+  if (filename) {
+    const byFilename = boxes.find(box => String(box.dataset.filename || '').trim() === filename);
+    if (byFilename) return byFilename;
+  }
+  const position = Number(product?.position);
+  if (Number.isFinite(position)) {
+    return boxes.find(box => Number(box.dataset.position) === position) || null;
+  }
+  return null;
+}
+
+async function buildMainCanvasProductPayloadForJob(job) {
+  if (!job?.productFilenames?.length || !window.BNAssetRenderPayload?.buildProductPayloads) return null;
+  if (activeTemplate) {
+    try { await ensureTemplateJson(activeTemplate, job.styleId || '01'); } catch (_) {}
+  }
+  const resolvedAssets = await buildMainCanvasResolvedAssets(job);
+  return window.BNAssetRenderPayload.buildProductPayloads({
+    filenames: job.productFilenames || [],
+    templateJson: activeTemplate?._json || {},
+    getHandle: lookupAsset,
+    handleToDataUrl,
+    trim: autoTrim,
+    imageUtils: window.BNImageUtils,
+    resolvedAssets,
+    createId: (kind, index) => 'cc_refresh_' + Date.now() + '_' + index,
+  });
+}
+
+async function updateMainCanvasImageSourcesForJob(job, reason = '') {
+  const frameWindow = el.frame?.contentWindow;
+  if (!job || !frameWindow) return { updated: 0, type: '' };
+  const payload = await buildMainCanvasProductPayloadForJob(job);
+  if (!payload) return { updated: 0, type: '' };
+  const doc = frameWindow.document;
+  let updated = 0;
+
+  if (payload.type === 'three_products') {
+    for (const product of payload.products || []) {
+      const box = findMainCanvasProductBox(doc, product);
+      const img = box?.querySelector('img');
+      if (!img || !product.src) continue;
+      img.src = product.src;
+      box.dataset.filename = product.filename || box.dataset.filename || '';
+      if (product.ratio) box.dataset.ratio = String(product.ratio);
+      if (product.baselineRatio) box.dataset.baselineRatio = String(product.baselineRatio);
+      updated++;
+    }
+  } else {
+    const personImg = doc.querySelector('#bn-zone-person img.bn-pp-img');
+    if (personImg && payload.person?.src) {
+      personImg.src = payload.person.src;
+      updated++;
+    }
+    const singleImg = doc.querySelector('#bn-zone-singleprod .bn-single-product-box img, #bn-zone-singleprod img.bn-pp-img');
+    if (singleImg && payload.singleProduct?.src) {
+      singleImg.src = payload.singleProduct.src;
+      const singleBox = singleImg.closest('.bn-single-product-box');
+      if (singleBox && payload.singleProduct.ratio) singleBox.dataset.ratio = String(payload.singleProduct.ratio);
+      updated++;
+    }
+  }
+
+  payload.missing?.forEach(filename => console.warn('[CC][assetResolver] refresh asset missing:', filename));
+  payload.errors?.forEach(item => console.error('[CC][assetResolver] refresh asset failed:', item.filename, item.error));
+  console.log('[CC][assetResolver] main canvas image sources updated', {
+    reason,
+    job: job.jobId || job.id,
+    type: payload.type,
+    updated,
+  });
+  return { updated, type: payload.type };
+}
+
+async function refreshMainCanvasApprovedAssetsForActiveJob(reason = '') {
+  const job = activeJob();
+  if (!job || !frameReady || !el.frame?.contentWindow) return;
+  const layoutKey = stableLayoutStateKeyForJob(job);
+  console.log('[CC][assetResolver] refresh main canvas start', { reason, job: job.jobId || job.id, key: layoutKey });
+  await syncActiveLayoutState();
+  const result = await updateMainCanvasImageSourcesForJob(job, reason);
+  if (result.updated) await waitForFrameImages(el.frame.contentWindow, 4000);
+  console.log('[CC][assetResolver] refresh main canvas done', {
+    reason,
+    job: job.jobId || job.id,
+    key: layoutKey,
+    updated: result.updated,
+    type: result.type,
+  });
 }
 
 function openAssetReviewWorkspace() {
@@ -1055,6 +1190,11 @@ function openAssetReviewWorkspace() {
       const nextSummary = window.BNAssetPipelineState.getReviewSummary(assetPipelineState);
       setStatus(`Processed review 已更新：${formatReviewSummary(nextSummary)}。`, 'success');
       console.log('[CC][assetPipeline] review decision', { assetKey, decision, ok: result.ok });
+      if (result.ok && assetBelongsToJob(result.record, activeJob())) {
+        refreshMainCanvasApprovedAssetsForActiveJob('review-decision:' + decision).catch(error => {
+          console.warn('[CC][assetResolver] refresh main canvas failed after review decision', error);
+        });
+      }
       return result;
     },
   });
@@ -1723,11 +1863,12 @@ async function applyLogosToCanvas(logoFilenames) {
 // ══════════════════════════════════════════════════════
 //  17. 商品圖 → bn-product-add（直接送 canvas iframe）
 // ══════════════════════════════════════════════════════
-async function applyProductsToCanvas(productFilenames) {
+async function applyProductsToCanvas(productFilenames, options = {}) {
   if (!productFilenames.length) return;
   if (activeTemplate) {
     try { await ensureTemplateJson(activeTemplate, activeJob()?.styleId || '01'); } catch (_) {}
   }
+  const resolvedAssets = await buildMainCanvasResolvedAssets(activeJob());
   const payload = await window.BNAssetRenderPayload.buildProductPayloads({
     filenames: productFilenames,
     templateJson: activeTemplate?._json || {},
@@ -1735,6 +1876,7 @@ async function applyProductsToCanvas(productFilenames) {
     handleToDataUrl,
     trim: autoTrim,
     imageUtils: window.BNImageUtils,
+    resolvedAssets,
     createId: (kind, index) => 'cc_p' + Date.now() + '_' + index,
   });
   const info = payload.info;
@@ -1768,7 +1910,7 @@ async function applyProductsToCanvas(productFilenames) {
     }
     if (typeof window._bnRenderProdList === 'function') window._bnRenderProdList(); // 刷新右側 UI
     updateProductModeLock();
-    scheduleActiveJobThumbnailUpdate(900);
+    if (!options.skipThumbnail) scheduleActiveJobThumbnailUpdate(900);
 
   } else {
     // person + single product
@@ -1800,7 +1942,7 @@ async function applyProductsToCanvas(productFilenames) {
     }
     if (info.ignored?.length) showPersonProductFilenameHint();
     updateProductModeLock();
-    scheduleActiveJobThumbnailUpdate(900);
+    if (!options.skipThumbnail) scheduleActiveJobThumbnailUpdate(900);
   }
 }
 

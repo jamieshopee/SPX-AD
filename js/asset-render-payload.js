@@ -9,6 +9,47 @@
     return String(filename || '').replace(/\.[^.]+$/, '');
   }
 
+  function findResolvedAsset(resolvedAssets, role, filename, slot) {
+    var assets = resolvedAssets || {};
+    var groups = [];
+    if (role === 'product') groups.push(assets.products || []);
+    else if (role === 'person') groups.push(assets.person ? [assets.person] : []);
+    else if (role === 'singleProduct') groups.push(assets.singleProducts || []);
+    groups.push(assets.items || []);
+
+    var lookup = String(filename || '').trim().toLowerCase();
+    for (var g = 0; g < groups.length; g++) {
+      var list = groups[g] || [];
+      for (var i = 0; i < list.length; i++) {
+        var item = list[i] || {};
+        var itemFilename = String(item.originalFilename || item.filename || '').trim().toLowerCase();
+        if (item.role && item.role !== role) continue;
+        if (slot != null && item.slot != null && Number(item.slot) !== Number(slot)) continue;
+        if (lookup && itemFilename && itemFilename !== lookup) continue;
+        if (item.source === 'processed' && item.dataUrl) return item;
+      }
+    }
+    return null;
+  }
+
+  async function readSourceDataUrl(options) {
+    var resolved = findResolvedAsset(options.resolvedAssets, options.role, options.filename, options.slot);
+    if (resolved && resolved.dataUrl) {
+      return {
+        src: resolved.dataUrl,
+        source: 'processed',
+        resolved: resolved
+      };
+    }
+    var handle = options.getHandle(options.filename);
+    if (!handle) return null;
+    return {
+      src: await options.handleToDataUrl(handle),
+      source: 'original',
+      resolved: null
+    };
+  }
+
   async function buildLogoPayload(options) {
     var filenames = options.filenames || [];
     var getHandle = options.getHandle;
@@ -53,6 +94,7 @@
     var handleToDataUrl = options.handleToDataUrl;
     var trim = options.trim || (global.BNAssetProcessing && global.BNAssetProcessing.autoTrim);
     var imageUtils = options.imageUtils || global.BNImageUtils || {};
+    var resolvedAssets = options.resolvedAssets || null;
     var idPrefix = options.idPrefix || 'asset_p';
     var createId = options.createId || function (kind, index) { return defaultCreateId(idPrefix, index); };
     var info = global.BNAssetClassifier.classifyProducts(filenames);
@@ -70,14 +112,20 @@
 
       for (var i = 0; i < info.products.length; i++) {
         var item = info.products[i];
-        var handle = getHandle(item.filename);
-        if (!handle) {
-          missing.push(item.filename);
-          continue;
-        }
         try {
-          var rawUrl = await handleToDataUrl(handle);
-          var trimmed = await trim(rawUrl);
+          var source = await readSourceDataUrl({
+            resolvedAssets: resolvedAssets,
+            role: 'product',
+            filename: item.filename,
+            slot: item.position,
+            getHandle: getHandle,
+            handleToDataUrl: handleToDataUrl
+          });
+          if (!source) {
+            missing.push(item.filename);
+            continue;
+          }
+          var trimmed = await trim(source.src);
           var processed = useAutoShadow && typeof imageUtils.autoApplyShadow === 'function'
             ? await imageUtils.autoApplyShadow(trimmed.src, trimmed.ratio)
             : { src: trimmed.src, ratio: trimmed.ratio, baselineRatio: 1 };
@@ -118,11 +166,16 @@
       var singleCfg = (((templateJson.productZones || {}).singleProduct || {}).defaultLayout) || {};
 
       if (info.person) {
-        var personHandle = getHandle(info.person);
-        if (personHandle) {
-          try {
-            var personRaw = await handleToDataUrl(personHandle);
-            var trimmedPerson = await trim(personRaw);
+        try {
+          var personSource = await readSourceDataUrl({
+            resolvedAssets: resolvedAssets,
+            role: 'person',
+            filename: info.person,
+            getHandle: getHandle,
+            handleToDataUrl: handleToDataUrl
+          });
+          if (personSource) {
+            var trimmedPerson = await trim(personSource.src);
             person = {
               src: trimmedPerson.src,
               displayWidth: personCfg.fitWidth,
@@ -135,24 +188,29 @@
               displayWidth: personCfg.fitWidth,
               objectFit: 'contain'
             });
-          } catch (error) {
-            errors.push({ filename: info.person, error: error });
+          } else {
+            missing.push(info.person);
           }
-        } else {
-          missing.push(info.person);
+        } catch (error) {
+          errors.push({ filename: info.person, error: error });
         }
       }
 
       for (var j = 0; j < info.singles.length; j++) {
         var singleFile = info.singles[j];
-        var singleHandle = getHandle(singleFile);
-        if (!singleHandle) {
-          missing.push(singleFile);
-          continue;
-        }
         try {
-          var singleRaw = await handleToDataUrl(singleHandle);
-          var trimmedSingle = await trim(singleRaw);
+          var singleSource = await readSourceDataUrl({
+            resolvedAssets: resolvedAssets,
+            role: 'singleProduct',
+            filename: singleFile,
+            getHandle: getHandle,
+            handleToDataUrl: handleToDataUrl
+          });
+          if (!singleSource) {
+            missing.push(singleFile);
+            continue;
+          }
+          var trimmedSingle = await trim(singleSource.src);
           var finalSrc = trimmedSingle.src;
           var finalRatio = trimmedSingle.ratio;
           if (singleCfg.autoShadow && typeof imageUtils.autoApplyShadow === 'function') {
