@@ -254,3 +254,59 @@ Phase 2A-3 不做：
 - 不接 Asset Payload
 - 不修改 `layoutState` / `layoutStates`
 - 不修改 thumbnail / batch / render flow
+
+## Phase 2C Review Workspace MVP
+
+Review Workspace 用於人工檢查 processed assets，並把每個 asset 標記為：
+
+- `approved`
+- `needs_rerun`
+- `rejected`
+
+Phase 2C MVP 仍維持 State Boundary：
+
+- 不接 Canvas
+- 不接 Asset Payload
+- 不做 Crop
+- 不做 Approved Asset Resolver
+- 不修改 `layoutState` / `layoutStates`
+- 不修改 thumbnail / batch / render flow
+- 不接 Project State export/import
+
+入口：
+
+```text
+匯入 Processed Folder
+  ↓
+檢視 Processed Assets
+  ↓
+Review Workspace modal
+```
+
+Review Workspace 顯示：
+
+- original image
+- processed image
+- `assetKey`
+- `role`
+- `jobIds`
+- `slot`
+- `mode`
+- `status`
+
+Decision 寫入 `assetPipelineState.assets[assetKey]`：
+
+```json
+{
+  "status": "approved",
+  "review": {
+    "decision": "approved",
+    "decidedAt": "2026-07-05T00:00:00.000Z",
+    "note": ""
+  }
+}
+```
+
+`processedAssetIndex` 是控制台 runtime index，只保存 processed folder 的 `FileSystemFileHandle`，用於 Review Workspace 顯示 processed image。
+
+`processedAssetIndex` 不寫入 Project State，避免把本機 runtime handle 混入可攜式工作區狀態。

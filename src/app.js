@@ -24,6 +24,7 @@ const el = {
   importStateFile:   document.querySelector('#import-state-file'),
   manifestBtn:       document.querySelector('#manifest-btn'),
   processedFolderBtn: document.querySelector('#processed-folder-btn'),
+  reviewAssetsBtn:   document.querySelector('#review-assets-btn'),
   folderBtn:        document.querySelector('#folder-btn'),
   folderStatus:     document.querySelector('#folder-status'),
   folderStatusText: document.querySelector('#folder-status-text'),
@@ -71,6 +72,7 @@ let pendingRecord   = null;
 let layoutStateTarget = null;
 let pendingLayoutStateRequest = null;
 let canvasLoadSeq = 0;
+let suppressLayoutStateWrites = false;
 
 // 單品拖曳 overlay（仿 template-controls.js）
 let previewScale          = 1;
@@ -86,6 +88,7 @@ let assetIndex      = {};
 let assetFolderName = '';
 let assetSourceMode = '';
 let assetPipelineState = null;
+let processedAssetIndex = {};
 
 let batchCancelled = false;
 let _readyTimeout  = null;
@@ -139,11 +142,213 @@ function cloneLayoutState(state) {
   return state ? JSON.parse(JSON.stringify(state)) : null;
 }
 
+function summarizeProductsForTrace(products) {
+  return (products || []).map((product, index) => ({
+    index,
+    id: product.id || '',
+    filename: product.filename || '',
+    position: product.position,
+    left: product.left || '',
+    top: product.top || '',
+    width: product.width || '',
+    height: product.height || '',
+    rotation: product.rotation || 0,
+    zIndex: product.zIndex || '',
+    userAdjusted: !!product.userAdjusted,
+  }));
+}
+
+function summarizeLayoutStateForTrace(state) {
+  return {
+    productsCount: state?.products?.length || 0,
+    products: summarizeProductsForTrace(state?.products || []),
+    hasPerson: !!state?.person && Object.keys(state.person || {}).length > 0,
+    singleProduct: state?.singleProduct ? {
+      left: state.singleProduct.left || '',
+      top: state.singleProduct.top || '',
+      width: state.singleProduct.width || '',
+      height: state.singleProduct.height || '',
+      rotation: state.singleProduct.rotation || 0,
+      zIndex: state.singleProduct.zIndex || '',
+      userAdjusted: !!state.singleProduct.userAdjusted,
+    } : null,
+  };
+}
+
+function traceLayoutState(label, job, key, state) {
+  const meta = {
+    job: job?.jobId || job?.id || '',
+    key,
+    placementId: job?.placementId || '',
+    template: job?.template || job?.templateId || '',
+    styleId: job?.styleId || '',
+    hasLayoutStates: !!job?.layoutStates,
+    layoutStateKeys: Object.keys(job?.layoutStates || {}),
+    productsCount: state?.products?.length || 0,
+  };
+  const products = summarizeProductsForTrace(state?.products || []);
+  console.log('[CC][trace][layout]', label, {
+    ...meta,
+    products,
+    singleProduct: summarizeLayoutStateForTrace(state).singleProduct,
+  });
+  console.log('[CC][trace][layout:json]', label, JSON.stringify({ ...meta, products }));
+  if (products.length) console.table(products);
+}
+
+function traceFrameLayout(label, frameWindow, job, key) {
+  const state = readLayoutStateFromFrame(frameWindow);
+  traceLayoutState(label, job, key, state);
+  return state;
+}
+
+function traceFrameProductDom(label, frameWindow, job, key) {
+  try {
+    const doc = frameWindow?.document;
+    const products = Array.from(doc?.querySelectorAll('.bn-prod-box') || []).map((box, index) => {
+      const img = box.querySelector('img');
+      const rect = box.getBoundingClientRect();
+      const imgRect = img ? img.getBoundingClientRect() : null;
+      const computed = frameWindow.getComputedStyle(box);
+      return {
+        index,
+        id: box.dataset.id || '',
+        filename: box.dataset.filename || '',
+        position: Number(box.dataset.position) || 0,
+        left: box.style.left || '',
+        top: box.style.top || '',
+        width: box.style.width || '',
+        height: box.style.height || '',
+        computedWidth: computed.width || '',
+        computedHeight: computed.height || '',
+        rectLeft: Math.round(rect.left * 100) / 100,
+        rectTop: Math.round(rect.top * 100) / 100,
+        rectWidth: Math.round(rect.width * 100) / 100,
+        rectHeight: Math.round(rect.height * 100) / 100,
+        imgRectWidth: imgRect ? Math.round(imgRect.width * 100) / 100 : '',
+        imgRectHeight: imgRect ? Math.round(imgRect.height * 100) / 100 : '',
+        imgNaturalWidth: img?.naturalWidth || 0,
+        imgNaturalHeight: img?.naturalHeight || 0,
+        objectFit: img ? frameWindow.getComputedStyle(img).objectFit : '',
+        zIndex: box.style.zIndex || '',
+        rotation: Number(box.dataset.rotation) || 0,
+        userAdjusted: box.dataset.userAdjusted === '1',
+      };
+    });
+    console.log('[CC][trace][layout-dom]', label, {
+      job: job?.jobId || job?.id || '',
+      key,
+      productsCount: products.length,
+      products,
+    });
+    console.log('[CC][trace][layout-dom:json]', label, JSON.stringify({ job: job?.jobId || job?.id || '', key, products }));
+    if (products.length) console.table(products);
+  } catch (error) {
+    console.warn('[CC][trace][layout-dom] failed', label, error);
+  }
+}
+
+function batchTrace(label, payload = {}) {
+  console.log(label, payload);
+  if (Array.isArray(payload.products)) {
+    console.log(label + '_PRODUCTS_JSON stage=' + (payload.stage || ''), JSON.stringify(payload.products, null, 2));
+    if (payload.products.length) console.table(payload.products);
+  }
+}
+
+function batchTraceState(label, stage, job, key, state) {
+  const products = summarizeProductsForTrace(state?.products || []);
+  batchTrace(label, {
+    stage,
+    job: job?.jobId || job?.id || '',
+    key,
+    placementId: job?.placementId || '',
+    template: job?.template || job?.templateId || '',
+    productsCount: products.length,
+    products,
+  });
+}
+
+function batchTraceDom(label, stage, frameWindow, job, key) {
+  try {
+    const doc = frameWindow?.document;
+    const products = Array.from(doc?.querySelectorAll('.bn-prod-box') || []).map((box, index) => {
+      const img = box.querySelector('img');
+      const rect = box.getBoundingClientRect();
+      const imgRect = img ? img.getBoundingClientRect() : null;
+      const computed = frameWindow.getComputedStyle(box);
+      return {
+        index,
+        id: box.dataset.id || '',
+        filename: box.dataset.filename || '',
+        position: Number(box.dataset.position) || 0,
+        left: box.style.left || '',
+        top: box.style.top || '',
+        width: box.style.width || '',
+        height: box.style.height || '',
+        computedWidth: computed.width || '',
+        computedHeight: computed.height || '',
+        rectWidth: Math.round(rect.width * 100) / 100,
+        rectHeight: Math.round(rect.height * 100) / 100,
+        imgRectWidth: imgRect ? Math.round(imgRect.width * 100) / 100 : '',
+        imgRectHeight: imgRect ? Math.round(imgRect.height * 100) / 100 : '',
+        imgNaturalWidth: img?.naturalWidth || 0,
+        imgNaturalHeight: img?.naturalHeight || 0,
+        objectFit: img ? frameWindow.getComputedStyle(img).objectFit : '',
+        zIndex: box.style.zIndex || '',
+        rotation: Number(box.dataset.rotation) || 0,
+        userAdjusted: box.dataset.userAdjusted === '1',
+      };
+    });
+    batchTrace(label, {
+      stage,
+      job: job?.jobId || job?.id || '',
+      key,
+      productsCount: products.length,
+      products,
+    });
+  } catch (error) {
+    console.warn(label, { stage, error });
+  }
+}
+
 function layoutStateKeyForJob(job, placementId = job?.placementId || activePlacement?.id || '', templateId = job?.template || job?.templateId || activeTemplate?.id || 'template') {
   return `${placementId || ''}|${templateId || 'template'}`;
 }
 
-function getJobLayoutState(job, key = layoutStateKeyForJob(job)) {
+function defaultPlacementForJob() {
+  return activePlacement || registry?.placements?.find(p => p.id === el.placement?.value) || registry?.placements?.[0] || null;
+}
+
+function ensureJobPlacementTemplate(job) {
+  if (!job) return job;
+  const placement = registry?.placements?.find(p => p.id === job.placementId) || defaultPlacementForJob();
+  if (placement && !job.placementId) job.placementId = placement.id;
+  const templateId = job.template || job.templateId || '';
+  const template = placement?.templates?.find(t => t.id === templateId) || placement?.templates?.[0] || null;
+  if (template && (!job.template || !job.templateId)) {
+    job.template = template.id;
+    job.templateId = template.id;
+  }
+  const stableKey = layoutStateKeyForJob(job, job.placementId || '', job.template || job.templateId || 'template');
+  if (stableKey !== '|template' && job.layoutStates?.['|template'] && !job.layoutStates[stableKey]) {
+    job.layoutStates[stableKey] = cloneLayoutState(job.layoutStates['|template']) || {};
+    console.log('[CC][trace][layout] migrated legacy layoutState key', {
+      job: job.jobId || job.id,
+      from: '|template',
+      to: stableKey,
+    });
+  }
+  return job;
+}
+
+function stableLayoutStateKeyForJob(job) {
+  if (!job) return layoutStateKeyForJob(job);
+  ensureJobPlacementTemplate(job);
+  return layoutStateKeyForJob(job, job.placementId || '', job.template || job.templateId || 'template');
+}
+
+function getJobLayoutState(job, key = stableLayoutStateKeyForJob(job)) {
   if (!job) return null;
   const states = job.layoutStates || null;
   if (states && Object.keys(states).length) {
@@ -152,9 +357,18 @@ function getJobLayoutState(job, key = layoutStateKeyForJob(job)) {
   return cloneLayoutState(job.layoutState || null);
 }
 
-function setJobLayoutState(job, state, key = layoutStateKeyForJob(job)) {
+function setJobLayoutState(job, state, key = stableLayoutStateKeyForJob(job)) {
   if (!job || !state) return;
   const copy = cloneLayoutState(state) || {};
+  if (Array.isArray(copy.products) && Array.isArray(window._bnProducts)) {
+    copy.products = copy.products.map(product => {
+      const runtime = window._bnProducts.find(item => item.id === product.id)
+        || window._bnProducts.find(item => Number(item.position) === Number(product.position));
+      return runtime?.filename && !product.filename
+        ? { ...product, filename: runtime.filename }
+        : product;
+    });
+  }
   job.layoutState = copy;
   job.layoutStates = job.layoutStates || {};
   job.layoutStates[key] = cloneLayoutState(copy) || {};
@@ -163,9 +377,10 @@ function setJobLayoutState(job, state, key = layoutStateKeyForJob(job)) {
     singleProductAdjusted: !!copy.singleProduct?.userAdjusted,
     keys: Object.keys(job.layoutStates),
   });
+  traceLayoutState('setJobLayoutState:saved', job, key, copy);
 }
 
-function setMainFrameLayoutTarget(job, key = layoutStateKeyForJob(job)) {
+function setMainFrameLayoutTarget(job, key = stableLayoutStateKeyForJob(job)) {
   layoutStateTarget = job ? { jobId: job.id, key } : null;
 }
 
@@ -175,7 +390,7 @@ function exportableLayoutStatesForJob(job) {
     return JSON.parse(JSON.stringify(job.layoutStates));
   }
   if (job.layoutState) {
-    return { [layoutStateKeyForJob(job)]: cloneLayoutState(job.layoutState) || {} };
+    return { [stableLayoutStateKeyForJob(job)]: cloneLayoutState(job.layoutState) || {} };
   }
   return null;
 }
@@ -186,6 +401,7 @@ function readLayoutStateFromFrame(frameWindow) {
     if (!doc) return null;
     const products = Array.from(doc.querySelectorAll('.bn-prod-box')).map(box => ({
       id: box.dataset.id || '',
+      filename: box.dataset.filename || '',
       position: Number(box.dataset.position) || 0,
       left: box.style.left || '',
       top: box.style.top || '',
@@ -240,7 +456,7 @@ function forceSaveActiveLayoutStateFromFrame(reason = '') {
     singleProduct: !!state?.singleProduct && Object.keys(state.singleProduct).length > 0,
   });
   if (!state) return false;
-  setJobLayoutState(job, state, layoutStateKeyForJob(job));
+  setJobLayoutState(job, state, stableLayoutStateKeyForJob(job));
   return true;
 }
 
@@ -253,8 +469,10 @@ function applyLayoutStateToFrameDom(frameWindow, state, reason = '') {
       const zoneBoxes = Array.from(doc.querySelectorAll('.bn-prod-box'));
       state.products.forEach(saved => {
         let box = saved.id ? zoneBoxes.find(item => item.dataset.id === saved.id) : null;
+        if (!box && saved.filename) box = zoneBoxes.find(item => item.dataset.filename === saved.filename);
         if (!box) box = zoneBoxes.find(item => Number(item.dataset.position) === Number(saved.position));
         if (!box) return;
+        if (saved.position !== undefined && saved.position !== null) box.dataset.position = String(saved.position);
         if (saved.left) box.style.left = saved.left;
         if (saved.top) box.style.top = saved.top;
         if (saved.width) box.style.width = saved.width;
@@ -286,13 +504,15 @@ async function updateActiveJobThumbnail(jobId = activeJobId) {
   }
   const job = jobs.find(j => j.id === jobId);
   if (!job) return;
+  const contextKey = thumbnailContextKeyForJob(job);
   thumbnailInFlight = true;
   thumbnailDirty = false;
   try {
     await waitForFrameImages(el.frame.contentWindow, 4000);
     const dataUrl = await captureFromCanvasFrame(12000);
-    if (dataUrl && jobs.some(j => j.id === job.id)) {
+    if (dataUrl && jobs.some(j => j.id === job.id) && contextKey === thumbnailContextKeyForJob(job)) {
       job.thumbnail = await captureThumb(dataUrl);
+      job.thumbnailContextKey = contextKey;
       job.thumbnailStatus = 'ready';
       renderJobList();
     }
@@ -374,12 +594,14 @@ async function processThumbnailQueue() {
       const { jobId } = thumbnailQueue.shift();
       const job = jobs.find(j => j.id === jobId);
       if (!job) continue;
+      const contextKey = thumbnailContextKeyForJob(job);
       await idleDelay();
       try {
         console.log('[CC][thumb] thumbnail start', job.jobId || job.id, 'remaining=' + thumbnailQueue.length);
         const dataUrl = await generateJobThumbnail(job);
-        if (dataUrl && jobs.some(j => j.id === job.id)) {
+        if (dataUrl && jobs.some(j => j.id === job.id) && contextKey === thumbnailContextKeyForJob(job)) {
           job.thumbnail = await captureThumb(dataUrl);
+          job.thumbnailContextKey = contextKey;
           job.thumbnailStatus = 'ready';
           console.log('[CC][thumb] job.thumbnail set', job.jobId || job.id, 'len=' + job.thumbnail.length);
           updateJobListThumbnail(job.id, job.thumbnail);
@@ -577,6 +799,7 @@ async function resetWorkspaceState(options = {}) {
   assetFolderName = preservedAssetFolderName;
   assetSourceMode = preservedAssetSourceMode;
   assetPipelineState = null;
+  processedAssetIndex = {};
 
   resetPluginRuntimeState();
   fillFields({});
@@ -706,6 +929,7 @@ async function pickAssetFolder() {
       assetFolderName = '';
       assetSourceMode = '';
       assetPipelineState = null;
+      processedAssetIndex = {};
       setTopbarBadge(el.folderStatus, el.folderStatusText, '');
       renderAssetFileLists();
     } else {
@@ -763,15 +987,18 @@ async function pickProcessedFolder() {
   try {
     const handle = await window.showDirectoryPicker({ mode: 'read' });
     const files = [];
+    const runtimeIndex = {};
     for await (const [name, fh] of handle.entries()) {
       if (fh.kind === 'file' && /\.(png|jpg|jpeg|svg|gif|webp)$/i.test(name)) {
         files.push({ name, handle: fh });
+        runtimeIndex[name.trim().toLowerCase()] = fh;
       }
     }
     const result = window.BNAssetPipelineState.importProcessedAssets(assetPipelineState, files, {
       sourceFolderName: handle.name,
     });
     assetPipelineState = result.state;
+    processedAssetIndex = runtimeIndex;
     console.log('[CC][assetPipeline] processed import', {
       folder: handle.name,
       files: files.length,
@@ -784,6 +1011,53 @@ async function pickProcessedFolder() {
       setStatus('匯入 processed folder 失敗：' + e.message, 'error');
     }
   }
+}
+
+async function resolveReviewOriginalImage(asset) {
+  const filename = asset?.originalAsset?.filename || asset?.originalFilename || '';
+  const handle = lookupAsset(filename);
+  return handle ? handleToDataUrl(handle) : '';
+}
+
+async function resolveReviewProcessedImage(asset) {
+  const lookupKey = asset?.processedAsset?.lookupKey || String(asset?.processedAsset?.filename || '').trim().toLowerCase();
+  const handle = lookupKey ? processedAssetIndex[lookupKey] : null;
+  return handle ? handleToDataUrl(handle) : '';
+}
+
+function formatReviewSummary(summary) {
+  if (!summary) return 'review 0';
+  return `reviewable ${summary.reviewable || 0} / approved ${summary.approved || 0} / needs_rerun ${summary.needs_rerun || 0} / rejected ${summary.rejected || 0}`;
+}
+
+function openAssetReviewWorkspace() {
+  if (!window.BNAssetReviewWorkspace?.open) {
+    setStatus('Review Workspace 尚未載入。', 'error');
+    return;
+  }
+  if (!assetPipelineState) refreshAssetPipelineState();
+  if (!assetPipelineState) {
+    setStatus('Asset Pipeline 尚未就緒。', 'error');
+    return;
+  }
+  const summary = window.BNAssetPipelineState?.getReviewSummary?.(assetPipelineState);
+  if (!summary || !summary.reviewable) {
+    setStatus('尚無 processed assets 可檢視，請先匯入 Processed Folder。', 'error');
+    return;
+  }
+  window.BNAssetReviewWorkspace.open({
+    pipelineState: assetPipelineState,
+    resolveOriginalImage: resolveReviewOriginalImage,
+    resolveProcessedImage: resolveReviewProcessedImage,
+    onDecision(assetKey, decision) {
+      const result = window.BNAssetPipelineState.setAssetReviewDecision(assetPipelineState, assetKey, decision);
+      assetPipelineState = result.state;
+      const nextSummary = window.BNAssetPipelineState.getReviewSummary(assetPipelineState);
+      setStatus(`Processed review 已更新：${formatReviewSummary(nextSummary)}。`, 'success');
+      console.log('[CC][assetPipeline] review decision', { assetKey, decision, ok: result.ok });
+      return result;
+    },
+  });
 }
 
 // ══════════════════════════════════════════════════════
@@ -982,6 +1256,32 @@ function assignQuickThumbnails(targetJobs = jobs) {
   renderJobList();
 }
 
+function thumbnailContextKeyForJob(job) {
+  if (!job) return '';
+  return [
+    job.placementId || activePlacement?.id || '',
+    job.template || job.templateId || activeTemplate?.id || 'template',
+    normalizeStyleId(job.styleId || '01')
+  ].join('|');
+}
+
+function invalidateJobThumbnail(job) {
+  if (!job) return;
+  job.thumbnail = null;
+  job.thumbnailContextKey = '';
+  job.quickThumbnail = null;
+  job.thumbnailStatus = 'idle';
+  assignQuickThumbnail(job);
+}
+
+function displayThumbnailForJob(job) {
+  if (!job) return '';
+  if (job.thumbnail && (!job.thumbnailContextKey || job.thumbnailContextKey === thumbnailContextKeyForJob(job))) {
+    return job.thumbnail;
+  }
+  return job.quickThumbnail || '';
+}
+
 function updateTemplateModeLabel(mode) {
   if (!activeTemplate || !el.template) return;
   const option = Array.from(el.template.options).find(opt => opt.value === activeTemplate.id);
@@ -1042,7 +1342,7 @@ function renderJobList() {
 
     const thumb = document.createElement('div');
     thumb.className = 'job-card-thumb';
-    const thumbSrc = job.thumbnail || job.quickThumbnail;
+    const thumbSrc = displayThumbnailForJob(job);
     if (thumbSrc) {
       const img = document.createElement('img');
       img.src = thumbSrc; img.alt = '';
@@ -1136,13 +1436,17 @@ function createJob(data = {}) {
   const rawTemplate = data.template || data.templateId || 'template';
   const normalizedTemplate = rawTemplate === 'template' ? 'template' : 'template';
   const legacyStyle = rawTemplate !== 'template' ? rawTemplate : '';
-  return {
+  const placement = data.placementId
+    ? registry?.placements?.find(p => p.id === data.placementId)
+    : defaultPlacementForJob();
+  const template = placement?.templates?.find(t => t.id === normalizedTemplate) || placement?.templates?.[0] || null;
+  const job = {
     id:               jobIdSeq++,
     jobId:            data.jobId || '',
-    template:         normalizedTemplate,
-    templateId:       normalizedTemplate,
+    template:         template?.id || normalizedTemplate,
+    templateId:       template?.id || normalizedTemplate,
     styleId:          normalizeStyleId(data.style || data.styleId || data.templateStyle || legacyStyle || '01'),
-    placementId:      data.placementId || activePlacement?.id || '',
+    placementId:      data.placementId || placement?.id || '',
     headline:         data.headline    || '',
     subheadline:      data.subheadline || '',
     disclaimer:       data.disclaimer  || '',
@@ -1156,10 +1460,12 @@ function createJob(data = {}) {
     layoutStates:     data.layoutStates || null,
     validation:       { status: 'pending', missing: [] },
   };
+  return ensureJobPlacementTemplate(job);
 }
 
 function addJob(data = {}) {
   const job = createJob(data);
+  ensureJobPlacementTemplate(job);
   validateJob(job);
   jobs.push(job);
   activeJobId = job.id;
@@ -1190,6 +1496,7 @@ async function selectJob(id, options = {}) {
   activeJobId = id;
   const job = jobs.find(j => j.id === id);
   if (!job) return;
+  ensureJobPlacementTemplate(job);
   fillFields(job);
   ensureWorkspaceReadyForJob();
   const jobPlacement = registry?.placements?.find(p => p.id === job.placementId);
@@ -1229,7 +1536,7 @@ async function selectJob(id, options = {}) {
     selectTemplate(activePlacement.templates[0].id, { skipSync: true });
   } else if (activeTemplate?._templatePath) {
     pendingRecord = currentRecord();
-    const layoutKey = layoutStateKeyForJob(job);
+    const layoutKey = stableLayoutStateKeyForJob(job);
     const savedLayoutState = getJobLayoutState(job, layoutKey);
     setMainFrameLayoutTarget(job, layoutKey);
     const loadSeq = loadCanvas(activeTemplate._templatePath, job.styleId || '01');
@@ -1447,6 +1754,7 @@ async function applyProductsToCanvas(productFilenames) {
         ratio: product.ratio,
         baselineRatio: product.baselineRatio,
         name: product.name,
+        filename: product.filename,
         sizeScale: product.sizeScale,
         position: product.position,
         zOrder: product.zOrder,
@@ -1581,7 +1889,9 @@ async function ensureTemplateJson(template, styleId = activeJob()?.styleId || '0
 function getTemplateForJob(job) {
   const placement = registry?.placements?.find(p => p.id === job?.placementId) || activePlacement;
   const templateId = job?.template || job?.templateId || 'template';
-  return placement?.templates?.find(t => t.id === templateId) || activeTemplate || placement?.templates?.[0] || null;
+  const placementTemplate = placement?.templates?.find(t => t.id === templateId) || placement?.templates?.[0] || null;
+  if (placementTemplate) return placementTemplate;
+  return activeTemplate || null;
 }
 
 function postTextToFrame(frameWindow, record) {
@@ -1595,14 +1905,16 @@ function postTextToFrame(frameWindow, record) {
   }, '*');
 }
 
-async function applyJobLayoutStateToFrame(job, frameWindow = el.frame?.contentWindow, stateOverride = null) {
+async function applyJobLayoutStateToFrame(job, frameWindow = el.frame?.contentWindow, stateOverride = null, options = {}) {
   const state = stateOverride || getJobLayoutState(job);
   if (!state || !frameWindow) return;
+  batchTraceState('BATCH_TRACE_3_APPLY', 'applyJobLayoutStateToFrame-state-to-apply', job, stableLayoutStateKeyForJob(job), state);
+  traceLayoutState('applyJobLayoutStateToFrame:state-to-apply', job, stableLayoutStateKeyForJob(job), state);
   applyLayoutStateToFrameDom(frameWindow, state, 'before-message');
   frameWindow.postMessage({ type: 'bn-layout-state-apply', state }, '*');
   await sleep(180);
   applyLayoutStateToFrameDom(frameWindow, state, 'after-message');
-  frameWindow.postMessage({ type: 'bn-layout-state-request' }, '*');
+  if (!options.skipRequest) frameWindow.postMessage({ type: 'bn-layout-state-request' }, '*');
 }
 
 function waitForHiddenFrameReady(frame, timeout = 5000, label = '') {
@@ -1710,7 +2022,8 @@ async function postProductsToFrame(frameWindow, productFilenames, templateJson, 
 
 async function generateJobThumbnail(job) {
   const label = job.jobId || String(job.id);
-  const savedLayoutState = getJobLayoutState(job);
+  const layoutKey = stableLayoutStateKeyForJob(job);
+  const savedLayoutState = getJobLayoutState(job, layoutKey);
   const template = getTemplateForJob(job);
   const templatePath = ensureTemplatePath(template);
   console.log('[CC][thumb] generate begin', label, 'templatePath=' + (templatePath || ''));
@@ -1751,7 +2064,7 @@ async function generateJobThumbnail(job) {
     if (job.logoFilenames?.length) await sleep(240);
     await postProductsToFrame(frame.contentWindow, job.productFilenames || [], templateJson, label);
     if (job.productFilenames?.length) await sleep(420);
-    await applyJobLayoutStateToFrame(job, frame.contentWindow, savedLayoutState);
+    await applyJobLayoutStateToFrame(job, frame.contentWindow, savedLayoutState, { skipRequest: true });
     await waitForFrameImages(frame.contentWindow, 6000);
     const dataUrl = await captureFromHiddenFrame(frame, HIDDEN_CAPTURE_TIMEOUT, label);
     return dataUrl;
@@ -2041,10 +2354,19 @@ async function selectPlacement(id) {
   await syncActiveLayoutState();
   activePlacement = registry.placements.find(p => p.id === id);
   const job = activeJob();
-  if (job) job.placementId = activePlacement?.id || '';
+  const nextTemplate = activePlacement?.templates?.[0] || null;
+  if (job) {
+    job.placementId = activePlacement?.id || '';
+    if (nextTemplate) {
+      job.template = nextTemplate.id;
+      job.templateId = nextTemplate.id;
+    }
+    invalidateJobThumbnail(job);
+  }
   renderTemplateOptions(false);
-  if (activePlacement?.templates?.length) {
-    await selectTemplate(activePlacement.templates[0].id, { skipSync: true });
+  renderJobList();
+  if (nextTemplate) {
+    await selectTemplate(nextTemplate.id, { skipSync: true });
   }
 }
 
@@ -2054,11 +2376,13 @@ async function selectTemplate(id, options = {}) {
   activeTemplate = activePlacement.templates.find(t => t.id === id);
   if (!activeTemplate) return;
   const selectedJob = activeJob();
+  const templateChanged = selectedJob && (selectedJob.template !== activeTemplate.id || selectedJob.templateId !== activeTemplate.id);
   if (selectedJob) {
     selectedJob.template = activeTemplate.id;
     selectedJob.templateId = activeTemplate.id;
     selectedJob.styleId = normalizeStyleId(selectedJob.styleId || '01');
     selectedJob.placementId = activePlacement?.id || selectedJob.placementId || '';
+    if (templateChanged) invalidateJobThumbnail(selectedJob);
   }
   window._bnProducts = [];
   window._bnPerson = null;
@@ -2091,7 +2415,7 @@ async function selectTemplate(id, options = {}) {
   // 載入 canvas（不透過 editor）
   pendingRecord = currentRecord();
   if (activeTemplate._templatePath) {
-    const layoutKey = layoutStateKeyForJob(selectedJob);
+    const layoutKey = stableLayoutStateKeyForJob(selectedJob);
     const savedLayoutState = getJobLayoutState(selectedJob, layoutKey);
     setMainFrameLayoutTarget(selectedJob, layoutKey);
     const loadSeq = loadCanvas(activeTemplate._templatePath, selectedJob?.styleId || '01');
@@ -2166,7 +2490,13 @@ function addBatchLog(filename, status, note = '') {
 async function batchRender() {
   const validJobs = jobs.filter(j => j.headline);
   if (!validJobs.length) { setStatus('沒有可用工單', 'error'); return; }
+  const activeBeforeBatch = activeJob();
+  const activeBatchKey = stableLayoutStateKeyForJob(activeBeforeBatch);
+  batchTraceState('BATCH_TRACE_1_SYNC', 'before-sync-active-job-state', activeBeforeBatch, activeBatchKey, getJobLayoutState(activeBeforeBatch, activeBatchKey));
+  traceLayoutState('batch:before-sync-active-job-state', activeBeforeBatch, activeBatchKey, getJobLayoutState(activeBeforeBatch, activeBatchKey));
   await syncActiveLayoutState();
+  batchTraceState('BATCH_TRACE_1_SYNC', 'after-sync-active-job-state', activeBeforeBatch, activeBatchKey, getJobLayoutState(activeBeforeBatch, activeBatchKey));
+  traceLayoutState('batch:after-sync-active-job-state', activeBeforeBatch, activeBatchKey, getJobLayoutState(activeBeforeBatch, activeBatchKey));
 
   thumbnailPaused = true;
   clearTimeout(thumbnailTimer);
@@ -2183,11 +2513,15 @@ async function batchRender() {
     if (batchCancelled) { addBatchLog('已取消', 'skip'); break; }
     setBatchProgress(done, validJobs.length, `[${done + 1}/${validJobs.length}] ${job.jobId || job.headline}`);
     try {
+      const jobKey = stableLayoutStateKeyForJob(job);
+      batchTraceState('BATCH_TRACE_2_STATE', 'before-render-job-state', job, jobKey, getJobLayoutState(job, jobKey));
+      traceLayoutState('batch:before-render-job-state', job, jobKey, getJobLayoutState(job, jobKey));
       const dataUrl = await renderSingleJob(job);
       if (dataUrl) {
         const filename = job.outputFilename || `${job.jobId || done + 1}.png`;
         pngFiles.push({ name: filename, dataUrl });
         job.thumbnail = await captureThumb(dataUrl);
+        job.thumbnailContextKey = thumbnailContextKeyForJob(job);
         renderJobList();
         addBatchLog(filename, 'ok');
         okCount++;
@@ -2232,45 +2566,69 @@ async function renderSingleJob(job) {
   const renderTemplate = getTemplateForJob(job);
   const templatePath = ensureTemplatePath(renderTemplate);
   if (!templatePath) throw new Error('無 templatePath');
+  const previousPlacement = activePlacement;
+  const previousTemplate = activeTemplate;
+  const previousSuppressLayoutStateWrites = suppressLayoutStateWrites;
+  const renderPlacement = registry?.placements?.find(p => p.id === job?.placementId) || activePlacement;
+  activePlacement = renderPlacement;
   activeTemplate = renderTemplate;
-  const layoutKey = layoutStateKeyForJob(job);
+  suppressLayoutStateWrites = true;
+  const layoutKey = stableLayoutStateKeyForJob(job);
   const savedLayoutState = getJobLayoutState(job, layoutKey);
   setMainFrameLayoutTarget(job, layoutKey);
-  const templateJson = await ensureTemplateJson(renderTemplate, job.styleId || '01');
+  batchTraceState('BATCH_TRACE_2_STATE', 'renderSingleJob-start-savedLayoutState', job, layoutKey, savedLayoutState);
+  traceLayoutState('renderSingleJob:start-savedLayoutState', job, layoutKey, savedLayoutState);
+  try {
+    const templateJson = await ensureTemplateJson(renderTemplate, job.styleId || '01');
 
-  // 1. 載入 canvas（乾淨狀態），排入文字到 pendingRecord
-  pendingRecord = {
-    headline:    job.headline,
-    subheadline: job.subheadline,
-    disclaimer:  job.disclaimer,
-  };
-  const loadSeq = loadCanvas(templatePath, job.styleId || '01');
-  await waitForFrameReady(18000);
-  if (loadSeq !== canvasLoadSeq) throw new Error('render interrupted');
-  // onFrameReady 已送出 pendingRecord（bn-text）
-  await sleep(200);
-
-  // 2. Logo
-  if (job.logoFilenames.length) {
-    await postLogosToFrame(el.frame.contentWindow, job.logoFilenames, job.jobId || String(job.id));
-    await sleep(400);
+    // 1. 載入 canvas（乾淨狀態），排入文字到 pendingRecord
+    pendingRecord = {
+      headline:    job.headline,
+      subheadline: job.subheadline,
+      disclaimer:  job.disclaimer,
+    };
+    const loadSeq = loadCanvas(templatePath, job.styleId || '01');
+    await waitForFrameReady(18000);
     if (loadSeq !== canvasLoadSeq) throw new Error('render interrupted');
-  }
+    // onFrameReady 已送出 pendingRecord（bn-text）
+    await sleep(200);
 
-  // 3. 商品圖
-  if (job.productFilenames.length) {
-    await postProductsToFrame(el.frame.contentWindow, job.productFilenames, templateJson, job.jobId || String(job.id));
-    await sleep(900);
+    // 2. Logo
+    if (job.logoFilenames.length) {
+      await postLogosToFrame(el.frame.contentWindow, job.logoFilenames, job.jobId || String(job.id));
+      await sleep(400);
+      if (loadSeq !== canvasLoadSeq) throw new Error('render interrupted');
+    }
+
+    // 3. 商品圖
+    if (job.productFilenames.length) {
+      await postProductsToFrame(el.frame.contentWindow, job.productFilenames, templateJson, job.jobId || String(job.id));
+      await sleep(900);
+      if (loadSeq !== canvasLoadSeq) throw new Error('render interrupted');
+    }
+    traceFrameLayout('renderSingleJob:after-product-payload-before-layout-apply-dom', el.frame.contentWindow, job, layoutKey);
+    traceFrameProductDom('renderSingleJob:after-product-payload-before-layout-apply-dom', el.frame.contentWindow, job, layoutKey);
+    batchTraceDom('BATCH_TRACE_4_DOM', 'after-product-payload-before-layout-apply-dom', el.frame.contentWindow, job, layoutKey);
+    batchTraceState('BATCH_TRACE_3_APPLY', 'state-to-apply-before-apply', job, layoutKey, savedLayoutState);
+    await applyJobLayoutStateToFrame(job, el.frame.contentWindow, savedLayoutState, { skipRequest: true });
+    await sleep(260);
+    traceFrameLayout('renderSingleJob:after-layout-apply-dom', el.frame.contentWindow, job, layoutKey);
+    traceFrameProductDom('renderSingleJob:after-layout-apply-dom', el.frame.contentWindow, job, layoutKey);
+    batchTraceDom('BATCH_TRACE_4_DOM', 'after-layout-apply-dom', el.frame.contentWindow, job, layoutKey);
     if (loadSeq !== canvasLoadSeq) throw new Error('render interrupted');
-  }
-  if (savedLayoutState) setJobLayoutState(job, savedLayoutState, layoutKey);
-  await applyJobLayoutStateToFrame(job, el.frame.contentWindow, savedLayoutState);
-  await sleep(260);
-  if (loadSeq !== canvasLoadSeq) throw new Error('render interrupted');
-  await waitForFrameImages(el.frame.contentWindow, 6000);
+    await waitForFrameImages(el.frame.contentWindow, 6000);
+    traceFrameLayout('renderSingleJob:before-capture-dom', el.frame.contentWindow, job, layoutKey);
+    traceFrameProductDom('renderSingleJob:before-capture-dom', el.frame.contentWindow, job, layoutKey);
+    batchTraceDom('BATCH_TRACE_4_DOM', 'before-capture-dom', el.frame.contentWindow, job, layoutKey);
 
-  // 4. 截圖
-  return captureFromCanvasFrame(18000);
+    // 4. 截圖
+    return await captureFromCanvasFrame(18000);
+  } finally {
+    suppressLayoutStateWrites = previousSuppressLayoutStateWrites;
+    activePlacement = previousPlacement;
+    activeTemplate = previousTemplate;
+    if (activeJobId) setMainFrameLayoutTarget(activeJob(), activeJob() ? stableLayoutStateKeyForJob(activeJob()) : undefined);
+  }
 }
 
 async function captureThumb(fullPng) {
@@ -2484,7 +2842,9 @@ function prepareJobsForStateExport(sourceJobs) {
 async function syncActiveLayoutState() {
   const job = activeJob();
   if (!frameReady || !el.frame?.contentWindow || !job) return;
-  const key = layoutStateKeyForJob(job);
+  const key = stableLayoutStateKeyForJob(job);
+  traceLayoutState('syncActiveLayoutState:start-current-job-state', job, key, getJobLayoutState(job, key));
+  traceFrameLayout('syncActiveLayoutState:start-frame-dom', el.frame.contentWindow, job, key);
   setMainFrameLayoutTarget(job, key);
   if (pendingLayoutStateRequest?.timer) clearTimeout(pendingLayoutStateRequest.timer);
   const received = await new Promise(resolve => {
@@ -2501,13 +2861,16 @@ async function syncActiveLayoutState() {
     pendingLayoutStateRequest = request;
     el.frame.contentWindow.postMessage({ type: 'bn-layout-state-request' }, '*');
   });
+  traceLayoutState('syncActiveLayoutState:after-request-job-state', job, key, getJobLayoutState(job, key));
   if (!received) {
     const directState = readLayoutStateFromFrame(el.frame.contentWindow);
+    traceLayoutState('syncActiveLayoutState:timeout-direct-frame-state', job, key, directState);
     if (directState) {
       console.warn('[CC][layoutState] bn-layout-state timeout; saved state from iframe DOM', job.jobId || job.id, key, directState);
       setJobLayoutState(job, directState, key);
     }
   }
+  traceLayoutState('syncActiveLayoutState:end-job-state', job, key, getJobLayoutState(job, key));
 }
 
 async function readImageSize(dataUrl) {
@@ -2569,6 +2932,9 @@ async function buildProjectState(sourceJobs, type = 'project') {
 
   for (const job of exportJobs) {
     const item = serializeJobBase(job);
+    const exportKey = stableLayoutStateKeyForJob(job);
+    batchTraceState('BATCH_TRACE_5_EXPORT', 'buildProjectState-serialized-job-layoutState', job, exportKey, item.layoutStates?.[exportKey] || item.layoutState);
+    traceLayoutState('buildProjectState:serialized-job-layoutState', job, exportKey, item.layoutStates?.[exportKey] || item.layoutState);
     for (const filename of job.logoFilenames || []) {
       const id = await addAsset(filename, 'logo', job);
       if (id) item.logoAssetIds.push(id);
@@ -2586,9 +2952,12 @@ async function exportSingleState() {
   const job = activeJob();
   if (!job) { setStatus('尚未選擇工單', 'error'); return; }
   console.log('[CC][layoutState] export-single start', job.jobId || job.id);
+  const exportKey = stableLayoutStateKeyForJob(job);
+  traceLayoutState('exportSingleState:before-force-sync', job, exportKey, getJobLayoutState(job, exportKey));
   const forcedBeforeSync = forceSaveActiveLayoutStateFromFrame('export-single-before-sync');
   await syncActiveLayoutState({ reason: 'export-single' });
   const forcedAfterSync = forceSaveActiveLayoutStateFromFrame('export-single-after-sync');
+  traceLayoutState('exportSingleState:after-force-sync', job, exportKey, getJobLayoutState(job, exportKey));
   console.log('[CC][layoutState] export-single synced', {
     forcedBeforeSync,
     forcedAfterSync,
@@ -2648,22 +3017,27 @@ async function importState(file) {
       indexMemoryAsset(asset.originalName, fileObj);
     }
 
-    jobs = state.jobs.map(saved => createJob({
-      jobId: saved.jobId || '',
-      template: saved.template || saved.templateId || 'template',
-      templateId: saved.template || saved.templateId || 'template',
-      styleId: saved.style || saved.styleId || (saved.templateId && saved.templateId !== 'template' ? saved.templateId : '01'),
-      placementId: saved.placementId || '',
-      headline: saved.headline || '',
-      subheadline: saved.subheadline || '',
-      disclaimer: saved.disclaimer || '',
-      outputFilename: saved.outputFilename || '',
-      logoFilenames: (saved.logoAssetIds || []).map(id => assetsById.get(id)?.name || id),
-      productFilenames: (saved.productAssetIds || []).map(id => assetsById.get(id)?.name || id),
-      layoutState: saved.layoutState || null,
-      layoutStates: saved.layoutStates || null,
-      thumbnail: saved.thumbnail || null,
-    }));
+    jobs = state.jobs.map(saved => {
+      const job = createJob({
+        jobId: saved.jobId || '',
+        template: saved.template || saved.templateId || 'template',
+        templateId: saved.template || saved.templateId || 'template',
+        styleId: saved.style || saved.styleId || (saved.templateId && saved.templateId !== 'template' ? saved.templateId : '01'),
+        placementId: saved.placementId || '',
+        headline: saved.headline || '',
+        subheadline: saved.subheadline || '',
+        disclaimer: saved.disclaimer || '',
+        outputFilename: saved.outputFilename || '',
+        logoFilenames: (saved.logoAssetIds || []).map(id => assetsById.get(id)?.name || id),
+        productFilenames: (saved.productAssetIds || []).map(id => assetsById.get(id)?.name || id),
+        layoutState: saved.layoutState || null,
+        layoutStates: saved.layoutStates || null,
+        thumbnail: saved.thumbnail || null,
+      });
+      const importKey = stableLayoutStateKeyForJob(job);
+      traceLayoutState('importState:loaded-job-layoutState', job, importKey, job.layoutStates?.[importKey] || job.layoutState);
+      return job;
+    });
     activeJobId = jobs[0]?.id || null;
 
     ensureWorkspaceReadyForJob();
@@ -2820,6 +3194,7 @@ el.importStateFile.addEventListener('change', e => {
 el.folderBtn.addEventListener('click', pickAssetFolder);
 el.manifestBtn?.addEventListener('click', exportPhotoshopManifest);
 el.processedFolderBtn?.addEventListener('click', pickProcessedFolder);
+el.reviewAssetsBtn?.addEventListener('click', openAssetReviewWorkspace);
 
 // 拖曳 CSV 到工單面板
 el.jobPanel.addEventListener('dragover', e => {
@@ -2894,6 +3269,14 @@ window.addEventListener('message', event => {
     singleProductGeometry = event.data.visible === false ? null : event.data;
     updateSingleProductDragOverlay();
   }
+  if (type === 'bn-layout-state' && suppressLayoutStateWrites) {
+    console.log('[CC][trace][layout] message:bn-layout-state-suppressed', {
+      targetJobId: layoutStateTarget?.jobId || activeJobId,
+      key: layoutStateTarget?.key || '',
+      summary: summarizeLayoutStateForTrace(event.data?.state || {}),
+    });
+    return;
+  }
   if (type === 'bn-layout-state' && Array.isArray(event.data?.state?.products) && window._bnProducts) {
     const targetJobId = pendingLayoutStateRequest?.jobId || layoutStateTarget?.jobId || activeJobId;
     if (targetJobId === activeJobId) {
@@ -2946,8 +3329,9 @@ window.addEventListener('message', event => {
     const request = pendingLayoutStateRequest;
     const targetJobId = request?.jobId || layoutStateTarget?.jobId || activeJobId;
     const job = jobs.find(j => j.id === targetJobId) || activeJob();
+    traceLayoutState('message:bn-layout-state-received', job, request?.key || layoutStateTarget?.key || stableLayoutStateKeyForJob(job), event.data.state || {});
     if (job) {
-      setJobLayoutState(job, event.data.state || {}, request?.key || layoutStateTarget?.key || layoutStateKeyForJob(job));
+      setJobLayoutState(job, event.data.state || {}, request?.key || layoutStateTarget?.key || stableLayoutStateKeyForJob(job));
     }
     if (typeof window._bnUpdateMutualExclusion === 'function') window._bnUpdateMutualExclusion();
     if (targetJobId === activeJobId) scheduleActiveJobThumbnailUpdate(1000);

@@ -6,6 +6,7 @@
   <title>AD 電子版位管理器</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="src/app.css?v=20260701r">
+  <link rel="stylesheet" href="src/asset-review.css?v=20260705-2c">
   <script src="js/banwords-engine-hbn.js?v=20260628"></script>
   <script src="js/banwords-data.js?v=20260628"></script>
 </head>
@@ -72,6 +73,10 @@
         <button id="processed-folder-btn" class="btn-topbar" type="button">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.19a2 2 0 0 1 1.345.51l.33.33h5.02a2 2 0 0 1 2 2v.66H1.05L.54 3.87zM0 5.5h16l-1.04 6.76A2 2 0 0 1 12.98 14H3.02a2 2 0 0 1-1.98-1.74L0 5.5z"/><path d="M8 7.25a.75.75 0 0 1 .75.75v1.25H10a.75.75 0 0 1 0 1.5H8.75V12a.75.75 0 0 1-1.5 0v-1.25H6a.75.75 0 0 1 0-1.5h1.25V8A.75.75 0 0 1 8 7.25z"/></svg>
           匯入 Processed Folder
+        </button>
+        <button id="review-assets-btn" class="btn-topbar" type="button">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2.5c-3.6 0-6.33 3.35-7.34 4.82a1.18 1.18 0 0 0 0 1.36C1.67 10.15 4.4 13.5 8 13.5s6.33-3.35 7.34-4.82a1.18 1.18 0 0 0 0-1.36C14.33 5.85 11.6 2.5 8 2.5zm0 9.5c-2.93 0-5.3-2.77-6.08-4C2.7 6.77 5.07 4 8 4s5.3 2.77 6.08 4C13.3 9.23 10.93 12 8 12z"/><path d="M8 5.25A2.75 2.75 0 1 0 8 10.75 2.75 2.75 0 0 0 8 5.25zm0 4A1.25 1.25 0 1 1 8 6.75a1.25 1.25 0 0 1 0 2.5z"/></svg>
+          檢視 Processed Assets
         </button>
         <div id="csv-status" class="status-badge success topbar-badge" style="display:none" aria-live="polite">
           <span class="status-dot"></span>
@@ -232,11 +237,12 @@
   <script src="js/product-slot-utils.js?v=20260701e"></script>
   <script src="js/asset-classifier.js?v=20260704a"></script>
   <script src="js/asset-processing.js?v=20260704a"></script>
-  <script src="js/asset-render-payload.js?v=20260704-layoutstate-a"></script>
-  <script src="js/asset-pipeline-state.js?v=20260705-2a3"></script>
+  <script src="js/asset-render-payload.js?v=20260705-product-filename-a"></script>
+  <script src="js/asset-pipeline-state.js?v=20260705-2c"></script>
   <script src="js/asset-pipeline-manifest.js?v=20260705-2a"></script>
   <script src="js/asset-resolver.js?v=20260705-2a"></script>
-  <script defer src="src/app.js?v=20260705-phase2a3-a"></script>
+  <script src="js/asset-review-workspace.js?v=20260705-2c"></script>
+  <script defer src="src/app.js?v=20260705-product-filename-restore-a"></script>
   <script src="js/template-controls.js?v=20260701h"></script>
   <script src="js/logo-editor-plugin.js?v=20260629"></script>
   <script src="js/editor-plugin.js?v=20260629"></script>

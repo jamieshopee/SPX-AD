@@ -414,7 +414,7 @@
       applyAssets(template);
       return loadScript('js/box-transform-utils.js?v=20260701t');
     }).then(function () {
-      return loadScript('js/layout-runtime.js?v=20260704-layoutstate-a');
+      return loadScript('js/layout-runtime.js?v=20260705-product-filename-restore-a');
     }).catch(function (error) {
       console.warn('[Canvas] 初始化失敗。', error);
     });

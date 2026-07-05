@@ -440,6 +440,7 @@
       pzone.style.position = 'relative';
       var box = document.createElement('div');
       box.className = 'bn-prod-box'; box.dataset.id = e.data.id; box.dataset.ratio = e.data.ratio||1;
+      box.dataset.filename = e.data.filename || e.data.name || '';
       box.dataset.sizeScale = e.data.sizeScale||1;
       box.dataset.position  = e.data.position !== undefined ? e.data.position : e.data.index || 0;
       box.dataset.baselineRatio = e.data.baselineRatio||1;
@@ -867,6 +868,7 @@
       Array.from(zone.querySelectorAll('.bn-prod-box')).forEach(function(box){
         products.push({
           id:box.dataset.id||'',
+          filename:box.dataset.filename||'',
           position:Number(box.dataset.position)||0,
           left:box.style.left||'',
           top:box.style.top||'',
@@ -908,8 +910,12 @@
     if(zone&&state&&Array.isArray(state.products)){
       state.products.forEach(function(saved){
         var box=saved.id ? zone.querySelector('.bn-prod-box[data-id="'+saved.id+'"]') : null;
+        if(!box && saved.filename){
+          box=Array.from(zone.querySelectorAll('.bn-prod-box')).find(function(item){ return item.dataset.filename === saved.filename; });
+        }
         if(!box) box=zone.querySelector('.bn-prod-box[data-position="'+saved.position+'"]');
         if(!box) return;
+        if(saved.position !== undefined && saved.position !== null) box.dataset.position=String(saved.position);
         if(saved.left) box.style.left=saved.left;
         if(saved.top) box.style.top=saved.top;
         if(saved.width) box.style.width=saved.width;
@@ -1431,6 +1437,38 @@
     var W = parseFloat(cv.style.width)  || cv.offsetWidth;
     var H = parseFloat(cv.style.height) || cv.offsetHeight;
     console.log('[canvas][capture] canvas size W=' + W + ' H=' + H + ' offset=' + cv.offsetWidth + 'x' + cv.offsetHeight);
+    try{
+      var productTrace = Array.from(cv.querySelectorAll('.bn-prod-box')).map(function(box,index){
+        var img=box.querySelector('img');
+        var r=box.getBoundingClientRect();
+        var ir=img?img.getBoundingClientRect():null;
+        var cs=window.getComputedStyle(box);
+        return {
+          index:index,
+          id:box.dataset.id||'',
+          position:Number(box.dataset.position)||0,
+          left:box.style.left||'',
+          top:box.style.top||'',
+          width:box.style.width||'',
+          height:box.style.height||'',
+          computedWidth:cs.width||'',
+          computedHeight:cs.height||'',
+          rectWidth:Math.round(r.width*100)/100,
+          rectHeight:Math.round(r.height*100)/100,
+          imgRectWidth:ir?Math.round(ir.width*100)/100:'',
+          imgRectHeight:ir?Math.round(ir.height*100)/100:'',
+          imgNaturalWidth:img&&img.naturalWidth||0,
+          imgNaturalHeight:img&&img.naturalHeight||0,
+          objectFit:img?window.getComputedStyle(img).objectFit:'',
+          zIndex:box.style.zIndex||'',
+          userAdjusted:box.dataset.userAdjusted==='1'
+        };
+      });
+      console.log('[canvas][trace][capture-products]', JSON.stringify(productTrace));
+      if(productTrace.length) console.table(productTrace);
+    }catch(traceErr){
+      console.warn('[canvas][trace][capture-products] failed',traceErr);
+    }
     if(!W||!H){
       console.warn('[02編輯器] Banner 主畫布尺寸無效。');
       if(cb)cb(null);
@@ -1472,6 +1510,7 @@
           console.log('[canvas][capture] capture start');
           if(typeof window.html2canvas !== 'function'){
             console.warn('[02編輯器] html2canvas 不可用，使用基本圖片備援輸出。');
+            console.warn('[canvas][trace][capture-path] fallback:no-html2canvas');
             var basic=makeImageFallback(cv,W,H);
             restore();
             finishWith(basic);
@@ -1484,6 +1523,7 @@
             if(captureSettled) return;
             captureSettled=true;
             console.warn('[canvas][capture] html2canvas timeout, using fallback');
+            console.warn('[canvas][trace][capture-path] fallback:timeout');
             var fallback=makeImageFallback(cv,W,H);
             restore();
             finishWith(fallback);
@@ -1501,6 +1541,7 @@
             captureSettled=true;
             clearTimeout(captureTimer);
             var out=makeFixedOutput(rendered,rendered.width,rendered.height);
+            console.log('[canvas][trace][capture-path] html2canvas:success rendered=' + rendered.width + 'x' + rendered.height);
             restore();
             finishWith(out);
           }).catch(function(err){
@@ -1508,6 +1549,7 @@
             captureSettled=true;
             clearTimeout(captureTimer);
             console.warn('[02編輯器] html2canvas 截圖失敗，使用基本圖片備援輸出。',err);
+            console.warn('[canvas][trace][capture-path] fallback:error');
             var fallback=makeImageFallback(cv,W,H);
             restore();
             finishWith(fallback);

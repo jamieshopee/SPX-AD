@@ -191,10 +191,90 @@
     };
   }
 
+  function normalizeDecision(decision) {
+    var value = String(decision || '').trim();
+    return /^(approved|needs_rerun|rejected)$/.test(value) ? value : '';
+  }
+
+  function setAssetReviewDecision(pipelineState, assetKey, decision, options) {
+    options = options || {};
+    var state = pipelineState || { assets: {} };
+    state.assets = state.assets || {};
+    var key = String(assetKey || '');
+    var record = state.assets[key];
+    var normalized = normalizeDecision(decision);
+    if (!record || !normalized) {
+      return {
+        state: state,
+        record: null,
+        ok: false,
+        reason: record ? 'invalid decision' : 'assetKey not found'
+      };
+    }
+    var decidedAt = options.decidedAt || new Date().toISOString();
+    record.status = normalized;
+    record.review = {
+      decision: normalized,
+      decidedAt: decidedAt,
+      note: options.note || ''
+    };
+    state.reviewUpdatedAt = decidedAt;
+    return {
+      state: state,
+      record: record,
+      ok: true
+    };
+  }
+
+  function getReviewableAssets(pipelineState) {
+    var assets = pipelineState && pipelineState.assets || {};
+    return Object.keys(assets).map(function (assetKey) {
+      return assets[assetKey];
+    }).filter(function (record) {
+      return !!(record && record.processedAsset);
+    }).sort(function (a, b) {
+      var aJob = (a.jobIds && a.jobIds[0]) || '';
+      var bJob = (b.jobIds && b.jobIds[0]) || '';
+      if (aJob !== bJob) return String(aJob).localeCompare(String(bJob), 'zh-Hant');
+      if (a.role !== b.role) return String(a.role).localeCompare(String(b.role), 'en');
+      var aSlot = a.slot == null ? 99 : Number(a.slot);
+      var bSlot = b.slot == null ? 99 : Number(b.slot);
+      if (aSlot !== bSlot) return aSlot - bSlot;
+      return String(a.originalFilename || '').localeCompare(String(b.originalFilename || ''), 'zh-Hant');
+    });
+  }
+
+  function getReviewSummary(pipelineState) {
+    var assets = pipelineState && pipelineState.assets || {};
+    var summary = {
+      total: 0,
+      reviewable: 0,
+      pending: 0,
+      processed: 0,
+      approved: 0,
+      needs_rerun: 0,
+      rejected: 0,
+      missingProcessed: 0
+    };
+    Object.keys(assets).forEach(function (assetKey) {
+      var record = assets[assetKey] || {};
+      var status = record.status || 'pending';
+      summary.total++;
+      if (record.processedAsset) summary.reviewable++;
+      else summary.missingProcessed++;
+      if (summary[status] == null) summary[status] = 0;
+      summary[status]++;
+    });
+    return summary;
+  }
+
   global.BNAssetPipelineState = {
     buildAssetPipelineState: buildAssetPipelineState,
     makeAssetKey: makeAssetKey,
     extractAssetKeyFromProcessedFilename: extractAssetKeyFromProcessedFilename,
-    importProcessedAssets: importProcessedAssets
+    importProcessedAssets: importProcessedAssets,
+    setAssetReviewDecision: setAssetReviewDecision,
+    getReviewableAssets: getReviewableAssets,
+    getReviewSummary: getReviewSummary
   };
 })(window);

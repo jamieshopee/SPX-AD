@@ -103,6 +103,7 @@
             ratio: processed.ratio,
             baselineRatio: processed.baselineRatio,
             name: product.name,
+            filename: item.filename,
             index: i,
             sizeScale: product.sizeScale,
             position: position,
