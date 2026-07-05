@@ -1,11 +1,12 @@
 # Architecture
 
-Version: 2026.07.04-u  
-Last Updated: 2026-07-04  
+Version: v0.3.1  
+Last Updated: 2026-07-05  
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界與新增 Style 流程。
 
 ## What's New
 
+- 新增三商品 Product Identity restore 規則：`id → filename → position`。
 - 新增 Asset shared modules 與 Asset Payload 邊界。
 - 新增 Main Canvas、Thumbnail、Batch Render、Project State、Asset Payload、Photoshop Pipeline 的 State Boundary。
 - `layoutStates` 以 `placementId|templateId` 作為 per size/template transform source。
@@ -256,6 +257,21 @@ apply layoutStates[current placement|template]
   ↓
 capture / thumbnail / export
 ```
+
+### Product Identity
+
+三商品身份識別順序：
+
+1. id
+2. filename
+3. position（最後 fallback）
+
+說明：
+
+- DOM 重建後 id 可能改變。
+- 使用者調整前後順序後，position 不再代表商品身份。
+- filename 為 Batch Restore 的穩定身份。
+- Batch Render、Restore、Project State Restore 不可只依 position 或 array index 對應商品。
 
 重要限制：
 
