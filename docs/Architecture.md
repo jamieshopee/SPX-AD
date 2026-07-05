@@ -6,6 +6,7 @@ Scope: 最新系統架構、Render Flow、Template / Style / Project State / Ass
 
 ## What's New
 
+- 新增 Documentation Structure，說明 AI-HANDOFF、Architecture、CHANGELOG 等文件分工。
 - 新增三商品 Product Identity restore 規則：`id → filename → position`。
 - 新增 Asset shared modules 與 Asset Payload 邊界。
 - 新增 Main Canvas、Thumbnail、Batch Render、Project State、Asset Payload、Photoshop Pipeline 的 State Boundary。
@@ -22,9 +23,10 @@ Scope: 最新系統架構、Render Flow、Template / Style / Project State / Ass
 6. [Asset Payload](#asset-payload)
 7. [State Boundary](#state-boundary)
 8. [Photoshop Pipeline 邊界](#photoshop-pipeline-邊界)
-9. [資料夾結構](#資料夾結構)
-10. [新增 Style 流程](#新增-style-流程)
-11. [維護原則](#維護原則)
+9. [Documentation Structure](#documentation-structure)
+10. [資料夾結構](#資料夾結構)
+11. [新增 Style 流程](#新增-style-流程)
+12. [維護原則](#維護原則)
 
 ## 最新架構圖
 
@@ -320,6 +322,17 @@ Photoshop Pipeline 不可寫：
 - Product / SingleProduct transform
 - Template placement
 - Batch Render runtime state
+
+## Documentation Structure
+
+專案文件分工：
+
+- `README.md`：專案入口、啟動方式與主要文件導覽。
+- `docs/AI-HANDOFF.md`：AI 接手前必讀的專案交接文件，整理目前狀態、邊界、開發規則與 Roadmap。
+- `docs/Architecture.md`：系統架構、Render Flow、State Boundary 與模組關係。
+- `docs/CHANGELOG.md`：版本紀錄、穩定節點與重要設計決策。
+- `docs/控制台開發指引.md`：控制台、Canvas、Project State、Thumbnail、Batch Render 的開發規則。
+- `docs/Photoshop Asset Pipeline.md`：Asset Pipeline、Photoshop Adapter、processed import 與 Review Workspace 規格。
 
 ## 資料夾結構
 
