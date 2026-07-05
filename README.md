@@ -5,6 +5,13 @@
 - 控制台：雙擊 `launch/啟動 AD 管理器（Chrome）.command`
 - 編輯器：雙擊 `launch/啟動編輯器_*.command`
 
+Editor Launcher 行為：
+
+- 四個 Editor Launcher 共用同一個本機 HTTP Server（`127.0.0.1:8080`）。
+- 若已有本專案 Server 正在執行，Launcher 會直接沿用，不重複啟動。
+- 若 `8080` 被其他程式占用且不是本專案 Server，Launcher 會停止舊 Server 並重新啟動。
+- Launcher 會檢查對應 template 是否可正常存取，避免誤判啟動成功。
+
 ## 主要入口
 
 - `index.html`：控制台主入口
