@@ -241,6 +241,25 @@ v0.3.1
 
 Batch product layout restore by filename。修正 Batch Render iframe 重建後三商品身份對應錯誤，三商品 restore 改為 `id → filename → position`，Batch PNG 與 Project State restore 與主 Canvas 一致。
 
+
+## Phase 2E (Planned)
+
+### Smart Layout Propagation
+
+目前不同尺寸 layoutStates 保持獨立。
+
+未來規劃：第一次切到沒有 layoutState 的新尺寸時，可由目前尺寸建立初始 layout（Propagation）。
+
+Propagation 規則：
+
+- 只在 target layoutState 不存在時發生。
+- 建立 target layoutState，而不是 fallback 到 source layoutState。
+- 一旦 target 有自己的 layoutState，就永遠優先使用 target。
+- 不允許跨尺寸互相覆蓋。
+- 不修改 Asset Pipeline、Photoshop、Batch、Project State schema。
+
+目前 Phase 2D-2B-2 中 B 尺寸第一次看到 A 的版面，可視為 Transitional Behavior，不列為 Bug，也不依賴此行為作為正式設計。
+
 ## 7. 下一步建議（Roadmap）
 
 尚未完成或可規劃的功能：
