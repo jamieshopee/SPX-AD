@@ -316,6 +316,49 @@ function layoutStateKeyForJob(job, placementId = job?.placementId || activePlace
   return `${placementId || ''}|${templateId || 'template'}`;
 }
 
+function getPlacementById(id) {
+  return registry?.placements?.find(p => p.id === id) || null;
+}
+
+function getTemplateById(placement, templateId) {
+  if (!placement?.templates?.length) return null;
+  return placement.templates.find(t => t.id === templateId) || placement.templates[0] || null;
+}
+
+function normalizeRenderContext(renderContext = {}, styleId = '01') {
+  const placement = getPlacementById(renderContext.placementId) || activePlacement || registry?.placements?.[0] || null;
+  const template = getTemplateById(placement, renderContext.templateId || activeTemplate?.id || 'template');
+  return {
+    placementId: placement?.id || '',
+    templateId: template?.id || 'template',
+    styleId: normalizeStyleId(renderContext.styleId || styleId || '01'),
+  };
+}
+
+function getActiveRenderContext(styleId = activeJob()?.styleId || '01') {
+  return normalizeRenderContext({
+    placementId: activePlacement?.id || el.placement?.value || '',
+    templateId: activeTemplate?.id || el.template?.value || 'template',
+    styleId,
+  }, styleId);
+}
+
+function getTemplateForRenderContext(job, renderContext = getActiveRenderContext(job?.styleId || '01')) {
+  const context = normalizeRenderContext(renderContext, job?.styleId || '01');
+  const placement = getPlacementById(context.placementId) || activePlacement || defaultPlacementForJob();
+  return getTemplateById(placement, context.templateId) || getTemplateForJob(job);
+}
+
+function layoutStateKeyForRenderContext(job, renderContext = getActiveRenderContext(job?.styleId || '01')) {
+  const context = normalizeRenderContext(renderContext, job?.styleId || '01');
+  return layoutStateKeyForJob(job, context.placementId, context.templateId);
+}
+
+function thumbnailContextKeyForRenderContext(job, renderContext = getActiveRenderContext(job?.styleId || '01')) {
+  const context = normalizeRenderContext(renderContext, job?.styleId || '01');
+  return [context.placementId, context.templateId, context.styleId].join('|');
+}
+
 function defaultPlacementForJob() {
   return activePlacement || registry?.placements?.find(p => p.id === el.placement?.value) || registry?.placements?.[0] || null;
 }
@@ -441,6 +484,7 @@ function readLayoutStateFromFrame(frameWindow) {
 function forceSaveActiveLayoutStateFromFrame(reason = '') {
   const job = activeJob();
   const frameWindow = el.frame?.contentWindow;
+  const key = job ? layoutStateKeyForRenderContext(job, getActiveRenderContext(job.styleId || '01')) : '';
   console.log('[CC][layoutState] force-read start', {
     reason,
     hasJob: !!job,
@@ -456,7 +500,7 @@ function forceSaveActiveLayoutStateFromFrame(reason = '') {
     singleProduct: !!state?.singleProduct && Object.keys(state.singleProduct).length > 0,
   });
   if (!state) return false;
-  setJobLayoutState(job, state, stableLayoutStateKeyForJob(job));
+  setJobLayoutState(job, state, key);
   return true;
 }
 
@@ -534,9 +578,10 @@ function idleDelay(ms = 80) {
   });
 }
 
-function enqueueThumbnail(jobId, priority = false) {
+function enqueueThumbnail(jobId, priority = false, renderContext = null) {
   const job = jobs.find(j => j.id === jobId);
-  const template = getTemplateForJob(job);
+  const context = normalizeRenderContext(renderContext || getActiveRenderContext(job?.styleId || '01'), job?.styleId || '01');
+  const template = getTemplateForRenderContext(job, context);
   const templatePath = ensureTemplatePath(template);
   if (!job || !templatePath) {
     console.warn('[CC][thumb] enqueue skipped', job?.jobId || jobId, 'missing templatePath');
@@ -544,8 +589,9 @@ function enqueueThumbnail(jobId, priority = false) {
   }
   thumbnailQueue.splice(0, thumbnailQueue.length, ...thumbnailQueue.filter(item => item.jobId !== jobId));
   job.thumbnailStatus = job.quickThumbnail ? 'quick' : 'pending';
-  if (priority) thumbnailQueue.unshift({ jobId });
-  else thumbnailQueue.push({ jobId });
+  const queueItem = { jobId, renderContext: context };
+  if (priority) thumbnailQueue.unshift(queueItem);
+  else thumbnailQueue.push(queueItem);
   console.log('[CC][thumb] enqueue', job.jobId || job.id, 'priority=' + !!priority, 'queue=' + thumbnailQueue.map(item => {
     const queued = jobs.find(j => j.id === item.jobId);
     return queued?.jobId || item.jobId;
@@ -566,7 +612,7 @@ function enqueueAllThumbnails(priorityJobId = null) {
     if (av !== -1 || bv !== -1) return (av === -1 ? 9999 : av) - (bv === -1 ? 9999 : bv);
     return jobs.indexOf(a) - jobs.indexOf(b);
   });
-  ordered.forEach(job => enqueueThumbnail(job.id, job.id === priorityJobId));
+  ordered.forEach(job => enqueueThumbnail(job.id, job.id === priorityJobId, getActiveRenderContext(job.styleId || '01')));
 }
 
 function getVisibleJobIds() {
@@ -591,15 +637,16 @@ async function processThumbnailQueue() {
   thumbnailQueueRunning = true;
   try {
     while (thumbnailQueue.length && !thumbnailPaused) {
-      const { jobId } = thumbnailQueue.shift();
+      const { jobId, renderContext } = thumbnailQueue.shift();
       const job = jobs.find(j => j.id === jobId);
       if (!job) continue;
-      const contextKey = thumbnailContextKeyForJob(job);
+      const context = normalizeRenderContext(renderContext || getActiveRenderContext(job.styleId || '01'), job.styleId || '01');
+      const contextKey = thumbnailContextKeyForRenderContext(job, context);
       await idleDelay();
       try {
         console.log('[CC][thumb] thumbnail start', job.jobId || job.id, 'remaining=' + thumbnailQueue.length);
-        const dataUrl = await generateJobThumbnail(job);
-        if (dataUrl && jobs.some(j => j.id === job.id) && contextKey === thumbnailContextKeyForJob(job)) {
+        const dataUrl = await generateJobThumbnail(job, context);
+        if (dataUrl && jobs.some(j => j.id === job.id) && contextKey === thumbnailContextKeyForRenderContext(job, context)) {
           job.thumbnail = await captureThumb(dataUrl);
           job.thumbnailContextKey = contextKey;
           job.thumbnailStatus = 'ready';
@@ -1060,6 +1107,44 @@ async function buildMainCanvasResolvedAssets(job) {
   return resolved;
 }
 
+async function buildThumbnailResolvedAssets(job) {
+  if (!job || !assetPipelineState || !window.BNAssetResolver?.resolveJobAssets) return null;
+  const resolved = window.BNAssetResolver.resolveJobAssets(assetPipelineState, job);
+  const processedItems = (resolved.items || []).filter(item => item.source === 'processed' && item.processedAsset);
+  if (!processedItems.length) return resolved;
+
+  for (const item of processedItems) {
+    const lookupKey = item.processedAsset?.lookupKey || String(item.processedAsset?.filename || '').trim().toLowerCase();
+    const handle = lookupKey ? processedAssetIndex[lookupKey] : null;
+    if (!handle) {
+      console.warn('[CC][thumb][assetResolver] approved processed missing runtime handle, fallback original', {
+        job: job.jobId || job.id,
+        assetKey: item.assetKey,
+        filename: item.originalFilename,
+        processedFilename: item.processedFilename,
+      });
+      continue;
+    }
+    try {
+      item.dataUrl = await handleToDataUrl(handle);
+      console.log('[CC][thumb][assetResolver] processed source ready', {
+        job: job.jobId || job.id,
+        assetKey: item.assetKey,
+        role: item.role,
+        filename: item.originalFilename,
+      });
+    } catch (error) {
+      console.warn('[CC][thumb][assetResolver] processed source read failed, fallback original', {
+        job: job.jobId || job.id,
+        assetKey: item.assetKey,
+        filename: item.originalFilename,
+        error,
+      });
+    }
+  }
+  return resolved;
+}
+
 function formatReviewSummary(summary) {
   if (!summary) return 'review 0';
   return `reviewable ${summary.reviewable || 0} / approved ${summary.approved || 0} / needs_rerun ${summary.needs_rerun || 0} / rejected ${summary.rejected || 0}`;
@@ -1151,7 +1236,7 @@ async function updateMainCanvasImageSourcesForJob(job, reason = '') {
 async function refreshMainCanvasApprovedAssetsForActiveJob(reason = '') {
   const job = activeJob();
   if (!job || !frameReady || !el.frame?.contentWindow) return;
-  const layoutKey = stableLayoutStateKeyForJob(job);
+  const layoutKey = layoutStateKeyForRenderContext(job, getActiveRenderContext(job.styleId || '01'));
   console.log('[CC][assetResolver] refresh main canvas start', { reason, job: job.jobId || job.id, key: layoutKey });
   await syncActiveLayoutState();
   const result = await updateMainCanvasImageSourcesForJob(job, reason);
@@ -1323,7 +1408,7 @@ function getTemplateDisplayName(template = activeTemplate, job = activeJob(), mo
   return template.name || '預設版型';
 }
 
-function createQuickThumbnail(job, template = getTemplateForJob(job)) {
+function createQuickThumbnail(job, template = getTemplateForRenderContext(job)) {
   const json = template?._json || {};
   const w = Number(json.output?.width || json.width || activePlacement?.width || 1080);
   const h = Number(json.output?.height || json.height || activePlacement?.height || 1080);
@@ -1385,24 +1470,20 @@ function shortText(value, max) {
   return text.length > max ? text.slice(0, max) + '…' : text;
 }
 
-function assignQuickThumbnail(job) {
+function assignQuickThumbnail(job, renderContext = getActiveRenderContext(job?.styleId || '01')) {
   if (!job) return;
-  job.quickThumbnail = createQuickThumbnail(job);
+  job.quickThumbnail = createQuickThumbnail(job, getTemplateForRenderContext(job, renderContext));
   if (!job.thumbnail) job.thumbnailStatus = 'quick';
 }
 
-function assignQuickThumbnails(targetJobs = jobs) {
-  targetJobs.forEach(assignQuickThumbnail);
+function assignQuickThumbnails(targetJobs = jobs, renderContext = getActiveRenderContext()) {
+  targetJobs.forEach(job => assignQuickThumbnail(job, { ...renderContext, styleId: job.styleId || renderContext.styleId || '01' }));
   renderJobList();
 }
 
 function thumbnailContextKeyForJob(job) {
   if (!job) return '';
-  return [
-    job.placementId || activePlacement?.id || '',
-    job.template || job.templateId || activeTemplate?.id || 'template',
-    normalizeStyleId(job.styleId || '01')
-  ].join('|');
+  return thumbnailContextKeyForRenderContext(job, getActiveRenderContext(job.styleId || '01'));
 }
 
 function invalidateJobThumbnail(job) {
@@ -1639,17 +1720,17 @@ async function selectJob(id, options = {}) {
   ensureJobPlacementTemplate(job);
   fillFields(job);
   ensureWorkspaceReadyForJob();
-  const jobPlacement = registry?.placements?.find(p => p.id === job.placementId);
-  if (jobPlacement) {
-    activePlacement = jobPlacement;
-    if (el.placement) el.placement.value = jobPlacement.id;
+  const renderContext = getActiveRenderContext(job.styleId || '01');
+  const renderPlacement = getPlacementById(renderContext.placementId) || activePlacement;
+  if (renderPlacement) {
+    activePlacement = renderPlacement;
+    if (el.placement) el.placement.value = renderPlacement.id;
     renderTemplateOptions(false);
   }
-  const jobTemplateId = job.template || job.templateId || 'template';
-  const jobTemplate = activePlacement?.templates?.find(t => t.id === jobTemplateId) || activePlacement?.templates?.[0] || null;
-  if (jobTemplate) {
-    activeTemplate = jobTemplate;
-    if (el.template) el.template.value = jobTemplate.id;
+  const renderTemplate = getTemplateForRenderContext(job, renderContext);
+  if (renderTemplate) {
+    activeTemplate = renderTemplate;
+    if (el.template) el.template.value = renderTemplate.id;
     try {
       const url = new URL(activeTemplate.editorUrl, location.href);
       activeTemplate._templatePath = decodeURIComponent(url.searchParams.get('template') || '');
@@ -1676,7 +1757,7 @@ async function selectJob(id, options = {}) {
     selectTemplate(activePlacement.templates[0].id, { skipSync: true });
   } else if (activeTemplate?._templatePath) {
     pendingRecord = currentRecord();
-    const layoutKey = stableLayoutStateKeyForJob(job);
+    const layoutKey = layoutStateKeyForRenderContext(job, renderContext);
     const savedLayoutState = getJobLayoutState(job, layoutKey);
     setMainFrameLayoutTarget(job, layoutKey);
     const loadSeq = loadCanvas(activeTemplate._templatePath, job.styleId || '01');
@@ -2132,7 +2213,7 @@ async function postLogosToFrame(frameWindow, logoFilenames, label = '') {
   }
 }
 
-async function postProductsToFrame(frameWindow, productFilenames, templateJson, label = '') {
+async function postProductsToFrame(frameWindow, productFilenames, templateJson, label = '', options = {}) {
   if (!productFilenames?.length) {
     console.log('[CC][thumb] products skipped', label);
     return;
@@ -2144,6 +2225,7 @@ async function postProductsToFrame(frameWindow, productFilenames, templateJson, 
     handleToDataUrl,
     trim: autoTrim,
     imageUtils: window.BNImageUtils,
+    resolvedAssets: options.resolvedAssets || null,
     createId: (kind, index) => 'thumb_p_' + Date.now() + '_' + index,
   });
   console.log('[CC][thumb] products mode', label, payload.type);
@@ -2162,11 +2244,12 @@ async function postProductsToFrame(frameWindow, productFilenames, templateJson, 
   }
 }
 
-async function generateJobThumbnail(job) {
+async function generateJobThumbnail(job, renderContext = getActiveRenderContext(job?.styleId || '01')) {
+  const context = normalizeRenderContext(renderContext, job?.styleId || '01');
   const label = job.jobId || String(job.id);
-  const layoutKey = stableLayoutStateKeyForJob(job);
+  const layoutKey = layoutStateKeyForRenderContext(job, context);
   const savedLayoutState = getJobLayoutState(job, layoutKey);
-  const template = getTemplateForJob(job);
+  const template = getTemplateForRenderContext(job, context);
   const templatePath = ensureTemplatePath(template);
   console.log('[CC][thumb] generate begin', label, 'templatePath=' + (templatePath || ''));
   if (!templatePath) {
@@ -2179,8 +2262,9 @@ async function generateJobThumbnail(job) {
   frame.setAttribute('aria-hidden', 'true');
   frame.tabIndex = -1;
   const output = templateJson?.output || {};
-  const width = Number(output.width || templateJson?.width || activePlacement?.width || 1080);
-  const height = Number(output.height || templateJson?.height || activePlacement?.height || 1920);
+  const renderPlacement = getPlacementById(context.placementId) || activePlacement;
+  const width = Number(output.width || templateJson?.width || renderPlacement?.width || 1080);
+  const height = Number(output.height || templateJson?.height || renderPlacement?.height || 1920);
   frame.style.cssText = [
     'position:fixed',
     'left:-100000px',
@@ -2195,7 +2279,7 @@ async function generateJobThumbnail(job) {
   document.body.appendChild(frame);
   try {
     const ready = waitForHiddenFrameReady(frame, HIDDEN_FRAME_READY_TIMEOUT, label);
-    frame.src = `canvas.html?template=${encodeURIComponent(templatePath)}&style=${encodeURIComponent(normalizeStyleId(job.styleId || '01'))}&_thumb=${Date.now()}`;
+    frame.src = `canvas.html?template=${encodeURIComponent(templatePath)}&style=${encodeURIComponent(context.styleId)}&_thumb=${Date.now()}`;
     console.log('[CC][thumb] hidden iframe src set', label, frame.src);
     await ready;
     console.log('[CC][thumb] bn-iframe-ready received', label);
@@ -2204,7 +2288,8 @@ async function generateJobThumbnail(job) {
     await sleep(180);
     await postLogosToFrame(frame.contentWindow, job.logoFilenames || [], label);
     if (job.logoFilenames?.length) await sleep(240);
-    await postProductsToFrame(frame.contentWindow, job.productFilenames || [], templateJson, label);
+    const resolvedAssets = await buildThumbnailResolvedAssets(job);
+    await postProductsToFrame(frame.contentWindow, job.productFilenames || [], templateJson, label, { resolvedAssets });
     if (job.productFilenames?.length) await sleep(420);
     await applyJobLayoutStateToFrame(job, frame.contentWindow, savedLayoutState, { skipRequest: true });
     await waitForFrameImages(frame.contentWindow, 6000);
@@ -2495,17 +2580,9 @@ async function selectPlacement(id) {
   if (!activeJobId) return;
   await syncActiveLayoutState();
   activePlacement = registry.placements.find(p => p.id === id);
-  const job = activeJob();
   const nextTemplate = activePlacement?.templates?.[0] || null;
-  if (job) {
-    job.placementId = activePlacement?.id || '';
-    if (nextTemplate) {
-      job.template = nextTemplate.id;
-      job.templateId = nextTemplate.id;
-    }
-    invalidateJobThumbnail(job);
-  }
   renderTemplateOptions(false);
+  assignQuickThumbnails(jobs, getActiveRenderContext(activeJob()?.styleId || '01'));
   renderJobList();
   if (nextTemplate) {
     await selectTemplate(nextTemplate.id, { skipSync: true });
@@ -2518,13 +2595,9 @@ async function selectTemplate(id, options = {}) {
   activeTemplate = activePlacement.templates.find(t => t.id === id);
   if (!activeTemplate) return;
   const selectedJob = activeJob();
-  const templateChanged = selectedJob && (selectedJob.template !== activeTemplate.id || selectedJob.templateId !== activeTemplate.id);
+  const renderContext = getActiveRenderContext(selectedJob?.styleId || '01');
   if (selectedJob) {
-    selectedJob.template = activeTemplate.id;
-    selectedJob.templateId = activeTemplate.id;
     selectedJob.styleId = normalizeStyleId(selectedJob.styleId || '01');
-    selectedJob.placementId = activePlacement?.id || selectedJob.placementId || '';
-    if (templateChanged) invalidateJobThumbnail(selectedJob);
   }
   window._bnProducts = [];
   window._bnPerson = null;
@@ -2557,7 +2630,7 @@ async function selectTemplate(id, options = {}) {
   // 載入 canvas（不透過 editor）
   pendingRecord = currentRecord();
   if (activeTemplate._templatePath) {
-    const layoutKey = stableLayoutStateKeyForJob(selectedJob);
+    const layoutKey = layoutStateKeyForRenderContext(selectedJob, renderContext);
     const savedLayoutState = getJobLayoutState(selectedJob, layoutKey);
     setMainFrameLayoutTarget(selectedJob, layoutKey);
     const loadSeq = loadCanvas(activeTemplate._templatePath, selectedJob?.styleId || '01');
@@ -2578,6 +2651,7 @@ async function selectTemplate(id, options = {}) {
       }).catch(() => {});
     }
   }
+  assignQuickThumbnails(jobs, renderContext);
   enqueueAllThumbnails(activeJobId);
 }
 
@@ -2769,7 +2843,7 @@ async function renderSingleJob(job) {
     suppressLayoutStateWrites = previousSuppressLayoutStateWrites;
     activePlacement = previousPlacement;
     activeTemplate = previousTemplate;
-    if (activeJobId) setMainFrameLayoutTarget(activeJob(), activeJob() ? stableLayoutStateKeyForJob(activeJob()) : undefined);
+    if (activeJobId) setMainFrameLayoutTarget(activeJob(), activeJob() ? layoutStateKeyForRenderContext(activeJob(), getActiveRenderContext(activeJob()?.styleId || '01')) : undefined);
   }
 }
 
@@ -2984,7 +3058,7 @@ function prepareJobsForStateExport(sourceJobs) {
 async function syncActiveLayoutState() {
   const job = activeJob();
   if (!frameReady || !el.frame?.contentWindow || !job) return;
-  const key = stableLayoutStateKeyForJob(job);
+  const key = layoutStateKeyForRenderContext(job, getActiveRenderContext(job.styleId || '01'));
   traceLayoutState('syncActiveLayoutState:start-current-job-state', job, key, getJobLayoutState(job, key));
   traceFrameLayout('syncActiveLayoutState:start-frame-dom', el.frame.contentWindow, job, key);
   setMainFrameLayoutTarget(job, key);
