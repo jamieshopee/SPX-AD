@@ -1,11 +1,12 @@
 # Architecture
 
-Version: v0.3.1  
-Last Updated: 2026-07-05  
+Version: v0.3.4  
+Last Updated: 2026-07-06  
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界與新增 Style 流程。
 
 ## What's New
 
+- Batch ZIP export 可使用 approved processed assets，並維持 read-only projection 邊界。
 - 新增 Documentation Structure，說明 AI-HANDOFF、Architecture、CHANGELOG 等文件分工。
 - 新增三商品 Product Identity restore 規則：`id → filename → position`。
 - 新增 Asset shared modules 與 Asset Payload 邊界。
@@ -230,6 +231,13 @@ Asset Payload 是素材到 Canvas message 的轉換層，不是 Project State ow
 - Asset Payload 不處理使用者 transform restore。
 - 使用者 transform restore 必須在 payload 套入 Canvas 並等待圖片載入後執行。
 
+
+Approved assets：
+
+- Main Canvas、Thumbnail 與 Batch Render 共用 `BNAssetResolver` 解析 approved processed assets。
+- `asset-render-payload.js` 接收 resolved assets；有 processed dataUrl 時使用 processed source，否則 fallback original。
+- Batch Render 可透過 `BNAssetResolver` 讀取 approved processed assets，但仍不得寫入 `layoutStates` 或 Project State schema。
+
 ## State Boundary
 
 State Boundary 定義哪些流程可以讀或寫 state。
@@ -238,7 +246,7 @@ State Boundary 定義哪些流程可以讀或寫 state。
 |---|---|---|---|
 | Main Canvas | active job、Template、Style、Asset Payload、目前 key 的 `layoutStates` | `job.layoutStates[current placement|template]` | 唯一互動編輯來源 |
 | Thumbnail | 指定 job 的文字、素材、Style、Template、`layoutStates` | `job.thumbnail`、`thumbnailStatus` | hidden iframe 只產縮圖，不寫 transform |
-| Batch Render | render job 自己的文字、素材、Style、Template、`layoutStates` | PNG ZIP、可更新 UI thumbnail | deterministic renderer，不寫 layout state |
+| Batch Render | render job 自己的文字、素材、Style、Template、approved processed assets、`layoutStates` | PNG ZIP、可更新 UI thumbnail | deterministic renderer，不寫 layout state |
 | Project State Export | jobs、assets、style、`layoutStates`、thumbnail | `single-state.json` / `project-state.json` | 只序列化目前狀態 |
 | Project State Import | 暫存 JSON | jobs、assets、style、`layoutStates`、thumbnail | 合法 replace workspace 邊界 |
 | Asset Payload | assets、template default layout | Canvas payload messages | 不碰 Project State |
