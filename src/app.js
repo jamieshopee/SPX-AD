@@ -1072,7 +1072,7 @@ async function resolveReviewProcessedImage(asset) {
   return handle ? handleToDataUrl(handle) : '';
 }
 
-async function buildMainCanvasResolvedAssets(job) {
+async function buildResolvedAssetsForJob(job, scope = 'render') {
   if (!job || !assetPipelineState || !window.BNAssetResolver?.resolveJobAssets) return null;
   const resolved = window.BNAssetResolver.resolveJobAssets(assetPipelineState, job);
   const processedItems = (resolved.items || []).filter(item => item.source === 'processed' && item.processedAsset);
@@ -1082,7 +1082,8 @@ async function buildMainCanvasResolvedAssets(job) {
     const lookupKey = item.processedAsset?.lookupKey || String(item.processedAsset?.filename || '').trim().toLowerCase();
     const handle = lookupKey ? processedAssetIndex[lookupKey] : null;
     if (!handle) {
-      console.warn('[CC][assetResolver] approved processed missing runtime handle, fallback original', {
+      console.warn(`[CC][${scope}][assetResolver] approved processed missing runtime handle, fallback original`, {
+        job: job.jobId || job.id,
         assetKey: item.assetKey,
         filename: item.originalFilename,
         processedFilename: item.processedFilename,
@@ -1091,13 +1092,15 @@ async function buildMainCanvasResolvedAssets(job) {
     }
     try {
       item.dataUrl = await handleToDataUrl(handle);
-      console.log('[CC][assetResolver] main canvas processed source ready', {
+      console.log(`[CC][${scope}][assetResolver] processed source ready`, {
+        job: job.jobId || job.id,
         assetKey: item.assetKey,
         role: item.role,
         filename: item.originalFilename,
       });
     } catch (error) {
-      console.warn('[CC][assetResolver] processed source read failed, fallback original', {
+      console.warn(`[CC][${scope}][assetResolver] processed source read failed, fallback original`, {
+        job: job.jobId || job.id,
         assetKey: item.assetKey,
         filename: item.originalFilename,
         error,
@@ -1107,42 +1110,16 @@ async function buildMainCanvasResolvedAssets(job) {
   return resolved;
 }
 
-async function buildThumbnailResolvedAssets(job) {
-  if (!job || !assetPipelineState || !window.BNAssetResolver?.resolveJobAssets) return null;
-  const resolved = window.BNAssetResolver.resolveJobAssets(assetPipelineState, job);
-  const processedItems = (resolved.items || []).filter(item => item.source === 'processed' && item.processedAsset);
-  if (!processedItems.length) return resolved;
+async function buildMainCanvasResolvedAssets(job) {
+  return buildResolvedAssetsForJob(job, 'main');
+}
 
-  for (const item of processedItems) {
-    const lookupKey = item.processedAsset?.lookupKey || String(item.processedAsset?.filename || '').trim().toLowerCase();
-    const handle = lookupKey ? processedAssetIndex[lookupKey] : null;
-    if (!handle) {
-      console.warn('[CC][thumb][assetResolver] approved processed missing runtime handle, fallback original', {
-        job: job.jobId || job.id,
-        assetKey: item.assetKey,
-        filename: item.originalFilename,
-        processedFilename: item.processedFilename,
-      });
-      continue;
-    }
-    try {
-      item.dataUrl = await handleToDataUrl(handle);
-      console.log('[CC][thumb][assetResolver] processed source ready', {
-        job: job.jobId || job.id,
-        assetKey: item.assetKey,
-        role: item.role,
-        filename: item.originalFilename,
-      });
-    } catch (error) {
-      console.warn('[CC][thumb][assetResolver] processed source read failed, fallback original', {
-        job: job.jobId || job.id,
-        assetKey: item.assetKey,
-        filename: item.originalFilename,
-        error,
-      });
-    }
-  }
-  return resolved;
+async function buildThumbnailResolvedAssets(job) {
+  return buildResolvedAssetsForJob(job, 'thumb');
+}
+
+async function buildBatchResolvedAssets(job) {
+  return buildResolvedAssetsForJob(job, 'batch');
 }
 
 function formatReviewSummary(summary) {
@@ -2818,7 +2795,8 @@ async function renderSingleJob(job) {
 
     // 3. 商品圖
     if (job.productFilenames.length) {
-      await postProductsToFrame(el.frame.contentWindow, job.productFilenames, templateJson, job.jobId || String(job.id));
+      const resolvedAssets = await buildBatchResolvedAssets(job);
+      await postProductsToFrame(el.frame.contentWindow, job.productFilenames, templateJson, job.jobId || String(job.id), { resolvedAssets });
       await sleep(900);
       if (loadSeq !== canvasLoadSeq) throw new Error('render interrupted');
     }
