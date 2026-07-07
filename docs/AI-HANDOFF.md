@@ -47,7 +47,7 @@ Photoshop Pipeline 角色：
 目前最新穩定 Git Tag：
 
 ```text
-v0.3.5
+v0.3.6
 ```
 
 目前分支：
