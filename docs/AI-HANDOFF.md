@@ -88,12 +88,15 @@ Completed：
 - Render Context
 - Master + Style
 - Project State
+- Smart Layout Propagation
 
 目前 Active Phase：
 
 ```text
-Smart Layout Propagation（Proposal）
+None（Waiting for next Proposal）
 ```
+
+Smart Layout Propagation 已完成。目前沒有 Active Phase，下一個 Phase 尚未開始，AI 不要自行 Proposal 下一個 Phase。
 
 Before proposing any implementation：
 
@@ -297,36 +300,20 @@ v0.3.4
 Phase 2D-2C Batch Approved Assets。Batch ZIP export 使用 approved processed assets；Main Canvas / Thumbnail / Batch 共用 `BNAssetResolver` 與 Render Context；Batch 維持 read-only projection，不修改 `layoutStates` schema、Project State schema 或 Photoshop Pipeline。
 
 
-## Phase 2E (Planned)
+## Smart Layout Propagation
 
-### Smart Layout Propagation
+Status：Completed。
 
-目前不同尺寸 layoutStates 保持獨立。
-
-未來規劃：第一次切到沒有 layoutState 的新尺寸時，可由目前尺寸建立初始 layout（Propagation）。
-
-Propagation 規則：
-
-- 只在 target layoutState 不存在時發生。
-- 建立 target layoutState，而不是 fallback 到 source layoutState。
-- 一旦 target 有自己的 layoutState，就永遠優先使用 target。
-- 不允許跨尺寸互相覆蓋。
-- 不修改 Asset Pipeline、Photoshop、Batch、Project State schema。
-
-目前 Phase 2D-2B-2 中 B 尺寸第一次看到 A 的版面，可視為 Transitional Behavior，不列為 Bug，也不依賴此行為作為正式設計。
+Smart Layout Propagation 已完成並列入 Locked Completed Phases。每個 Job 擁有自己的 runtime-only Master Layout；Propagation 完成後只建立 target size 自己的 `layoutState`，各尺寸永久獨立。Master Layout 不寫入 Project State、不寫入 `layoutStates`、不 Export、不 Import。
 
 ## 7. 下一步建議（Roadmap）
 
 目前 Project State Phase 狀態：Completed。
+Smart Layout Propagation 狀態：Completed。
 
-下一階段：Smart Layout Propagation（Proposal）。
+目前 Active Phase：None（Waiting for next Proposal）。
 
-優先處理：
-
-- 先提出 Smart Layout Propagation Architecture Proposal。
-- 確認「第一次沿用，之後獨立」的 layout propagation 規則。
-- 保持不同尺寸 `layoutStates` 不互相污染。
-- 不修改 Asset Pipeline、Photoshop、Batch、Project State schema，除非先提出 Proposal 並確認。
+下一個 Phase 尚未開始，AI 不要自行 Proposal 下一個 Phase。
 
 Backlog：
 

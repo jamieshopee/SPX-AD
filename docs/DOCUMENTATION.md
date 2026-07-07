@@ -80,6 +80,23 @@
 - 使用者要求
 - Architecture 明確改版
 
+
+### Locked Completed Phase List
+
+Smart Layout Propagation 屬於 Locked Completed Phase。
+
+不得：
+
+- 重新 Proposal
+- 重新設計
+- 重新命名
+
+除非：
+
+- Bug Fix
+- User Request
+- Architecture 明確改版
+
 所有 AI（包含 ChatGPT、Codex、Claude）開始任何新 Phase 前，必須：
 
 1. 先確認目前 Active Phase。

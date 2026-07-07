@@ -1,11 +1,12 @@
 # Architecture
 
-Version: v0.3.5  
-Last Updated: 2026-07-07  
+Version: v0.3.6  
+Last Updated: 2026-07-08  
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界與新增 Style 流程。
 
 ## What's New
 
+- Smart Layout Propagation 已完成：每個 Job 擁有 runtime-only 3 商品 Master Layout，可建立 target size 自己的 layoutState。
 - Project State v4 已完成，保存 Asset Pipeline metadata 與 Review decision，並達成可恢復工作區核心目標。
 - Batch ZIP export 可使用 approved processed assets，並維持 read-only projection 邊界。
 - 新增 Documentation Structure，說明 AI-HANDOFF、Architecture、CHANGELOG 等文件分工。
@@ -23,12 +24,14 @@ Scope: 最新系統架構、Render Flow、Template / Style / Project State / Ass
 4. [Style](#style)
 5. [Project State](#project-state)
 6. [Asset Payload](#asset-payload)
-7. [State Boundary](#state-boundary)
-8. [Photoshop Pipeline 邊界](#photoshop-pipeline-邊界)
-9. [Documentation Structure](#documentation-structure)
-10. [資料夾結構](#資料夾結構)
-11. [新增 Style 流程](#新增-style-流程)
-12. [維護原則](#維護原則)
+7. [Smart Layout Propagation](#smart-layout-propagation)
+8. [Master Layout](#master-layout)
+9. [State Boundary](#state-boundary)
+10. [Photoshop Pipeline 邊界](#photoshop-pipeline-邊界)
+11. [Documentation Structure](#documentation-structure)
+12. [資料夾結構](#資料夾結構)
+13. [新增 Style 流程](#新增-style-流程)
+14. [維護原則](#維護原則)
 
 ## 最新架構圖
 
@@ -255,6 +258,75 @@ Approved assets：
 - Main Canvas、Thumbnail 與 Batch Render 共用 `BNAssetResolver` 解析 approved processed assets。
 - `asset-render-payload.js` 接收 resolved assets；有 processed dataUrl 時使用 processed source，否則 fallback original。
 - Batch Render 可透過 `BNAssetResolver` 讀取 approved processed assets，但仍不得寫入 `layoutStates` 或 Project State schema。
+
+
+## Smart Layout Propagation
+
+Smart Layout Propagation 用於三商品跨尺寸初始排列。
+
+```text
+Master Layout
+  ↓
+Smart Layout Propagation
+  ↓
+Target LayoutState
+```
+
+原則：
+
+- 每個 Job 擁有自己的 3 商品 Master Layout。
+- Master Layout 為 runtime-only。
+- Master Layout 不屬於 Project State。
+- Master Layout 不屬於 `layoutStates`。
+- Master Layout 僅保存三商品。
+- Master Layout 僅作為 Smart Layout Propagation 的來源。
+- 更新 Master Layout 不會影響任何已存在的 layoutState。
+
+Job 架構：
+
+```text
+Job
+├── Master Layout（runtime-only）
+├── layoutState（984）
+├── layoutState（1080）
+├── layoutState（1599）
+└── layoutState（3189）
+```
+
+Propagation 規則：
+
+- 僅處理三商品。
+- 視三商品為一個 Group。
+- 保留：
+  - 相對位置
+  - 大小比例
+  - 個別縮放
+  - 旋轉
+  - zIndex
+- 自動 Fit 至 target Products Zone。
+- 採最大可放比例：
+  - 寬先碰邊界以寬為準。
+  - 高先碰邊界以高為準。
+- Products Zone 水平置中。
+- Products Zone 垂直置中。
+- 建立 target size 自己的 layoutState。
+
+## Master Layout
+
+Master Layout 是 Smart Layout Propagation 的 runtime-only source。
+
+- 每個 Job 擁有自己的 Master Layout。
+- Master Layout 為 runtime-only。
+- 不寫入 Project State。
+- 不寫入 `layoutStates`。
+- 不 Export。
+- 不 Import。
+
+Smart Layout Propagation 完成後：
+
+- 建立 target size 自己的 layoutState。
+- 各尺寸永久獨立。
+- Master Layout 不會持續同步任何 layoutState。
 
 ## State Boundary
 
