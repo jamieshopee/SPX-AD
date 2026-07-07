@@ -72,6 +72,42 @@ feature/project-state-recovery
 - Product identity restore by filename：三商品 restore 使用 `id → filename → position`。
 - Approved Asset Resolver：Main Canvas / Thumbnail / Batch 共用 `BNAssetResolver` 與 Render Context。
 
+
+## Locked Completed Phases
+
+以下 Phase 已正式完成，除非修正 Bug、使用者要求或 Architecture 明確改版，不得重新 Proposal、重新設計、重新命名或推翻既有架構。
+
+Completed：
+
+- CSV
+- Photoshop Pipeline
+- Review Workspace
+- Approved Asset Resolver
+- Main Canvas / Thumbnail use processed asset
+- Batch Approved Assets
+- Render Context
+- Master + Style
+- Project State
+
+目前 Active Phase：
+
+```text
+Smart Layout Propagation（Proposal）
+```
+
+Before proposing any implementation：
+
+AI 必須先確認：
+
+1. 是否屬於目前 Active Phase。
+2. 是否會修改 Locked Completed Phases。
+3. 是否超出目前 Proposal 範圍。
+
+若會影響 Locked Completed Phases：
+
+- 停止 Proposal。
+- 先向使用者說明原因。
+
 ## 3. 專案架構
 
 主要入口與模組責任：

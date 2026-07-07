@@ -63,6 +63,29 @@
 - 若影響接手者判斷：`docs/AI-HANDOFF.md`
 - 完成後記錄：`docs/CHANGELOG.md`
 
+
+## Completed Phase Rule
+
+凡標記為 Completed 的 Phase：
+
+- 不重新 Proposal。
+- 不重新設計。
+- 不重新命名。
+- 不因新對話重新討論。
+- 不因 AI 建議而重新開啟。
+
+只有以下情況可以重新開啟：
+
+- Bug Fix
+- 使用者要求
+- Architecture 明確改版
+
+所有 AI（包含 ChatGPT、Codex、Claude）開始任何新 Phase 前，必須：
+
+1. 先確認目前 Active Phase。
+2. 確認是否會影響 Locked Completed Phases。
+3. 若會影響，先提出 Proposal，由使用者批准後才能修改。
+
 ## 3. Phase Completion Checklist
 
 完成一個 Phase 或穩定節點前，請依序檢查：
