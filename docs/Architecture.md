@@ -6,6 +6,7 @@ Scope: 最新系統架構、Render Flow、Template / Style / Project State / Ass
 
 ## What's New
 
+- Roadmap 已更新：Review Workspace（Crop / Eraser）之後的下一個正式 Phase 為 Photoshop Rerun Automation。
 - Smart Layout Propagation 已完成：每個 Job 擁有 runtime-only 3 商品 Master Layout，可建立 target size 自己的 layoutState。
 - Project State v4 已完成，保存 Asset Pipeline metadata 與 Review decision，並達成可恢復工作區核心目標。
 - Batch ZIP export 可使用 approved processed assets，並維持 read-only projection 邊界。
@@ -19,19 +20,20 @@ Scope: 最新系統架構、Render Flow、Template / Style / Project State / Ass
 ## Table of Contents
 
 1. [最新架構圖](#最新架構圖)
-2. [Render Flow](#render-flow)
-3. [Template](#template)
-4. [Style](#style)
-5. [Project State](#project-state)
-6. [Asset Payload](#asset-payload)
-7. [Smart Layout Propagation](#smart-layout-propagation)
-8. [Master Layout](#master-layout)
-9. [State Boundary](#state-boundary)
-10. [Photoshop Pipeline 邊界](#photoshop-pipeline-邊界)
-11. [Documentation Structure](#documentation-structure)
-12. [資料夾結構](#資料夾結構)
-13. [新增 Style 流程](#新增-style-流程)
-14. [維護原則](#維護原則)
+2. [高階 Roadmap](#高階-roadmap)
+3. [Render Flow](#render-flow)
+4. [Template](#template)
+5. [Style](#style)
+6. [Project State](#project-state)
+7. [Asset Payload](#asset-payload)
+8. [Smart Layout Propagation](#smart-layout-propagation)
+9. [Master Layout](#master-layout)
+10. [State Boundary](#state-boundary)
+11. [Photoshop Pipeline 邊界](#photoshop-pipeline-邊界)
+12. [Documentation Structure](#documentation-structure)
+13. [資料夾結構](#資料夾結構)
+14. [新增 Style 流程](#新增-style-流程)
+15. [維護原則](#維護原則)
 
 ## 最新架構圖
 
@@ -85,6 +87,137 @@ asset-render-payload.js
   ↓
 Canvas postMessage payload
 ```
+
+
+## 高階 Roadmap
+
+目前 Roadmap：
+
+```text
+Completed
+  ├─ CSV
+  ├─ Photoshop Pipeline
+  ├─ Review Workspace
+  ├─ Approved Asset Resolver
+  ├─ Main Canvas / Thumbnail use processed asset
+  ├─ Batch Approved Assets
+  ├─ Render Context
+  ├─ Master + Style
+  ├─ Project State
+  └─ Smart Layout Propagation
+
+Current
+  └─ Review Workspace（Crop / Eraser）
+
+Next
+  └─ Photoshop Rerun Automation
+
+Future
+  ├─ AI Workflow
+  ├─ Extension System
+  └─ UI Upgrade
+```
+
+Photoshop Rerun Automation 是 Review Workspace（Crop / Eraser）完成後的下一個正式 Phase。
+
+## Pipeline Loop
+
+整體素材與輸出 pipeline：
+
+```text
+CSV
+  ↓
+Asset Pipeline
+  ↓
+Review Workspace
+  ↓
+(Approve)
+  ↓
+Approved Asset Resolver
+  ↓
+Render Engine
+  ↓
+Canvas / Thumbnail / Batch
+  ↓
+ZIP Export
+```
+
+Review Workspace 與 Photoshop Rerun Automation 形成 rerun loop：
+
+```text
+Review Workspace
+  ↓
+(Needs Rerun)
+  ↓
+Photoshop Rerun
+  ↓
+Review Workspace
+```
+
+模組邊界：
+
+- Review Workspace 管理 processed assets 的檢視與 decision。
+- Photoshop Rerun Automation 接續 `needs_rerun` decision，回到素材處理流程。
+- Approved Asset Resolver 只解析 approved assets 給 Render Engine 使用。
+- Render Engine 只負責 Canvas / Thumbnail / Batch projection。
+- ZIP Export 只輸出已解析後的 render 結果與可恢復狀態。
+
+Important：
+
+Photoshop Rerun 完成後，不得直接更新 Main Canvas。必須回到 Review Workspace，由使用者重新決定 `approved` 或 `needs_rerun`。
+
+```text
+Photoshop Rerun
+  ↓
+Import Processed Folder
+  ↓
+Return to Review Workspace
+  ↓
+Approve / Needs Rerun
+```
+
+不得跳過 Review Workspace。
+
+### Review Workspace Responsibilities
+
+Review Workspace 負責：
+
+- Review processed assets
+- Crop
+- Eraser
+- Review decision
+- Return approved assets
+- Send needs_rerun to Photoshop Rerun Automation
+
+Review Workspace 不負責：
+
+- Logo editing
+- Main Canvas rendering
+- Thumbnail rendering
+- Batch rendering
+- Photoshop execution
+
+Logo 不屬於 Review Workspace。Logo 維持控制台右側素材編輯。
+
+### Photoshop Rerun Automation Responsibilities
+
+Responsibilities：
+
+- Read needs_rerun assets
+- Export rerun manifest
+- Trigger Photoshop Runner
+- Import Processed Folder
+- Return assets to Review Workspace
+
+Out of Scope：
+
+- Review decision
+- Crop
+- Eraser
+- Canvas
+- Thumbnail
+- Batch
+- Project State redesign
 
 ## Render Flow
 

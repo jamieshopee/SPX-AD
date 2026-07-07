@@ -307,17 +307,55 @@ Smart Layout Propagation 已完成並列入 Locked Completed Phases。每個 Job
 
 ## 7. 下一步建議（Roadmap）
 
-目前 Project State Phase 狀態：Completed。
-Smart Layout Propagation 狀態：Completed。
+Completed：
+
+- CSV
+- Photoshop Pipeline
+- Review Workspace
+- Approved Asset Resolver
+- Main Canvas / Thumbnail use processed asset
+- Batch Approved Assets
+- Render Context
+- Master + Style
+- Project State
+- Smart Layout Propagation
+
+Current：
+
+- Review Workspace（Crop / Eraser）
+
+Next：
+
+- Photoshop Rerun Automation
+
+Photoshop Rerun Automation Phase Scope：
+
+Purpose：
+
+Automate the rerun workflow after Review Workspace marks assets as `needs_rerun`.
+
+Scope：
+
+- Export Rerun Manifest
+- Photoshop Rerun
+- Import Processed Folder
+- Return to Review Workspace
+
+Out of Scope：
+
+- Crop / Eraser
+- Review Workspace UI
+- Approved Asset Resolver redesign
+- Render Engine redesign
+- AI remove background redesign
+
+Future：
+
+- AI Workflow
+- Extension System
+- UI Upgrade
 
 目前 Active Phase：Review Workspace（Crop / Eraser）（Proposal）。
-
-
-Backlog：
-
-- Thumbnail refresh UX。此項為未來優化，不阻擋 Smart Layout Propagation。
-- Windows Photoshop Runner。
-- UI 優化：Review Workspace、thumbnail 狀態、pipeline summary 與錯誤提示。
 
 以上 Roadmap 只代表建議方向。實作前必須另做 Architecture Proposal 並確認 Phase Boundary。
 
