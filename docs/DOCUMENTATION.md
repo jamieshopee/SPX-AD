@@ -116,6 +116,55 @@ Smart Layout Propagation 屬於 Locked Completed Phase。
 - [ ] 更新 `docs/AI-HANDOFF.md` 的穩定版本、分支、Phase 狀態或下一步 Roadmap（如適用）。
 - [ ] Git Tag（穩定版本）已建立，或明確標示尚未 tag。
 
+## Release Flow
+
+固定流程：
+
+```text
+Proposal
+↓
+Audit
+↓
+Implementation Proposal
+↓
+Codex 修改
+↓
+Codex Browser 驗收
+↓
+Jamie 人工驗收
+↓
+Code Commit
+↓
+決定版本號
+↓
+更新所有文件
+↓
+Docs Commit
+↓
+確認 git status clean
+↓
+Git Tag（建立在最新 commit）
+↓
+確認 Tag 指向 HEAD
+↓
+Proposal 下一個 Phase
+↓
+建立新 Git Branch
+↓
+更新 AI-HANDOFF Active Phase（若開始新 Phase）
+↓
+開新 ChatGPT 對話
+```
+
+Release 規則：
+
+- Git Tag 必須建立在最新 commit。
+- AI-HANDOFF 的穩定版本號必須在 Git Tag 前完成更新並 commit。
+- 不得在 Git Tag 後才補版本號文件。
+- Codex 修改後必須先自行完成 Browser 驗收，全部 PASS 後才交給 Jamie 人工驗收。
+- Jamie 人工驗收通過後，才可以進入 Code Commit。
+- 每次文件更新必須一次列出所有需要更新的 md，不得分批猜測。
+
 ## 4. AI 接手規則
 
 - AI 修改前必須先閱讀 `docs/AI-HANDOFF.md`。
