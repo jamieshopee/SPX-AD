@@ -47,13 +47,13 @@ Photoshop Pipeline 角色：
 目前最新穩定 Git Tag：
 
 ```text
-v0.3.4
+v0.3.5
 ```
 
 目前分支：
 
 ```text
-feature/project-state
+feature/project-state-recovery
 ```
 
 已完成：
@@ -66,7 +66,7 @@ feature/project-state
 - Batch ZIP：批次產圖與 ZIP 內 project-state.json。
 - Phase 2D-2C：Batch Approved Assets，Batch ZIP export 已使用 approved processed assets。
 - Project State：single-state.json / project-state.json 匯出與匯入。
-- Project State Phase PS-2A：Project State v4 保存 Asset Pipeline metadata 與 Review decision。
+- Project State Phase：Completed。Project State v4 保存 Asset Pipeline metadata 與 Review decision，已達成可恢復工作區核心目標。
 - Thumbnail System：quickThumbnail 與 hidden iframe 正式縮圖流程。
 - LayoutState Restore：依 `placementId|templateId` 保存與恢復 transform。
 - Product identity restore by filename：三商品 restore 使用 `id → filename → position`。
@@ -169,9 +169,9 @@ position（最後 fallback）
 
 Project State 保存可恢復工作區所需資料。
 
-Project State v4 可保存 Asset Pipeline metadata 與 Review decision，但不可保存 processed image dataUrl、FileSystemHandle、object URL、processedAssetIndex 或 runtime cache。FileSystemHandle、object URL、runtime image index、processed folder runtime cache 都只能存在 runtime。
+Project State v4 可保存 Asset Pipeline metadata 與 Review decision，並已達成可恢復工作區核心目標，但不可保存 processed image dataUrl、FileSystemHandle、object URL、processedAssetIndex 或 runtime cache。FileSystemHandle、object URL、runtime image index、processed folder runtime cache 都只能存在 runtime。
 
-匯入 v4 後若尚未重新 Import Processed Folder，approved processed asset 必須 fallback original；重新 Import Processed Folder 後，Main Canvas 會 refresh 並重新套用 approved processed assets。
+匯入 v4 後若尚未重新 Import Processed Folder，approved processed asset 必須 fallback original；重新 Import Processed Folder 後，Main Canvas 可恢復 approved processed assets。Thumbnail refresh UX 為 Backlog，不阻擋下一階段。
 
 ### runtime cache
 
@@ -281,23 +281,22 @@ Propagation 規則：
 
 ## 7. 下一步建議（Roadmap）
 
-目前 Project State Phase 狀態：PS-2A 已完成。
+目前 Project State Phase 狀態：Completed。
 
-下一個待辦是 Documentation Cleanup #1，不是 Crop / Eraser，也不是 Project State 下一個子階段。
+下一階段：Smart Layout Propagation（Proposal）。
 
 優先處理：
 
-- Documentation Cleanup #1：整理 `docs/Photoshop Asset Pipeline.md`。
-- 將 Photoshop Pipeline 文件分成 Quick Workflow 與 Internal Pipeline。
-- 完成 Photoshop 文件整理後，才繼續 Project State 下一個子階段。
+- 先提出 Smart Layout Propagation Architecture Proposal。
+- 確認「第一次沿用，之後獨立」的 layout propagation 規則。
+- 保持不同尺寸 `layoutStates` 不互相污染。
+- 不修改 Asset Pipeline、Photoshop、Batch、Project State schema，除非先提出 Proposal 並確認。
 
-後續再規劃：
+Backlog：
 
-- Project State 下一個子階段。
+- Thumbnail refresh UX。此項為未來優化，不阻擋 Smart Layout Propagation。
 - Windows Photoshop Runner。
 - UI 優化：Review Workspace、thumbnail 狀態、pipeline summary 與錯誤提示。
-- Thumbnail queue 優化。
-- Phase 2E Smart Layout Propagation。
 - Crop / Eraser 類功能暫不作為下一步。
 
 以上 Roadmap 只代表建議方向。實作前必須另做 Architecture Proposal 並確認 Phase Boundary。

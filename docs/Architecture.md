@@ -1,12 +1,12 @@
 # Architecture
 
-Version: v0.3.4  
+Version: v0.3.5  
 Last Updated: 2026-07-07  
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界與新增 Style 流程。
 
 ## What's New
 
-- Project State v4 保存 Asset Pipeline metadata 與 Review decision，並維持 runtime cache 不入 JSON 的邊界。
+- Project State v4 已完成，保存 Asset Pipeline metadata 與 Review decision，並達成可恢復工作區核心目標。
 - Batch ZIP export 可使用 approved processed assets，並維持 read-only projection 邊界。
 - 新增 Documentation Structure，說明 AI-HANDOFF、Architecture、CHANGELOG 等文件分工。
 - 新增三商品 Product Identity restore 規則：`id → filename → position`。
@@ -198,16 +198,18 @@ Project State 是控制台目前工作區的資料來源。
 - thumbnail / quickThumbnail
 - Asset Pipeline metadata（v4）
 
-Project State v4：
+Project State v4（Completed）：
 
 - `project-state.json` / `single-state.json` 會保存 `assetPipelineState` metadata。
+- Project State 已達成「可恢復工作區」核心目標。
 - 保存 Review decision：`approved` / `needs_rerun` / `rejected`。
 - 保存 `processedAsset` metadata，但不保存 processed image `dataUrl`。
 - 不保存 `FileSystemHandle` / object URL / `processedAssetIndex` / runtime cache。
 - 匯入 v4 後可恢復 Asset Pipeline metadata 與 Review decision。
 - 匯入後若尚未重新 Import Processed Folder，approved processed asset 會 fallback original。
-- 重新 Import Processed Folder 後，Main Canvas 會 refresh 並重新套用 approved processed assets。
-- v2 / v3 舊 Project State 仍可匯入。
+- 重新 Import Processed Folder 後，Main Canvas 可恢復 approved processed assets。
+- v2 / v3 Project State 保持相容。
+- Thumbnail refresh UX 屬於未來優化，不屬於 Project State 缺口。
 
 規則：
 
