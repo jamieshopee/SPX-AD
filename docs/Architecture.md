@@ -1,11 +1,12 @@
 # Architecture
 
 Version: v0.3.4  
-Last Updated: 2026-07-06  
+Last Updated: 2026-07-07  
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界與新增 Style 流程。
 
 ## What's New
 
+- Project State v4 保存 Asset Pipeline metadata 與 Review decision，並維持 runtime cache 不入 JSON 的邊界。
 - Batch ZIP export 可使用 approved processed assets，並維持 read-only projection 邊界。
 - 新增 Documentation Structure，說明 AI-HANDOFF、Architecture、CHANGELOG 等文件分工。
 - 新增三商品 Product Identity restore 規則：`id → filename → position`。
@@ -195,6 +196,18 @@ Project State 是控制台目前工作區的資料來源。
 - Transform
 - layoutStates
 - thumbnail / quickThumbnail
+- Asset Pipeline metadata（v4）
+
+Project State v4：
+
+- `project-state.json` / `single-state.json` 會保存 `assetPipelineState` metadata。
+- 保存 Review decision：`approved` / `needs_rerun` / `rejected`。
+- 保存 `processedAsset` metadata，但不保存 processed image `dataUrl`。
+- 不保存 `FileSystemHandle` / object URL / `processedAssetIndex` / runtime cache。
+- 匯入 v4 後可恢復 Asset Pipeline metadata 與 Review decision。
+- 匯入後若尚未重新 Import Processed Folder，approved processed asset 會 fallback original。
+- 重新 Import Processed Folder 後，Main Canvas 會 refresh 並重新套用 approved processed assets。
+- v2 / v3 舊 Project State 仍可匯入。
 
 規則：
 
@@ -205,6 +218,9 @@ Project State 是控制台目前工作區的資料來源。
 - `layoutStates` key 固定為 `placementId|templateId`。
 - 有 `layoutStates` map 時只能讀目前 key；目前 key 不存在時使用該 template 預設 layout。
 - `layoutState` 僅保留 legacy 相容，不作為跨尺寸同步機制。
+- Project State v4 不修改 `layoutStates` schema。
+- Project State v4 不修改 Main Canvas / Thumbnail / Batch 架構。
+- Project State v4 不修改 Photoshop Pipeline。
 
 ## Asset Payload
 
@@ -247,8 +263,8 @@ State Boundary 定義哪些流程可以讀或寫 state。
 | Main Canvas | active job、Template、Style、Asset Payload、目前 key 的 `layoutStates` | `job.layoutStates[current placement|template]` | 唯一互動編輯來源 |
 | Thumbnail | 指定 job 的文字、素材、Style、Template、`layoutStates` | `job.thumbnail`、`thumbnailStatus` | hidden iframe 只產縮圖，不寫 transform |
 | Batch Render | render job 自己的文字、素材、Style、Template、approved processed assets、`layoutStates` | PNG ZIP、可更新 UI thumbnail | deterministic renderer，不寫 layout state |
-| Project State Export | jobs、assets、style、`layoutStates`、thumbnail | `single-state.json` / `project-state.json` | 只序列化目前狀態 |
-| Project State Import | 暫存 JSON | jobs、assets、style、`layoutStates`、thumbnail | 合法 replace workspace 邊界 |
+| Project State Export | jobs、assets、style、`layoutStates`、thumbnail、Asset Pipeline metadata | `single-state.json` / `project-state.json` | 只序列化可恢復狀態，不保存 runtime cache |
+| Project State Import | 暫存 JSON | jobs、assets、style、`layoutStates`、thumbnail、Asset Pipeline metadata | 合法 replace workspace 邊界；processed runtime source 需重新 Import Processed Folder |
 | Asset Payload | assets、template default layout | Canvas payload messages | 不碰 Project State |
 | Photoshop Pipeline | original / processed / approved assets | asset processing status、approved asset mapping | 不碰 Canvas transform |
 

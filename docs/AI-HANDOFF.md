@@ -53,7 +53,7 @@ v0.3.4
 目前分支：
 
 ```text
-feature/batch-approved-assets
+feature/project-state
 ```
 
 已完成：
@@ -66,6 +66,7 @@ feature/batch-approved-assets
 - Batch ZIP：批次產圖與 ZIP 內 project-state.json。
 - Phase 2D-2C：Batch Approved Assets，Batch ZIP export 已使用 approved processed assets。
 - Project State：single-state.json / project-state.json 匯出與匯入。
+- Project State Phase PS-2A：Project State v4 保存 Asset Pipeline metadata 與 Review decision。
 - Thumbnail System：quickThumbnail 與 hidden iframe 正式縮圖流程。
 - LayoutState Restore：依 `placementId|templateId` 保存與恢復 transform。
 - Product identity restore by filename：三商品 restore 使用 `id → filename → position`。
@@ -168,7 +169,9 @@ position（最後 fallback）
 
 Project State 保存可恢復工作區所需資料。
 
-Project State 不可保存 FileSystemHandle。FileSystemHandle、object URL、runtime image index、processed folder runtime cache 都只能存在 runtime。
+Project State v4 可保存 Asset Pipeline metadata 與 Review decision，但不可保存 processed image dataUrl、FileSystemHandle、object URL、processedAssetIndex 或 runtime cache。FileSystemHandle、object URL、runtime image index、processed folder runtime cache 都只能存在 runtime。
+
+匯入 v4 後若尚未重新 Import Processed Folder，approved processed asset 必須 fallback original；重新 Import Processed Folder 後，Main Canvas 會 refresh 並重新套用 approved processed assets。
 
 ### runtime cache
 
@@ -278,16 +281,19 @@ Propagation 規則：
 
 ## 7. 下一步建議（Roadmap）
 
-下一步 Roadmap 是 Project State，不是 Crop / Eraser。
+目前 Project State Phase 狀態：PS-2A 已完成。
 
-優先規劃：
+下一個待辦是 Documentation Cleanup #1，不是 Crop / Eraser，也不是 Project State 下一個子階段。
 
-- Project State 持久化 Asset Pipeline / Review 狀態。
-- 確認可恢復 workspace 所需的 approved / processed metadata。
-- 維持 FileSystemHandle、object URL、runtime cache 不寫入 Project State。
+優先處理：
+
+- Documentation Cleanup #1：整理 `docs/Photoshop Asset Pipeline.md`。
+- 將 Photoshop Pipeline 文件分成 Quick Workflow 與 Internal Pipeline。
+- 完成 Photoshop 文件整理後，才繼續 Project State 下一個子階段。
 
 後續再規劃：
 
+- Project State 下一個子階段。
 - Windows Photoshop Runner。
 - UI 優化：Review Workspace、thumbnail 狀態、pipeline summary 與錯誤提示。
 - Thumbnail queue 優化。
