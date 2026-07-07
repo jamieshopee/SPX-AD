@@ -53,7 +53,7 @@ v0.3.6
 目前分支：
 
 ```text
-feature/project-state-recovery
+feature/review-workspace
 ```
 
 已完成：
@@ -93,10 +93,9 @@ Completed：
 目前 Active Phase：
 
 ```text
-None（Waiting for next Proposal）
+Review Workspace（Crop / Eraser）（Proposal）
 ```
 
-Smart Layout Propagation 已完成。目前沒有 Active Phase，下一個 Phase 尚未開始，AI 不要自行 Proposal 下一個 Phase。
 
 Before proposing any implementation：
 
@@ -311,16 +310,14 @@ Smart Layout Propagation 已完成並列入 Locked Completed Phases。每個 Job
 目前 Project State Phase 狀態：Completed。
 Smart Layout Propagation 狀態：Completed。
 
-目前 Active Phase：None（Waiting for next Proposal）。
+目前 Active Phase：Review Workspace（Crop / Eraser）（Proposal）。
 
-下一個 Phase 尚未開始，AI 不要自行 Proposal 下一個 Phase。
 
 Backlog：
 
 - Thumbnail refresh UX。此項為未來優化，不阻擋 Smart Layout Propagation。
 - Windows Photoshop Runner。
 - UI 優化：Review Workspace、thumbnail 狀態、pipeline summary 與錯誤提示。
-- Crop / Eraser 類功能暫不作為下一步。
 
 以上 Roadmap 只代表建議方向。實作前必須另做 Architecture Proposal 並確認 Phase Boundary。
 
