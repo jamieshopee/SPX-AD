@@ -1053,6 +1053,13 @@ async function pickProcessedFolder() {
       unmatched: result.unmatched,
     });
     setStatus(`Processed assets 已匯入：matched ${result.matched}，unmatched ${result.unmatched}。`, result.unmatched ? 'error' : 'success');
+    if (result.matched && activeJobId && frameReady) {
+      try {
+        await refreshMainCanvasApprovedAssetsForActiveJob('processed-folder-import');
+      } catch (error) {
+        console.warn('[CC][assetPipeline] processed import main canvas refresh failed', error);
+      }
+    }
   } catch (e) {
     if (e.name !== 'AbortError') {
       setStatus('匯入 processed folder 失敗：' + e.message, 'error');
@@ -3078,11 +3085,12 @@ async function readImageSize(dataUrl) {
 
 async function buildProjectState(sourceJobs, type = 'project') {
   const exportJobs = prepareJobsForStateExport(sourceJobs);
+  const exportedAt = new Date().toISOString();
   const state = {
     schema: 'spx-ad-project-state',
-    version: 3,
+    version: 4,
     type,
-    exportedAt: new Date().toISOString(),
+    exportedAt,
     activePlacementId: activePlacement?.id || exportJobs[0]?.placementId || '',
     activeTemplate: activeTemplate?.id || exportJobs[0]?.template || 'template',
     activeStyle: normalizeStyleId(activeJob()?.styleId || exportJobs[0]?.styleId || '01'),
@@ -3123,6 +3131,9 @@ async function buildProjectState(sourceJobs, type = 'project') {
     assetIdsByKey.set(dedupeKey, id);
     return id;
   };
+
+  const pipelineMetadata = window.BNAssetPipelineState?.exportAssetPipelineMetadataForJobs?.(assetPipelineState, exportJobs, { exportedAt });
+  if (pipelineMetadata) state.assetPipelineState = pipelineMetadata;
 
   for (const job of exportJobs) {
     const item = serializeJobBase(job);
@@ -3193,11 +3204,13 @@ async function importState(file) {
       throw new Error('暫存 JSON 解析失敗');
     }
     if (state.schema !== 'spx-ad-project-state') throw new Error('不支援的暫存格式');
-    if (![2, 3].includes(Number(state.version))) throw new Error('暫存檔版本不相容');
+    if (![2, 3, 4].includes(Number(state.version))) throw new Error('暫存檔版本不相容');
     if (!Array.isArray(state.jobs)) throw new Error('暫存格式不正確：找不到 jobs');
 
     await resetWorkspaceState({ keepAssetsFolder: false });
     assetIndex = {};
+    processedAssetIndex = {};
+    assetPipelineState = window.BNAssetPipelineState?.importAssetPipelineMetadata?.(state.assetPipelineState) || null;
     assetFolderName = file.name.replace(/\.json$/i, '');
     assetSourceMode = 'state';
     const assetsById = new Map();

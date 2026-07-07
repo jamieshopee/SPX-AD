@@ -268,6 +268,125 @@
     return summary;
   }
 
+
+  function clonePlain(value) {
+    if (value == null) return value;
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch (_) {
+      return value;
+    }
+  }
+
+  function sanitizeOriginalAsset(asset) {
+    if (!asset) return null;
+    var result = {};
+    ['filename', 'lookupKey', 'sourceFolderName', 'exists'].forEach(function (key) {
+      if (asset[key] !== undefined) result[key] = asset[key];
+    });
+    return result;
+  }
+
+  function sanitizeProcessedAsset(asset) {
+    if (!asset) return null;
+    var result = {};
+    ['filename', 'lookupKey', 'sourceFolderName', 'exists', 'importedAt'].forEach(function (key) {
+      if (asset[key] !== undefined) result[key] = asset[key];
+    });
+    return result;
+  }
+
+  function sanitizeReview(review) {
+    if (!review) return null;
+    var result = {};
+    ['decision', 'decidedAt', 'note'].forEach(function (key) {
+      if (review[key] !== undefined) result[key] = review[key];
+    });
+    return result;
+  }
+
+  function sanitizePipelineRecord(record) {
+    if (!record || !record.assetKey) return null;
+    var result = {
+      assetKey: record.assetKey,
+      originalFilename: record.originalFilename || '',
+      role: record.role || 'asset',
+      mode: record.mode || '',
+      slot: record.slot == null ? null : record.slot,
+      jobIds: Array.isArray(record.jobIds) ? record.jobIds.slice() : [],
+      status: record.status || 'pending'
+    };
+    var originalAsset = sanitizeOriginalAsset(record.originalAsset);
+    var processedAsset = sanitizeProcessedAsset(record.processedAsset);
+    var review = sanitizeReview(record.review);
+    if (originalAsset) result.originalAsset = originalAsset;
+    if (processedAsset) result.processedAsset = processedAsset;
+    if (review) result.review = review;
+    return result;
+  }
+
+  function assetBelongsToAnyJob(record, jobs) {
+    if (!record || !Array.isArray(jobs) || !jobs.length) return false;
+    var recordJobIds = (record.jobIds || []).map(function (value) { return String(value); });
+    var filename = String(record.originalFilename || record.originalAsset && record.originalAsset.filename || '').trim().toLowerCase();
+    return jobs.some(function (job) {
+      var jobKeys = [job && job.jobId, job && job.id, job && job.outputFilename]
+        .filter(function (value) { return value !== undefined && value !== null; })
+        .map(function (value) { return String(value); });
+      if (recordJobIds.some(function (jobId) { return jobKeys.indexOf(jobId) >= 0; })) return true;
+      if (!filename) return false;
+      var filenames = []
+        .concat(job && job.logoFilenames || [])
+        .concat(job && job.productFilenames || [])
+        .map(function (value) { return String(value || '').trim().toLowerCase(); });
+      return filenames.indexOf(filename) >= 0;
+    });
+  }
+
+  function exportAssetPipelineMetadataForJobs(pipelineState, jobs, options) {
+    options = options || {};
+    if (!pipelineState) return null;
+    var assets = pipelineState.assets || pipelineState.records || {};
+    var records = {};
+    Object.keys(assets).forEach(function (assetKey) {
+      var record = assets[assetKey];
+      if (!assetBelongsToAnyJob(record, jobs || [])) return;
+      var sanitized = sanitizePipelineRecord(record);
+      if (sanitized) records[sanitized.assetKey] = sanitized;
+    });
+    return {
+      schema: 'spx-ad-asset-pipeline-state',
+      version: 1,
+      exportedAt: options.exportedAt || new Date().toISOString(),
+      sourceFolderName: pipelineState.sourceFolderName || '',
+      createdAt: pipelineState.createdAt || '',
+      processedImportedAt: pipelineState.processedImportedAt || '',
+      reviewUpdatedAt: pipelineState.reviewUpdatedAt || '',
+      records: records,
+      unmatchedProcessedAssets: clonePlain(pipelineState.unmatchedProcessedAssets || [])
+    };
+  }
+
+  function importAssetPipelineMetadata(metadata) {
+    if (!metadata || metadata.schema !== 'spx-ad-asset-pipeline-state') return null;
+    var sourceRecords = metadata.records || metadata.assets || {};
+    var assets = {};
+    Object.keys(sourceRecords).forEach(function (assetKey) {
+      var sanitized = sanitizePipelineRecord(sourceRecords[assetKey]);
+      if (sanitized) assets[sanitized.assetKey] = sanitized;
+    });
+    return {
+      schema: 'spx-ad-asset-pipeline-state',
+      version: Number(metadata.version) || 1,
+      sourceFolderName: metadata.sourceFolderName || '',
+      createdAt: metadata.createdAt || metadata.exportedAt || new Date().toISOString(),
+      processedImportedAt: metadata.processedImportedAt || '',
+      reviewUpdatedAt: metadata.reviewUpdatedAt || '',
+      assets: assets,
+      unmatchedProcessedAssets: clonePlain(metadata.unmatchedProcessedAssets || [])
+    };
+  }
+
   global.BNAssetPipelineState = {
     buildAssetPipelineState: buildAssetPipelineState,
     makeAssetKey: makeAssetKey,
@@ -275,6 +394,8 @@
     importProcessedAssets: importProcessedAssets,
     setAssetReviewDecision: setAssetReviewDecision,
     getReviewableAssets: getReviewableAssets,
-    getReviewSummary: getReviewSummary
+    getReviewSummary: getReviewSummary,
+    exportAssetPipelineMetadataForJobs: exportAssetPipelineMetadataForJobs,
+    importAssetPipelineMetadata: importAssetPipelineMetadata
   };
 })(window);
