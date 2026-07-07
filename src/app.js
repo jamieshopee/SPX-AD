@@ -89,6 +89,7 @@ let assetFolderName = '';
 let assetSourceMode = '';
 let assetPipelineState = null;
 let processedAssetIndex = {};
+const productMasterLayoutsByJobId = new Map();
 
 let batchCancelled = false;
 let _readyTimeout  = null;
@@ -398,6 +399,18 @@ function getJobLayoutState(job, key = stableLayoutStateKeyForJob(job)) {
     return cloneLayoutState(states[key] || null);
   }
   return cloneLayoutState(job.layoutState || null);
+}
+
+function getJobLayoutStateStrict(job, key) {
+  if (!job || !key) return null;
+  if (job.layoutStates && Object.prototype.hasOwnProperty.call(job.layoutStates, key)) {
+    return cloneLayoutState(job.layoutStates[key] || null);
+  }
+  const stableKey = stableLayoutStateKeyForJob(job);
+  if (!job.layoutStates && key === stableKey) {
+    return cloneLayoutState(job.layoutState || null);
+  }
+  return null;
 }
 
 function setJobLayoutState(job, state, key = stableLayoutStateKeyForJob(job)) {
@@ -833,6 +846,7 @@ async function resetWorkspaceState(options = {}) {
   clearThumbnailWork();
 
   jobs = [];
+  productMasterLayoutsByJobId.clear();
   activeJobId = null;
   jobIdSeq = 1;
   activePlacement = null;
@@ -1377,6 +1391,210 @@ function activeJob() {
   return jobs.find(j => j.id === activeJobId) || null;
 }
 
+
+function isThreeProductJob(job) {
+  return inferMaterialModeFromJob(job) === 'three_products';
+}
+
+function productMasterLayoutKeyForJob(job) {
+  return job ? String(job.id || job.jobId || '') : '';
+}
+
+function getRuntimeProductMasterLayout(job) {
+  if (!job) return null;
+  if (job.productMasterLayout) return job.productMasterLayout;
+  const key = productMasterLayoutKeyForJob(job);
+  const stored = key ? productMasterLayoutsByJobId.get(key) : null;
+  if (stored) setRuntimeProductMasterLayout(job, stored);
+  return stored || null;
+}
+
+function setRuntimeProductMasterLayout(job, masterLayout) {
+  if (!job || !masterLayout) return;
+  const copy = cloneLayoutState(masterLayout);
+  Object.defineProperty(job, 'productMasterLayout', {
+    value: copy,
+    writable: true,
+    configurable: true,
+    enumerable: false,
+  });
+  const key = productMasterLayoutKeyForJob(job);
+  if (key) productMasterLayoutsByJobId.set(key, cloneLayoutState(copy));
+}
+
+function hasThreeProductLayoutState(state) {
+  return !!window.BNSmartLayoutPropagation?.hasProductsLayout?.(state);
+}
+
+async function getActiveTemplateProductsZone(styleId) {
+  if (!activeTemplate) return null;
+  const templateJson = activeTemplate._json || await ensureTemplateJson(activeTemplate, normalizeStyleId(styleId || '01'));
+  return window.BNSmartLayoutPropagation?.productsZoneFromTemplate?.(templateJson) || null;
+}
+
+function mergeProductsIntoLayoutState(baseState, productsState) {
+  const next = cloneLayoutState(baseState) || {};
+  next.products = cloneLayoutState(productsState?.products || []) || [];
+  return next;
+}
+
+function ensureProductMasterControls() {
+  const resetBtn = document.getElementById('bn-prod-reset-btn');
+  if (!resetBtn || document.getElementById('bn-product-master-actions')) {
+    updateProductMasterControls();
+    return;
+  }
+  const wrap = document.createElement('div');
+  wrap.id = 'bn-product-master-actions';
+  wrap.className = 'bn-product-master-actions';
+  wrap.innerHTML = [
+    '<button type="button" class="bn-master-layout-btn" id="bn-update-master-layout-btn">更新 Master Layout</button>',
+    '<button type="button" class="bn-master-layout-btn" id="bn-apply-master-layout-btn">套用 Master Layout</button>',
+  ].join('');
+  resetBtn.insertAdjacentElement('afterend', wrap);
+  document.getElementById('bn-update-master-layout-btn')?.addEventListener('click', updateProductMasterLayoutForActiveJob);
+  document.getElementById('bn-apply-master-layout-btn')?.addEventListener('click', () => applyProductMasterLayoutForActiveJob({ manual: true }));
+  updateProductMasterControls();
+}
+
+function updateProductMasterControls() {
+  const updateBtn = document.getElementById('bn-update-master-layout-btn');
+  const applyBtn = document.getElementById('bn-apply-master-layout-btn');
+  if (!updateBtn || !applyBtn) return;
+  const job = activeJob();
+  const enabled = !!job && isThreeProductJob(job);
+  updateBtn.disabled = !enabled;
+  applyBtn.disabled = !enabled || !getRuntimeProductMasterLayout(job);
+}
+
+function askSmartLayoutPropagationChoice(job, renderContext) {
+  return new Promise(resolve => {
+    const existing = document.getElementById('smart-layout-modal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'smart-layout-modal';
+    modal.className = 'smart-layout-modal';
+    modal.innerHTML = [
+      '<div class="smart-layout-modal-box" role="dialog" aria-modal="true" aria-labelledby="smart-layout-title">',
+      '  <div class="smart-layout-modal-title" id="smart-layout-title">套用 Master Layout？</div>',
+      '  <div class="smart-layout-modal-body">目前尺寸尚未建立三商品排列。可以套用此工單的 Master Layout，或使用此尺寸版型預設。</div>',
+      '  <div class="smart-layout-modal-meta">' + (job?.jobId || job?.id || '') + ' · ' + (renderContext?.placementId || '') + '</div>',
+      '  <div class="smart-layout-modal-actions">',
+      '    <button type="button" class="btn-secondary" data-choice="default">預設</button>',
+      '    <button type="button" class="btn-primary" data-choice="apply">套用</button>',
+      '  </div>',
+      '</div>',
+    ].join('');
+    function finish(choice) {
+      modal.remove();
+      resolve(choice);
+    }
+    modal.addEventListener('click', event => {
+      const choice = event.target?.dataset?.choice;
+      if (choice) finish(choice);
+    });
+    document.body.appendChild(modal);
+    modal.querySelector('[data-choice="apply"]')?.focus();
+  });
+}
+
+async function buildPropagatedProductLayoutStateForActiveTemplate(job, layoutKey) {
+  const masterLayout = getRuntimeProductMasterLayout(job);
+  if (!masterLayout) return null;
+  const targetProductsZone = await getActiveTemplateProductsZone(job.styleId || '01');
+  const productsState = window.BNSmartLayoutPropagation?.propagateProductMasterLayout?.(masterLayout, targetProductsZone);
+  if (!hasThreeProductLayoutState(productsState)) return null;
+  return mergeProductsIntoLayoutState(getJobLayoutStateStrict(job, layoutKey), productsState);
+}
+
+async function resolveSmartProductLayoutForMainCanvas(job, layoutKey, savedLayoutState, frameWindow, renderContext) {
+  if (!job || !isThreeProductJob(job)) return savedLayoutState || null;
+  if (hasThreeProductLayoutState(savedLayoutState)) return savedLayoutState;
+  if (!getRuntimeProductMasterLayout(job)) return savedLayoutState || null;
+
+  const choice = await askSmartLayoutPropagationChoice(job, renderContext);
+  if (choice === 'apply') {
+    const propagated = await buildPropagatedProductLayoutStateForActiveTemplate(job, layoutKey);
+    if (propagated) {
+      scheduleActiveJobThumbnailUpdate(500);
+      setStatus('已套用 Master Layout。', 'success');
+      return propagated;
+    }
+    setStatus('Master Layout 套用失敗，改用版型預設。', 'error');
+  }
+
+  const defaultState = readLayoutStateFromFrame(frameWindow);
+  if (hasThreeProductLayoutState(defaultState)) {
+    scheduleActiveJobThumbnailUpdate(500);
+    setStatus('已使用此尺寸版型預設，並建立 layoutState。', 'success');
+    return defaultState;
+  }
+  return savedLayoutState || null;
+}
+
+async function updateProductMasterLayoutForActiveJob() {
+  const job = activeJob();
+  if (!job || !isThreeProductJob(job)) {
+    setStatus('目前工單不是三商品模式。', 'error');
+    return;
+  }
+  await syncActiveLayoutState();
+  const renderContext = getActiveRenderContext(job.styleId || '01');
+  const layoutKey = layoutStateKeyForRenderContext(job, renderContext);
+  const frameLayoutState = readLayoutStateFromFrame(el.frame?.contentWindow);
+  const layoutState = hasThreeProductLayoutState(frameLayoutState)
+    ? frameLayoutState
+    : getJobLayoutStateStrict(job, layoutKey);
+  if (!hasThreeProductLayoutState(layoutState)) {
+    setStatus('目前尺寸沒有可更新的三商品 layoutState。', 'error');
+    return;
+  }
+  setJobLayoutState(job, layoutState, layoutKey);
+  const sourceProductsZone = await getActiveTemplateProductsZone(job.styleId || '01');
+  const masterLayout = window.BNSmartLayoutPropagation?.captureProductMasterLayout?.(layoutState, {
+    sourceLayoutKey: layoutKey,
+    sourcePlacementId: renderContext.placementId,
+    sourceTemplateId: renderContext.templateId,
+    sourceProductsZone,
+  });
+  if (!masterLayout) {
+    setStatus('Master Layout 更新失敗。', 'error');
+    return;
+  }
+  setRuntimeProductMasterLayout(job, masterLayout);
+  updateProductMasterControls();
+  setStatus('已更新此工單的 Master Layout。', 'success');
+}
+
+async function applyProductMasterLayoutForActiveJob(options = {}) {
+  const job = activeJob();
+  if (!job || !isThreeProductJob(job)) {
+    setStatus('目前工單不是三商品模式。', 'error');
+    return;
+  }
+  if (!getRuntimeProductMasterLayout(job)) {
+    setStatus('此工單尚未建立 Master Layout。', 'error');
+    return;
+  }
+  await syncActiveLayoutState();
+  const renderContext = getActiveRenderContext(job.styleId || '01');
+  const layoutKey = layoutStateKeyForRenderContext(job, renderContext);
+  const existingState = getJobLayoutStateStrict(job, layoutKey);
+  if (options.manual && hasThreeProductLayoutState(existingState)) {
+    const confirmed = window.confirm('目前尺寸已有三商品排列，是否覆蓋？');
+    if (!confirmed) return;
+  }
+  const propagated = await buildPropagatedProductLayoutStateForActiveTemplate(job, layoutKey);
+  if (!propagated) {
+    setStatus('Master Layout 套用失敗。', 'error');
+    return;
+  }
+  setJobLayoutState(job, propagated, layoutKey);
+  await applyJobLayoutStateToFrame(job, el.frame?.contentWindow, propagated);
+  scheduleActiveJobThumbnailUpdate(500);
+  setStatus('已套用 Master Layout。', 'success');
+}
+
 function getRuntimeMaterialMode() {
   if (window._bnPerson || window._bnSingleProd) return 'person_product';
   if (window._bnProducts && window._bnProducts.length) return 'three_products';
@@ -1616,6 +1834,7 @@ function renderAssetFileLists() {
   // logo-file-list / product-file-list 由 plugin 接管；null-safe
   renderAssetList(document.getElementById('logo-file-list'),    job?.logoFilenames    || []);
   renderAssetList(document.getElementById('product-file-list'), job?.productFilenames || []);
+  ensureProductMasterControls();
 }
 
 function renderAssetList(container, filenames) {
@@ -1734,6 +1953,8 @@ async function selectJob(id, options = {}) {
   if (typeof window._bnRenderProdList  === 'function') window._bnRenderProdList();
   if (typeof window._bnRenderLogoList  === 'function') window._bnRenderLogoList();
   updateProductModeLock();
+  ensureProductMasterControls();
+  updateProductMasterControls();
   updateTemplateModeLabel(jobMaterialMode);
   resetMaterialAccordionsForJob(jobMaterialMode);
   // 重載 canvas（乾淨狀態），ready 後自動送文字 + 素材
@@ -1742,7 +1963,7 @@ async function selectJob(id, options = {}) {
   } else if (activeTemplate?._templatePath) {
     pendingRecord = currentRecord();
     const layoutKey = layoutStateKeyForRenderContext(job, renderContext);
-    const savedLayoutState = getJobLayoutState(job, layoutKey);
+    const savedLayoutState = getJobLayoutStateStrict(job, layoutKey);
     setMainFrameLayoutTarget(job, layoutKey);
     const loadSeq = loadCanvas(activeTemplate._templatePath, job.styleId || '01');
     waitForFrameReady(15000).then(async () => {
@@ -1754,8 +1975,12 @@ async function selectJob(id, options = {}) {
       await waitForFrameImages(el.frame.contentWindow, 3000);
       await sleep(180);
       if (loadSeq !== canvasLoadSeq) return;
-      if (savedLayoutState) setJobLayoutState(job, savedLayoutState, layoutKey);
-      await applyJobLayoutStateToFrame(job, el.frame.contentWindow, savedLayoutState);
+      const layoutToApply = await resolveSmartProductLayoutForMainCanvas(job, layoutKey, savedLayoutState, el.frame.contentWindow, renderContext);
+      if (loadSeq !== canvasLoadSeq) return;
+      if (layoutToApply) {
+        setJobLayoutState(job, layoutToApply, layoutKey);
+        await applyJobLayoutStateToFrame(job, el.frame.contentWindow, layoutToApply);
+      }
     }).catch(err => console.warn('[CC] selectJob waitForFrameReady:', err));
   }
   if (!job.thumbnail) enqueueThumbnail(job.id, true);
@@ -2587,6 +2812,8 @@ async function selectTemplate(id, options = {}) {
   window._bnPerson = null;
   window._bnSingleProd = null;
   updateProductModeLock();
+  ensureProductMasterControls();
+  updateProductMasterControls();
   updateTemplateModeLabel(inferMaterialModeFromJob(activeJob()));
 
   // 從 editorUrl 取出 template JSON 路徑（e.g. "templates/1599x1080/template.json"）
@@ -2615,7 +2842,7 @@ async function selectTemplate(id, options = {}) {
   pendingRecord = currentRecord();
   if (activeTemplate._templatePath) {
     const layoutKey = layoutStateKeyForRenderContext(selectedJob, renderContext);
-    const savedLayoutState = getJobLayoutState(selectedJob, layoutKey);
+    const savedLayoutState = getJobLayoutStateStrict(selectedJob, layoutKey);
     setMainFrameLayoutTarget(selectedJob, layoutKey);
     const loadSeq = loadCanvas(activeTemplate._templatePath, selectedJob?.styleId || '01');
     // 若有 active job，ready 後送素材
@@ -2630,8 +2857,12 @@ async function selectTemplate(id, options = {}) {
         await waitForFrameImages(el.frame.contentWindow, 3000);
         await sleep(180);
         if (loadSeq !== canvasLoadSeq) return;
-        if (savedLayoutState) setJobLayoutState(job, savedLayoutState, layoutKey);
-        await applyJobLayoutStateToFrame(job, el.frame.contentWindow, savedLayoutState);
+        const layoutToApply = await resolveSmartProductLayoutForMainCanvas(job, layoutKey, savedLayoutState, el.frame.contentWindow, renderContext);
+        if (loadSeq !== canvasLoadSeq) return;
+        if (layoutToApply) {
+          setJobLayoutState(job, layoutToApply, layoutKey);
+          await applyJobLayoutStateToFrame(job, el.frame.contentWindow, layoutToApply);
+        }
       }).catch(() => {});
     }
   }
