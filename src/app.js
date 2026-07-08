@@ -1087,10 +1087,47 @@ async function resolveReviewOriginalImage(asset) {
   return handle ? handleToDataUrl(handle) : '';
 }
 
+function processedAssetLookupKey(assetOrProcessedAsset) {
+  return assetOrProcessedAsset?.processedAsset?.lookupKey
+    || assetOrProcessedAsset?.lookupKey
+    || String(assetOrProcessedAsset?.processedAsset?.filename || assetOrProcessedAsset?.filename || '').trim().toLowerCase();
+}
+
+async function processedAssetEntryToDataUrl(entry) {
+  if (!entry) return '';
+  if (typeof entry === 'string') return entry;
+  if (entry.dataUrl) return entry.dataUrl;
+  if (entry.handle) return handleToDataUrl(entry.handle);
+  if (typeof entry.getFile === 'function') return handleToDataUrl(entry);
+  return '';
+}
+
 async function resolveReviewProcessedImage(asset) {
-  const lookupKey = asset?.processedAsset?.lookupKey || String(asset?.processedAsset?.filename || '').trim().toLowerCase();
-  const handle = lookupKey ? processedAssetIndex[lookupKey] : null;
-  return handle ? handleToDataUrl(handle) : '';
+  const lookupKey = processedAssetLookupKey(asset);
+  const entry = lookupKey ? processedAssetIndex[lookupKey] : null;
+  return processedAssetEntryToDataUrl(entry);
+}
+
+function saveReviewProcessedRuntimeAsset(asset, payload) {
+  const lookupKey = processedAssetLookupKey(asset);
+  if (!lookupKey || !payload?.dataUrl) return { ok: false };
+  processedAssetIndex[lookupKey] = {
+    dataUrl: payload.dataUrl,
+    filename: asset?.processedAsset?.filename || lookupKey,
+    lookupKey,
+    width: payload.width || 0,
+    height: payload.height || 0,
+    runtimeOnly: true,
+    cleaned: true,
+    updatedAt: new Date().toISOString(),
+  };
+  console.log('[CC][assetReview] runtime processed asset saved', {
+    assetKey: asset?.assetKey,
+    lookupKey,
+    width: payload.width || 0,
+    height: payload.height || 0,
+  });
+  return { ok: true, lookupKey };
 }
 
 async function buildResolvedAssetsForJob(job, scope = 'render') {
@@ -1100,9 +1137,9 @@ async function buildResolvedAssetsForJob(job, scope = 'render') {
   if (!processedItems.length) return resolved;
 
   for (const item of processedItems) {
-    const lookupKey = item.processedAsset?.lookupKey || String(item.processedAsset?.filename || '').trim().toLowerCase();
-    const handle = lookupKey ? processedAssetIndex[lookupKey] : null;
-    if (!handle) {
+    const lookupKey = processedAssetLookupKey(item.processedAsset);
+    const entry = lookupKey ? processedAssetIndex[lookupKey] : null;
+    if (!entry) {
       console.warn(`[CC][${scope}][assetResolver] approved processed missing runtime handle, fallback original`, {
         job: job.jobId || job.id,
         assetKey: item.assetKey,
@@ -1112,7 +1149,8 @@ async function buildResolvedAssetsForJob(job, scope = 'render') {
       continue;
     }
     try {
-      item.dataUrl = await handleToDataUrl(handle);
+      item.dataUrl = await processedAssetEntryToDataUrl(entry);
+      if (!item.dataUrl) throw new Error('Processed asset source is empty');
       console.log(`[CC][${scope}][assetResolver] processed source ready`, {
         job: job.jobId || job.id,
         assetKey: item.assetKey,
@@ -1267,6 +1305,7 @@ function openAssetReviewWorkspace() {
     pipelineState: assetPipelineState,
     resolveOriginalImage: resolveReviewOriginalImage,
     resolveProcessedImage: resolveReviewProcessedImage,
+    onSaveProcessedAsset: saveReviewProcessedRuntimeAsset,
     onDecision(assetKey, decision) {
       const result = window.BNAssetPipelineState.setAssetReviewDecision(assetPipelineState, assetKey, decision);
       assetPipelineState = result.state;
