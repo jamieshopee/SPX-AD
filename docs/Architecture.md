@@ -98,6 +98,7 @@ Completed
   ├─ CSV
   ├─ Photoshop Pipeline
   ├─ Review Workspace
+  ├─ Review Workspace（Crop / Eraser）
   ├─ Approved Asset Resolver
   ├─ Main Canvas / Thumbnail use processed asset
   ├─ Batch Approved Assets
@@ -107,10 +108,10 @@ Completed
   └─ Smart Layout Propagation
 
 Current
-  └─ Review Workspace（Crop / Eraser）
+  └─ None（Waiting for next Proposal）
 
 Next
-  └─ Photoshop Rerun Automation
+  └─ Photoshop Rerun Automation（Proposal）
 
 Future
   ├─ AI Workflow
@@ -118,7 +119,7 @@ Future
   └─ UI Upgrade
 ```
 
-Photoshop Rerun Automation 是 Review Workspace（Crop / Eraser）完成後的下一個正式 Phase。
+Review Workspace（Crop / Eraser）已完成。Photoshop Rerun Automation 是下一個正式 Phase（Proposal）。
 
 ## Pipeline Loop
 

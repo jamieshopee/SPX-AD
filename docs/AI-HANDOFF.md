@@ -82,6 +82,7 @@ Completed：
 - CSV
 - Photoshop Pipeline
 - Review Workspace
+- Review Workspace（Crop / Eraser）
 - Approved Asset Resolver
 - Main Canvas / Thumbnail use processed asset
 - Batch Approved Assets
@@ -93,7 +94,13 @@ Completed：
 目前 Active Phase：
 
 ```text
-Review Workspace（Crop / Eraser）（Proposal）
+None（Waiting for next Proposal）
+```
+
+Next Phase：
+
+```text
+Photoshop Rerun Automation（Proposal）
 ```
 
 
@@ -312,6 +319,7 @@ Completed：
 - CSV
 - Photoshop Pipeline
 - Review Workspace
+- Review Workspace（Crop / Eraser）
 - Approved Asset Resolver
 - Main Canvas / Thumbnail use processed asset
 - Batch Approved Assets
@@ -322,11 +330,11 @@ Completed：
 
 Current：
 
-- Review Workspace（Crop / Eraser）
+- None（Waiting for next Proposal）
 
 Next：
 
-- Photoshop Rerun Automation
+- Photoshop Rerun Automation（Proposal）
 
 Photoshop Rerun Automation Phase Scope：
 
@@ -355,7 +363,7 @@ Future：
 - Extension System
 - UI Upgrade
 
-目前 Active Phase：Review Workspace（Crop / Eraser）（Proposal）。
+目前 Active Phase：None（Waiting for next Proposal）。下一個 Phase 為 Photoshop Rerun Automation（Proposal）。
 
 以上 Roadmap 只代表建議方向。實作前必須另做 Architecture Proposal 並確認 Phase Boundary。
 

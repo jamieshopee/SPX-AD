@@ -83,7 +83,10 @@
 
 ### Locked Completed Phase List
 
-Smart Layout Propagation 屬於 Locked Completed Phase。
+以下屬於 Locked Completed Phase：
+
+- Smart Layout Propagation
+- Review Workspace（Crop / Eraser）
 
 不得：
 
@@ -164,6 +167,73 @@ Release 規則：
 - Codex 修改後必須先自行完成 Browser 驗收，全部 PASS 後才交給 Jamie 人工驗收。
 - Jamie 人工驗收通過後，才可以進入 Code Commit。
 - 每次文件更新必須一次列出所有需要更新的 md，不得分批猜測。
+
+
+### Review Workspace Phase SOP
+
+Review Workspace（Crop / Eraser）Phase 已採用並驗證以下開發流程：
+
+```text
+Proposal
+↓
+Audit（Codex）
+↓
+Implementation Proposal
+↓
+Implementation Audit（Codex）
+↓
+Coding
+↓
+Browser Validation（Codex）
+↓
+Jamie Manual Validation
+↓
+Code Commit
+↓
+Phase Retrospective
+↓
+Documentation Update
+↓
+Docs Commit
+↓
+Git Tag
+↓
+Next Branch
+```
+
+Browser Validation 用途：驗證功能是否正確。
+
+Jamie Manual Validation 用途：驗證操作是否符合產品預期。
+
+兩者缺一不可。
+
+### Review Workspace UX Decisions
+
+Crop：
+
+- Wheel Zoom：Disabled
+- Space Pan：Disabled
+- Double Click Fit：Disabled
+
+Eraser：
+
+- Wheel Zoom：Enabled
+- Zoom to Cursor
+- Space Pan
+- Double Click Fit
+
+### Review Workspace Runtime Boundary
+
+Save 只更新 Runtime Processed Asset。
+
+不得修改：
+
+- Canvas
+- Thumbnail
+- Batch
+- Resolver API
+- Project State schema
+- Photoshop Pipeline
 
 ## 4. AI 接手規則
 
