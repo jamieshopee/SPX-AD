@@ -47,7 +47,7 @@ Photoshop Pipeline 角色：
 目前最新穩定 Git Tag：
 
 ```text
-v0.4.1
+v0.4.2
 ```
 
 目前分支：
@@ -63,6 +63,7 @@ feature/review-workspace-ux-polish
 - Asset Pipeline Phase 2A：assetPipeline state、assetKey、manifest export、processed folder import。
 - Photoshop Adapter Phase 2B：Photoshop manifest runner、remove background prototype、run report。
 - Review Workspace Phase 2C：processed assets 檢視與 approved / needs_rerun decision。
+- Review Workspace UX Polish：Auto Next、Multi-pass Review、Review Progress Header、Smart Entry、Keyboard Shortcuts、Decision Guard、Remove Drag Tool。
 - Batch ZIP：批次產圖與 ZIP 內 project-state.json。
 - Phase 2D-2C：Batch Approved Assets，Batch ZIP export 已使用 approved processed assets。
 - Project State：single-state.json / project-state.json 匯出與匯入。
@@ -83,6 +84,7 @@ Completed：
 - Photoshop Pipeline
 - Review Workspace
 - Review Workspace（Crop / Eraser）
+- Review Workspace UX Polish
 - Photoshop Rerun Automation
 - Approved Asset Resolver
 - Main Canvas / Thumbnail use processed asset
@@ -95,7 +97,7 @@ Completed：
 目前 Active Phase：
 
 ```text
-Review Workspace UX Polish（Proposal）
+None（Waiting for next Proposal）
 ```
 
 Next Phase：
@@ -311,6 +313,12 @@ v0.4.1
 
 Photoshop Rerun Automation。完成 Needs Rerun Collection、`photoshop-rerun-manifest.json`、Latest Processed overwrite 與 Review return loop；Import Processed Folder 後回到 Review Workspace，不直接更新 Main Canvas / Thumbnail / Batch。
 
+```text
+v0.4.2
+```
+
+Review Workspace UX Polish。完成 Auto Next、Multi-pass Review、Review Progress Header、Smart Entry、Keyboard Shortcuts、Decision Guard 與 Remove Drag Tool；Review Workspace UX Polish 已列入 Locked Completed Phases。
+
 
 ## Smart Layout Propagation
 
@@ -326,6 +334,7 @@ Completed：
 - Photoshop Pipeline
 - Review Workspace
 - Review Workspace（Crop / Eraser）
+- Review Workspace UX Polish
 - Photoshop Rerun Automation
 - Approved Asset Resolver
 - Main Canvas / Thumbnail use processed asset
@@ -337,7 +346,7 @@ Completed：
 
 Current：
 
-- Review Workspace UX Polish（Proposal）
+- None（Waiting for next Proposal）
 
 Next：
 
@@ -357,7 +366,7 @@ Future：
 - Extension System
 - UI Upgrade
 
-目前 Active Phase：Review Workspace UX Polish（Proposal）。Photoshop Rerun Automation 已完成並列入穩定版本 v0.4.1。
+目前 Active Phase：None（Waiting for next Proposal）。Review Workspace UX Polish 已完成，下一個 Phase 尚未開始。
 
 以上 Roadmap 只代表建議方向。實作前必須另做 Architecture Proposal 並確認 Phase Boundary。
 

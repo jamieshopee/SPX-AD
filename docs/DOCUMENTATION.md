@@ -87,6 +87,7 @@
 
 - Smart Layout Propagation
 - Review Workspace（Crop / Eraser）
+- Review Workspace UX Polish
 
 不得：
 
@@ -210,6 +211,20 @@ Browser Validation 用途：驗證功能是否正確。
 Jamie Manual Validation 用途：驗證操作是否符合產品預期。
 
 兩者缺一不可。
+
+### Review Workspace UX Polish Rules
+
+Review Workspace UX Polish 已完成並列入 Locked Completed Phase。後續不得重新設計既有 Review workflow，除非屬於 Bug Fix、User Request 或 Architecture 明確改版。
+
+UX 規範：
+
+- Auto Next：`Approve` 或 `Needs Rerun` 儲存 decision 後自動前往下一張；最後一張停留並顯示 completed header。
+- Multi-pass Review：支援 `All Assets` 與 `Needs Rerun Only`。Needs Rerun rerun 後可用 runtime-only subset 回到第二輪 review。
+- Remove Drag Tool：不保留 persistent Drag Tool。Pan 是 momentary action，不是 persistent tool。
+- Keyboard Shortcuts：Review Workspace 開啟時才啟用；焦點在文字輸入、slider 或可編輯元件時不得攔截。
+- Review Progress Header：依目前 filter 顯示 `current / total`、Approved count 與 Needs Rerun count。
+- Smart Entry：重新開啟時優先定位未 review asset；已 approved 不得被當成未 review。
+- Decision Guard：`Undo Last Decision` 只撤回上一個 `Approve` / `Needs Rerun` decision，runtime-only，不新增 Project State history schema。
 
 ### Review Workspace UX Decisions
 

@@ -1,12 +1,13 @@
 # Architecture
 
-Version: v0.4.1  
+Version: v0.4.2  
 Last Updated: 2026-07-09  
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界與新增 Style 流程。
 
 ## What's New
 
-- Roadmap 已更新：Photoshop Rerun Automation 已完成，形成 needs_rerun rerun loop。
+- Roadmap 已更新：Review Workspace UX Polish 已完成，目前沒有 Active Phase。
+- Review Workspace UX Polish 完成：Auto Next、Multi-pass Review、Progress Header、Smart Entry、Keyboard Shortcuts、Decision Guard 與 Remove Drag Tool。
 - Smart Layout Propagation 已完成：每個 Job 擁有 runtime-only 3 商品 Master Layout，可建立 target size 自己的 layoutState。
 - Project State v4 已完成，保存 Asset Pipeline metadata 與 Review decision，並達成可恢復工作區核心目標。
 - Batch ZIP export 可使用 approved processed assets，並維持 read-only projection 邊界。
@@ -99,6 +100,7 @@ Completed
   ├─ Photoshop Pipeline
   ├─ Review Workspace
   ├─ Review Workspace（Crop / Eraser）
+  ├─ Review Workspace UX Polish
   ├─ Photoshop Rerun Automation
   ├─ Approved Asset Resolver
   ├─ Main Canvas / Thumbnail use processed asset
@@ -109,7 +111,7 @@ Completed
   └─ Smart Layout Propagation
 
 Current
-  └─ Review Workspace UX Polish（Proposal）
+  └─ None（Waiting for next Proposal）
 
 Next
   └─ None（Waiting for next Proposal）
@@ -120,7 +122,7 @@ Future
   └─ UI Upgrade
 ```
 
-Review Workspace（Crop / Eraser）與 Photoshop Rerun Automation 已完成。目前 Active Phase 為 Review Workspace UX Polish（Proposal）。
+Review Workspace（Crop / Eraser）、Photoshop Rerun Automation 與 Review Workspace UX Polish 已完成。目前沒有 Active Phase。
 
 ## Pipeline Loop
 
@@ -179,6 +181,19 @@ Approve / Needs Rerun
 ```
 
 不得跳過 Review Workspace。
+
+### Review Workspace UX Polish
+
+Review Workspace UX Polish 已完成，屬於 Review Workspace 的 workflow / navigation / keyboard UX 層，不改變 Project State schema、Asset Pipeline schema、Approved Asset Resolver、Render Engine、Canvas、Thumbnail 或 Batch。
+
+完成行為：
+
+- Auto Next：`Approve` / `Needs Rerun` 後自動前往下一張。
+- Multi-pass Review：支援 `All Assets` 與 `Needs Rerun Only`。
+- Review Progress Header：依目前 filter 顯示進度與 decision count。
+- Smart Entry：重新開啟時優先定位未 review asset。
+- Decision Guard：支援 runtime-only `Undo Last Decision`。
+- Remove Drag Tool：Pan 改為 Space temporary pan，不再是 persistent tool。
 
 ### Review Workspace Responsibilities
 

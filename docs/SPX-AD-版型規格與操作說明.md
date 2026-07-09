@@ -228,6 +228,17 @@ Review Workspace 只檢查 Photoshop processed result。可操作：
 - 核准：processed asset 可進入 Main Canvas / Thumbnail / Batch。
 - 重新處理：加入 Needs Rerun Collection。
 
+Review Workspace UX：
+
+- `All Assets`：檢視全部可 review 的 processed assets。
+- `Needs Rerun Only`：只檢視本輪需要重新處理的素材。
+- 核准或重新處理後會自動前往下一張；最後一張會顯示完成狀態。
+- Header 會顯示目前進度、Approved 數量與 Needs Rerun 數量。
+- 重新開啟時會優先定位到尚未 review 的素材；已核准素材不會被當成未 review。
+- 可使用 `Undo Last Decision` 撤回上一個核准 / 重新處理 decision。
+- 快捷鍵：`A` 核准、`R` 重新處理、`←` 上一張、`→` 下一張、`Esc` 關閉。
+- Review Workspace 不提供固定拖曳工具；按住 `Space` 可暫時 Pan，放開後回到原工具。
+
 `Run Photoshop Rerun (N)` 會匯出 `photoshop-rerun-manifest.json`，其中 `N` 是目前 `needs_rerun` 素材數量。`N=0` 時不可執行。
 
 Rerun 後再次匯入 Processed Folder，新的 processed asset 會覆蓋上一版 processed asset，但 original asset 仍保留。匯入後會回到 Review Workspace，必須再次核准後才會進入成品渲染。

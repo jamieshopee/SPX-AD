@@ -232,11 +232,24 @@ Decision actions 固定為：
 
 不得再新增 `Rejected` action。原始素材若需要更換，沿用控制台右側素材欄。
 
+
+### Review Workspace UX Polish
+
+- Review Progress Header 必須清楚顯示目前 filter 的 `current / total`、Approved count 與 Needs Rerun count。
+- Review Complete Header 用於最後一張完成後的狀態，不自動關閉 Workspace。
+- Auto Next 是 decision flow 的預設行為；`Approve` / `Needs Rerun` 後自動前往下一張。
+- Keyboard Shortcuts 只在 Review Workspace 開啟時生效；焦點在 input、textarea、select、contenteditable 或 slider 時不得攔截。
+- 快捷鍵：`A` Approve、`R` Needs Rerun、`←` Previous、`→` Next、`Esc` Close、`Space` Temporary Pan。
+- Temporary Pan（Space）是 momentary action，放開 Space 後必須回到原工具。
+- Remove Drag Tool UX Principle：Pan 不應是 persistent tool；不顯示固定 Drag Tool 按鈕。
+
 `Run Photoshop Rerun (N)` 屬於控制台 Header 的流程型 action：
 
 - `N=0` 時 disabled。
 - `N>0` 時可匯出 rerun manifest。
-- 匯入 processed folder 後回到 Review Workspace，不直接刷新 Canvas / Thumbnail / Batch。
+- 匯入 processed folder 後回到 Review Workspace，不刷新 Thumbnail / Batch。
+- 若 Project State 已恢復 `approved` decision，Main Canvas 可透過既有 approved asset refresh flow 更新 approved processed asset source。
+- Main Canvas refresh 僅更新既有 DOM 的圖片來源，不重建 DOM、不重設 transform、不修改 `layoutState`。
 
 ## UI 原則
 
