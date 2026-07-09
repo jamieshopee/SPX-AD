@@ -193,7 +193,14 @@
 
   function normalizeDecision(decision) {
     var value = String(decision || '').trim();
-    return /^(approved|needs_rerun|rejected)$/.test(value) ? value : '';
+    if (value === 'rejected') return 'needs_rerun';
+    return /^(approved|needs_rerun)$/.test(value) ? value : '';
+  }
+
+  function normalizeStatus(status) {
+    var value = String(status || 'pending').trim();
+    if (value === 'rejected') return 'needs_rerun';
+    return /^(pending|processed|approved|needs_rerun)$/.test(value) ? value : 'pending';
   }
 
   function setAssetReviewDecision(pipelineState, assetKey, decision, options) {
@@ -253,12 +260,11 @@
       processed: 0,
       approved: 0,
       needs_rerun: 0,
-      rejected: 0,
       missingProcessed: 0
     };
     Object.keys(assets).forEach(function (assetKey) {
       var record = assets[assetKey] || {};
-      var status = record.status || 'pending';
+      var status = normalizeStatus(record.status || 'pending');
       summary.total++;
       if (record.processedAsset) summary.reviewable++;
       else summary.missingProcessed++;
@@ -298,11 +304,13 @@
 
   function sanitizeReview(review) {
     if (!review) return null;
+    var decision = normalizeDecision(review.decision || '');
     var result = {};
-    ['decision', 'decidedAt', 'note'].forEach(function (key) {
+    if (decision) result.decision = decision;
+    ['decidedAt', 'note'].forEach(function (key) {
       if (review[key] !== undefined) result[key] = review[key];
     });
-    return result;
+    return Object.keys(result).length ? result : null;
   }
 
   function sanitizePipelineRecord(record) {
@@ -314,7 +322,7 @@
       mode: record.mode || '',
       slot: record.slot == null ? null : record.slot,
       jobIds: Array.isArray(record.jobIds) ? record.jobIds.slice() : [],
-      status: record.status || 'pending'
+      status: normalizeStatus(record.status || 'pending')
     };
     var originalAsset = sanitizeOriginalAsset(record.originalAsset);
     var processedAsset = sanitizeProcessedAsset(record.processedAsset);
@@ -341,6 +349,29 @@
         .map(function (value) { return String(value || '').trim().toLowerCase(); });
       return filenames.indexOf(filename) >= 0;
     });
+  }
+
+  function getNeedsRerunAssets(pipelineState) {
+    var assets = pipelineState && pipelineState.assets || {};
+    return Object.keys(assets).map(function (assetKey) {
+      return assets[assetKey];
+    }).filter(function (record) {
+      return !!(record && normalizeStatus(record.status) === 'needs_rerun');
+    }).sort(function (a, b) {
+      var aJob = (a.jobIds && a.jobIds[0]) || '';
+      var bJob = (b.jobIds && b.jobIds[0]) || '';
+      if (aJob !== bJob) return String(aJob).localeCompare(String(bJob), 'zh-Hant');
+      if (a.role !== b.role) return String(a.role).localeCompare(String(b.role), 'en');
+      var aSlot = a.slot == null ? 99 : Number(a.slot);
+      var bSlot = b.slot == null ? 99 : Number(b.slot);
+      if (aSlot !== bSlot) return aSlot - bSlot;
+      return String(a.originalFilename || '').localeCompare(String(b.originalFilename || ''), 'zh-Hant');
+    });
+  }
+
+  function getNeedsRerunSummary(pipelineState) {
+    var items = getNeedsRerunAssets(pipelineState);
+    return { count: items.length, items: items };
   }
 
   function exportAssetPipelineMetadataForJobs(pipelineState, jobs, options) {
@@ -395,6 +426,8 @@
     setAssetReviewDecision: setAssetReviewDecision,
     getReviewableAssets: getReviewableAssets,
     getReviewSummary: getReviewSummary,
+    getNeedsRerunAssets: getNeedsRerunAssets,
+    getNeedsRerunSummary: getNeedsRerunSummary,
     exportAssetPipelineMetadataForJobs: exportAssetPipelineMetadataForJobs,
     importAssetPipelineMetadata: importAssetPipelineMetadata
   };

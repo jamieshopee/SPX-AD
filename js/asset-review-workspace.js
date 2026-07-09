@@ -22,8 +22,7 @@
       pending: 'Pending',
       processed: 'Processed',
       approved: 'Approved',
-      needs_rerun: 'Needs Rerun',
-      rejected: 'Rejected'
+      needs_rerun: 'Needs Rerun'
     };
     return labels[status] || text(status);
   }
@@ -59,7 +58,7 @@
       if (summary[status] == null) summary[status] = 0;
       summary[status]++;
       return summary;
-    }, { reviewable: 0, approved: 0, needs_rerun: 0, rejected: 0 });
+    }, { reviewable: 0, approved: 0, needs_rerun: 0 });
   }
 
   function refreshAssets() {
@@ -85,8 +84,7 @@
     target.textContent = [
       'Reviewable ' + (summary.reviewable || 0),
       'Approved ' + (summary.approved || 0),
-      'Needs Rerun ' + (summary.needs_rerun || 0),
-      'Rejected ' + (summary.rejected || 0)
+      'Needs Rerun ' + (summary.needs_rerun || 0)
     ].join(' / ');
   }
 
@@ -357,9 +355,6 @@
     }));
     actions.appendChild(button('asset-review-action rerun', '重新處理', function () {
       requestDecision(asset.assetKey, 'needs_rerun');
-    }));
-    actions.appendChild(button('asset-review-action reject', '拒絕', function () {
-      requestDecision(asset.assetKey, 'rejected');
     }));
     target.appendChild(actions);
 

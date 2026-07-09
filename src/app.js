@@ -23,6 +23,7 @@ const el = {
   importStateBtn:    document.querySelector('#import-state-btn'),
   importStateFile:   document.querySelector('#import-state-file'),
   manifestBtn:       document.querySelector('#manifest-btn'),
+  rerunManifestBtn:  document.querySelector('#rerun-manifest-btn'),
   processedFolderBtn: document.querySelector('#processed-folder-btn'),
   reviewAssetsBtn:   document.querySelector('#review-assets-btn'),
   folderBtn:        document.querySelector('#folder-btn'),
@@ -861,6 +862,7 @@ async function resetWorkspaceState(options = {}) {
   assetSourceMode = preservedAssetSourceMode;
   assetPipelineState = null;
   processedAssetIndex = {};
+  updateNeedsRerunButton();
 
   resetPluginRuntimeState();
   fillFields({});
@@ -991,6 +993,7 @@ async function pickAssetFolder() {
       assetSourceMode = '';
       assetPipelineState = null;
       processedAssetIndex = {};
+      updateNeedsRerunButton();
       setTopbarBadge(el.folderStatus, el.folderStatusText, '');
       renderAssetFileLists();
     } else {
@@ -1004,6 +1007,16 @@ function lookupAsset(filename) {
   return assetIndex[filename.trim().toLowerCase()] || null;
 }
 
+function updateNeedsRerunButton() {
+  const count = window.BNAssetPipelineState?.getNeedsRerunAssets?.(assetPipelineState)?.length || 0;
+  if (el.rerunManifestBtn) {
+    el.rerunManifestBtn.textContent = `Run Photoshop Rerun (${count})`;
+    el.rerunManifestBtn.disabled = count <= 0;
+    el.rerunManifestBtn.classList.toggle('is-disabled', count <= 0);
+  }
+  return count;
+}
+
 function refreshAssetPipelineState() {
   if (!window.BNAssetPipelineState?.buildAssetPipelineState) return null;
   assetPipelineState = window.BNAssetPipelineState.buildAssetPipelineState({
@@ -1012,6 +1025,7 @@ function refreshAssetPipelineState() {
     hasAsset: filename => !!lookupAsset(filename),
   });
   const count = Object.keys(assetPipelineState.assets || {}).length;
+  updateNeedsRerunButton();
   console.log('[CC][assetPipeline] state refreshed', { count, sourceFolderName: assetFolderName });
   return assetPipelineState;
 }
@@ -1029,6 +1043,21 @@ function exportPhotoshopManifest() {
   const manifest = window.BNAssetPipelineManifest.buildPhotoshopJobManifest(state);
   downloadJson(manifest, 'photoshop-job-manifest.json');
   setStatus(`Photoshop manifest 已建立（${manifest.itemCount} 個素材）。`, 'success');
+}
+
+function exportPhotoshopRerunManifest() {
+  if (!assetPipelineState) {
+    setStatus('尚無 Needs Rerun Collection，請先完成 processed review。', 'error');
+    return;
+  }
+  const count = updateNeedsRerunButton();
+  if (!count) {
+    setStatus('目前沒有 needs_rerun 素材。', 'error');
+    return;
+  }
+  const manifest = window.BNAssetPipelineManifest.buildPhotoshopRerunManifest(assetPipelineState);
+  downloadJson(manifest, 'photoshop-rerun-manifest.json');
+  setStatus(`Photoshop rerun manifest 已建立（${manifest.itemCount} 個素材）。請沿用現有 Photoshop Runner。`, 'success');
 }
 
 async function pickProcessedFolder() {
@@ -1066,13 +1095,10 @@ async function pickProcessedFolder() {
       matched: result.matched,
       unmatched: result.unmatched,
     });
+    updateNeedsRerunButton();
     setStatus(`Processed assets 已匯入：matched ${result.matched}，unmatched ${result.unmatched}。`, result.unmatched ? 'error' : 'success');
-    if (result.matched && activeJobId && frameReady) {
-      try {
-        await refreshMainCanvasApprovedAssetsForActiveJob('processed-folder-import');
-      } catch (error) {
-        console.warn('[CC][assetPipeline] processed import main canvas refresh failed', error);
-      }
+    if (result.matched) {
+      openAssetReviewWorkspace();
     }
   } catch (e) {
     if (e.name !== 'AbortError') {
@@ -1183,7 +1209,7 @@ async function buildBatchResolvedAssets(job) {
 
 function formatReviewSummary(summary) {
   if (!summary) return 'review 0';
-  return `reviewable ${summary.reviewable || 0} / approved ${summary.approved || 0} / needs_rerun ${summary.needs_rerun || 0} / rejected ${summary.rejected || 0}`;
+  return `reviewable ${summary.reviewable || 0} / approved ${summary.approved || 0} / needs_rerun ${summary.needs_rerun || 0}`;
 }
 
 function assetBelongsToJob(asset, job) {
@@ -1310,9 +1336,10 @@ function openAssetReviewWorkspace() {
       const result = window.BNAssetPipelineState.setAssetReviewDecision(assetPipelineState, assetKey, decision);
       assetPipelineState = result.state;
       const nextSummary = window.BNAssetPipelineState.getReviewSummary(assetPipelineState);
+      updateNeedsRerunButton();
       setStatus(`Processed review 已更新：${formatReviewSummary(nextSummary)}。`, 'success');
       console.log('[CC][assetPipeline] review decision', { assetKey, decision, ok: result.ok });
-      if (result.ok && assetBelongsToJob(result.record, activeJob())) {
+      if (decision === 'approved' && result.ok && assetBelongsToJob(result.record, activeJob())) {
         refreshMainCanvasApprovedAssetsForActiveJob('review-decision:' + decision).catch(error => {
           console.warn('[CC][assetResolver] refresh main canvas failed after review decision', error);
         });
@@ -3481,6 +3508,7 @@ async function importState(file) {
     assetIndex = {};
     processedAssetIndex = {};
     assetPipelineState = window.BNAssetPipelineState?.importAssetPipelineMetadata?.(state.assetPipelineState) || null;
+    updateNeedsRerunButton();
     assetFolderName = file.name.replace(/\.json$/i, '');
     assetSourceMode = 'state';
     const assetsById = new Map();
@@ -3670,6 +3698,7 @@ el.importStateFile.addEventListener('change', e => {
 // 素材資料夾
 el.folderBtn.addEventListener('click', pickAssetFolder);
 el.manifestBtn?.addEventListener('click', exportPhotoshopManifest);
+el.rerunManifestBtn?.addEventListener('click', exportPhotoshopRerunManifest);
 el.processedFolderBtn?.addEventListener('click', pickProcessedFolder);
 el.reviewAssetsBtn?.addEventListener('click', openAssetReviewWorkspace);
 

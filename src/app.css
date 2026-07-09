@@ -156,6 +156,8 @@ body {
   white-space: nowrap;
 }
 .btn-topbar:hover { background: var(--bg-surface-3); border-color: rgba(255,255,255,.22); }
+.btn-topbar:disabled, .btn-topbar.is-disabled { opacity: .45; cursor: not-allowed; }
+.btn-topbar:disabled:hover, .btn-topbar.is-disabled:hover { background: var(--bg-surface-2); border-color: var(--border-strong); }
 
 /* ─────────────────────────────────────
    工作區：三欄

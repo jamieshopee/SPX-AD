@@ -141,12 +141,6 @@
   background: rgba(255,159,10,.13);
 }
 
-.asset-review-status.status-rejected {
-  color: #ffb4ad;
-  border-color: var(--error-border);
-  background: var(--error-dim);
-}
-
 .asset-review-filename {
   margin-top: 8px;
   color: var(--text-primary);
@@ -265,7 +259,7 @@
 
 .asset-review-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-top: 14px;
 }
@@ -288,11 +282,6 @@
 .asset-review-action.rerun {
   border-color: rgba(255,159,10,.48);
   background: rgba(255,159,10,.16);
-}
-
-.asset-review-action.reject {
-  border-color: var(--error-border);
-  background: var(--error-dim);
 }
 
 .asset-review-action:hover {
