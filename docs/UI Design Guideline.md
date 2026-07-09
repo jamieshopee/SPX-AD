@@ -1,7 +1,7 @@
 # UI Design Guideline
 
 Version: 2026.07.01-s  
-Last Updated: 2026-07-01  
+Last Updated: 2026-07-09  
 Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
@@ -11,6 +11,7 @@ Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 - 明確定義 Template = 排版，Style = 背景 / 資訊圖 / 文字顏色。
 - 補上 `template.json`、`styles/`、`backgrounds/`、`info/` 命名規範。
 - 初始狀態、匯入 CSV、匯入暫存與重設工作區 UI 狀態需保持一致。
+- Review Workspace decision UI 只保留「核准」與「重新處理」。
 
 ## Table of Contents
 
@@ -28,7 +29,8 @@ Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 12. [Color](#color)
 13. [Interaction](#interaction)
 14. [Empty State](#empty-state)
-15. [UI 原則](#ui-原則)
+15. [Review Workspace UI](#review-workspace-ui)
+16. [UI 原則](#ui-原則)
 
 ## 控制台架構圖
 
@@ -217,6 +219,24 @@ Hover、Focus、Disabled、Loading 狀態需一致。
 - Template 與 Style 顯示 `—`。
 - 左側無工單。
 - Canvas 回到空白或初始提示。
+
+
+## Review Workspace UI
+
+Review Workspace 是 processed result 的檢查與修圖工作區，不是素材管理或換圖介面。
+
+Decision actions 固定為：
+
+- 核准
+- 重新處理
+
+不得再新增 `Rejected` action。原始素材若需要更換，沿用控制台右側素材欄。
+
+`Run Photoshop Rerun (N)` 屬於控制台 Header 的流程型 action：
+
+- `N=0` 時 disabled。
+- `N>0` 時可匯出 rerun manifest。
+- 匯入 processed folder 後回到 Review Workspace，不直接刷新 Canvas / Thumbnail / Batch。
 
 ## UI 原則
 

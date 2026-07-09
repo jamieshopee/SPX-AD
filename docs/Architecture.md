@@ -6,7 +6,7 @@ Scope: 最新系統架構、Render Flow、Template / Style / Project State / Ass
 
 ## What's New
 
-- Roadmap 已更新：Review Workspace（Crop / Eraser）之後的下一個正式 Phase 為 Photoshop Rerun Automation。
+- Roadmap 已更新：Photoshop Rerun Automation 已完成，形成 needs_rerun rerun loop。
 - Smart Layout Propagation 已完成：每個 Job 擁有 runtime-only 3 商品 Master Layout，可建立 target size 自己的 layoutState。
 - Project State v4 已完成，保存 Asset Pipeline metadata 與 Review decision，並達成可恢復工作區核心目標。
 - Batch ZIP export 可使用 approved processed assets，並維持 read-only projection 邊界。
@@ -99,6 +99,7 @@ Completed
   ├─ Photoshop Pipeline
   ├─ Review Workspace
   ├─ Review Workspace（Crop / Eraser）
+  ├─ Photoshop Rerun Automation
   ├─ Approved Asset Resolver
   ├─ Main Canvas / Thumbnail use processed asset
   ├─ Batch Approved Assets
@@ -111,7 +112,7 @@ Current
   └─ None（Waiting for next Proposal）
 
 Next
-  └─ Photoshop Rerun Automation（Proposal）
+  └─ None（Waiting for next Proposal）
 
 Future
   ├─ AI Workflow
@@ -119,7 +120,7 @@ Future
   └─ UI Upgrade
 ```
 
-Review Workspace（Crop / Eraser）已完成。Photoshop Rerun Automation 是下一個正式 Phase（Proposal）。
+Review Workspace（Crop / Eraser）與 Photoshop Rerun Automation 已完成。下一個 Phase 尚未開始。
 
 ## Pipeline Loop
 
@@ -157,15 +158,15 @@ Review Workspace
 
 模組邊界：
 
-- Review Workspace 管理 processed assets 的檢視與 decision。
-- Photoshop Rerun Automation 接續 `needs_rerun` decision，回到素材處理流程。
+- Review Workspace 管理 processed assets 的檢視與 decision，只產生 `approved` / `needs_rerun`。
+- Photoshop Rerun Automation 接續 `needs_rerun` decision，依 `status === needs_rerun` 派生 collection，不建立 queue array。
 - Approved Asset Resolver 只解析 approved assets 給 Render Engine 使用。
 - Render Engine 只負責 Canvas / Thumbnail / Batch projection。
 - ZIP Export 只輸出已解析後的 render 結果與可恢復狀態。
 
 Important：
 
-Photoshop Rerun 完成後，不得直接更新 Main Canvas。必須回到 Review Workspace，由使用者重新決定 `approved` 或 `needs_rerun`。
+Photoshop Rerun 完成後，不得直接更新 Main Canvas / Thumbnail / Batch。必須 Import Processed Folder 並回到 Review Workspace，由使用者重新決定 `approved` 或 `needs_rerun`。
 
 ```text
 Photoshop Rerun
@@ -186,9 +187,9 @@ Review Workspace 負責：
 - Review processed assets
 - Crop
 - Eraser
-- Review decision
+- Review decision：`approved` / `needs_rerun`
 - Return approved assets
-- Send needs_rerun to Photoshop Rerun Automation
+- Send needs_rerun collection to Photoshop Rerun Automation
 
 Review Workspace 不負責：
 
@@ -204,10 +205,10 @@ Logo 不屬於 Review Workspace。Logo 維持控制台右側素材編輯。
 
 Responsibilities：
 
-- Read needs_rerun assets
-- Export rerun manifest
-- Trigger Photoshop Runner
-- Import Processed Folder
+- Read derived needs_rerun collection from `assetPipelineState.assets`
+- Export rerun manifest：`photoshop-rerun-manifest.json`
+- Use existing Photoshop Runner; no native bridge / protocol handler
+- Import Processed Folder and overwrite Latest Processed
 - Return assets to Review Workspace
 
 Out of Scope：
@@ -339,7 +340,7 @@ Project State v4（Completed）：
 
 - `project-state.json` / `single-state.json` 會保存 `assetPipelineState` metadata。
 - Project State 已達成「可恢復工作區」核心目標。
-- 保存 Review decision：`approved` / `needs_rerun` / `rejected`。
+- 保存 Review decision：`approved` / `needs_rerun`。Legacy `rejected` import 會 migration 為 `needs_rerun`。
 - 保存 `processedAsset` metadata，但不保存 processed image `dataUrl`。
 - 不保存 `FileSystemHandle` / object URL / `processedAssetIndex` / runtime cache。
 - 匯入 v4 後可恢復 Asset Pipeline metadata 與 Review decision。

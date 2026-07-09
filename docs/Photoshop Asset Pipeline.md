@@ -72,7 +72,6 @@ unmatched：記錄 unmatchedProcessedAssets
 
 - `approved`
 - `needs_rerun`
-- `rejected`
 
 Review Workspace 顯示：
 
@@ -85,6 +84,40 @@ Review Workspace 顯示：
 - `mode`
 - `status`
 
+### 4.1 Photoshop Rerun Automation
+
+當 Review Workspace 標記 `needs_rerun` 後，不會立即執行 Photoshop。控制台會以 runtime derived collection 計算：
+
+```text
+assetPipelineState.assets
+  ↓
+filter(status === "needs_rerun")
+```
+
+`Run Photoshop Rerun (N)` 會依 collection 數量顯示。`N=0` 時按鈕 disabled。
+
+按下後會匯出：
+
+```text
+photoshop-rerun-manifest.json
+```
+
+這份 manifest 只包含 `needs_rerun` assets，並沿用現有 Photoshop Runner。控制台不新增 native bridge、local helper 或 protocol handler。
+
+Rerun 完成後：
+
+```text
+Import Processed Folder
+  ↓
+Latest Processed 覆蓋 Previous Processed
+  ↓
+Return to Review Workspace
+  ↓
+Approve / Needs Rerun
+```
+
+Import Processed Folder 不會 Auto Approve，也不會 Auto Update Main Canvas / Thumbnail / Batch。
+
 ### 5. Approved Assets in Canvas / Thumbnail / Batch
 
 Approved processed assets 會由 Approved Asset Resolver 提供給 render projection。
@@ -94,7 +127,7 @@ Approved processed assets 會由 Approved Asset Resolver 提供給 render projec
 - Main Canvas 可使用 approved processed assets。
 - Thumbnail 可使用 approved processed assets。
 - Batch ZIP 可使用 approved processed assets。
-- `needs_rerun` / `rejected` / `pending` 會 fallback original。
+- `needs_rerun` / `pending` 會 fallback original。
 
 Main Canvas 若只是素材來源改變，會優先更新既有 Canvas DOM 的 `img.src`，不重建 Product DOM，也不重設 transform。
 
@@ -105,7 +138,7 @@ Project State v4 會保存 Asset Pipeline metadata 與 Review decision。
 會保存：
 
 - `assetPipelineState` metadata
-- Review decision：`approved` / `needs_rerun` / `rejected`
+- Review decision：`approved` / `needs_rerun`
 - `processedAsset` metadata
 
 不會保存：
@@ -118,17 +151,16 @@ Project State v4 會保存 Asset Pipeline metadata 與 Review decision。
 
 匯入 v4 後，如果尚未重新 Import Processed Folder，approved processed asset 會 fallback original。
 
-重新 Import Processed Folder 後，Main Canvas 會 refresh 並重新套用 approved processed assets。
+重新 Import Processed Folder 後會回到 Review Workspace；不得 Auto Approve，也不得 Auto Update Main Canvas / Thumbnail / Batch。只有使用者再次 Approve 後，approved processed assets 才會進入 Render Pipeline。
 
 ## Designer Notes
 
 - 如果 Review decision 已恢復，但畫面仍是原圖，通常是因為尚未重新 Import Processed Folder。
-- Project State v4 會保存 decision，但不保存 processed 圖片本體。
+- Project State v4 會保存 decision，但不保存 processed 圖片本體。Legacy `rejected` 會在匯入時轉為 `needs_rerun`。
 - processed assets 必須使用 `{assetKey}__processed.png` 命名。
 - Logo 目前可在 Pipeline 中被記錄，但去背重點是 product / person / singleProduct。
 - `approved` 表示可以使用 processed asset。
 - `needs_rerun` 表示 processed 結果需要重新處理。
-- `rejected` 表示目前 processed 結果不可用，render 應使用 original。
 
 ## Internal Pipeline
 
@@ -362,7 +394,6 @@ Fallback 規則：
 - `approved` 但 processed runtime source missing：使用 original。
 - `pending`：使用 original。
 - `needs_rerun`：使用 original。
-- `rejected`：使用 original。
 - missing：維持既有 missing 行為。
 
 ### Project State v4 Metadata
@@ -479,7 +510,7 @@ Phase 2C MVP 維持 State Boundary：
 
 這是正常 fallback。Project State v4 只保存 metadata 與 decision，不保存 processed 圖片本體或 FileSystemHandle。
 
-重新 Import Processed Folder 後，Main Canvas 會 refresh 並重新套用 approved processed assets。
+重新 Import Processed Folder 後會回到 Review Workspace；不得 Auto Approve，也不得 Auto Update Main Canvas / Thumbnail / Batch。只有使用者再次 Approve 後，approved processed assets 才會進入 Render Pipeline。
 
 ### Q: approved 後仍然 fallback original？
 
@@ -549,11 +580,14 @@ Review Workspace 用於人工檢查 processed assets，並標記：
 
 - `approved`
 - `needs_rerun`
-- `rejected`
 
 ### Phase 2D
 
 Approved Asset Resolver 讓 Main Canvas、Thumbnail 與 Batch 可使用 approved processed assets。
+
+### Photoshop Rerun Automation
+
+Needs Rerun Collection 由 `status === needs_rerun` 派生，不建立 queue array。`Run Photoshop Rerun (N)` 匯出 `photoshop-rerun-manifest.json`，Import Processed Folder 後回到 Review Workspace。
 
 ### PS-2A
 

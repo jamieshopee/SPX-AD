@@ -62,7 +62,7 @@ feature/review-workspace
 - Template System：Template 與 Style 分離，Template 作為排版結構來源。
 - Asset Pipeline Phase 2A：assetPipeline state、assetKey、manifest export、processed folder import。
 - Photoshop Adapter Phase 2B：Photoshop manifest runner、remove background prototype、run report。
-- Review Workspace Phase 2C：processed assets 檢視與 approved / needs_rerun / rejected decision。
+- Review Workspace Phase 2C：processed assets 檢視與 approved / needs_rerun decision。
 - Batch ZIP：批次產圖與 ZIP 內 project-state.json。
 - Phase 2D-2C：Batch Approved Assets，Batch ZIP export 已使用 approved processed assets。
 - Project State：single-state.json / project-state.json 匯出與匯入。
@@ -83,6 +83,7 @@ Completed：
 - Photoshop Pipeline
 - Review Workspace
 - Review Workspace（Crop / Eraser）
+- Photoshop Rerun Automation
 - Approved Asset Resolver
 - Main Canvas / Thumbnail use processed asset
 - Batch Approved Assets
@@ -100,7 +101,7 @@ None（Waiting for next Proposal）
 Next Phase：
 
 ```text
-Photoshop Rerun Automation（Proposal）
+None（Waiting for next Proposal）
 ```
 
 
@@ -149,13 +150,12 @@ Asset Pipeline 不管理 Canvas transform，不寫 layoutStates。
 
 ### Review Workspace
 
-Review Workspace 只管理 review decision：
+Review Workspace 只管理 processed result review decision：
 
 - `approved`
 - `needs_rerun`
-- `rejected`
 
-Review Workspace 不接 Canvas、不改 Asset Payload、不寫 layoutStates、不觸發 Batch Render。
+Review Workspace 不接 Canvas、不改 Asset Payload、不寫 layoutStates、不觸發 Batch Render。Legacy `rejected` Project State 匯入時會 migration 為 `needs_rerun`。
 
 ### Photoshop Adapter
 
@@ -320,6 +320,7 @@ Completed：
 - Photoshop Pipeline
 - Review Workspace
 - Review Workspace（Crop / Eraser）
+- Photoshop Rerun Automation
 - Approved Asset Resolver
 - Main Canvas / Thumbnail use processed asset
 - Batch Approved Assets
@@ -334,28 +335,15 @@ Current：
 
 Next：
 
-- Photoshop Rerun Automation（Proposal）
+- None（Waiting for next Proposal）
 
-Photoshop Rerun Automation Phase Scope：
+Photoshop Rerun Automation（Completed）：
 
-Purpose：
-
-Automate the rerun workflow after Review Workspace marks assets as `needs_rerun`.
-
-Scope：
-
-- Export Rerun Manifest
-- Photoshop Rerun
-- Import Processed Folder
-- Return to Review Workspace
-
-Out of Scope：
-
-- Crop / Eraser
-- Review Workspace UI
-- Approved Asset Resolver redesign
-- Render Engine redesign
-- AI remove background redesign
+- Needs Rerun Collection 由 `status === needs_rerun` 派生，不建立 queue array。
+- `Run Photoshop Rerun (N)` 匯出 `photoshop-rerun-manifest.json`，沿用現有 Photoshop Runner。
+- Import Processed Folder 後回到 Review Workspace，不 Auto Approve、不 Auto Update Main Canvas / Thumbnail / Batch。
+- 只有 `approved` 才進入 Approved Asset Resolver 與 Render Pipeline。
+- Latest Processed 覆蓋 Previous Processed；不保存 v1 / v2 / v3。
 
 Future：
 
@@ -363,7 +351,7 @@ Future：
 - Extension System
 - UI Upgrade
 
-目前 Active Phase：None（Waiting for next Proposal）。下一個 Phase 為 Photoshop Rerun Automation（Proposal）。
+目前 Active Phase：None（Waiting for next Proposal）。Photoshop Rerun Automation 已完成，下一個 Phase 尚未開始。
 
 以上 Roadmap 只代表建議方向。實作前必須另做 Architecture Proposal 並確認 Phase Boundary。
 
