@@ -103,6 +103,53 @@ None（Waiting for next Proposal）
 ```
 
 
+## Formal Development SOP
+
+以下流程適用所有後續 Phase，不只 UI Upgrade：
+
+```text
+Product Proposal（ChatGPT）
+↓
+Proposal Freeze
+↓
+Proposal Audit（Codex / Claude）
+↓
+Proposal Revision（ChatGPT）
+↓
+Implementation Proposal（Codex）
+↓
+Coding（Codex）
+↓
+Browser Validation（Codex）
+↓
+Jamie Manual Validation
+↓
+Code Commit
+↓
+Documentation Update
+↓
+Documentation Validation
+↓
+Docs Commit
+↓
+Git Tag
+↓
+Next Phase / Next Branch / New ChatGPT Conversation
+```
+
+Proposal Audit 不是 Coding。Audit 階段只做技術可行性、Architecture / State Boundary、Locked Completed Phases 影響、Scope creep，以及 edge cases / Browser Validation risk 檢查。
+
+在 Proposal Freeze 前，不得進入 Implementation Proposal。在 Proposal Audit PASS 或 Proposal Revision 完成前，不得 Coding。
+
+角色分工：
+
+- ChatGPT：Product Proposal、UX、Workflow、Information Architecture、Proposal Revision。
+- Codex / Claude：Proposal Audit、Implementation Proposal、Coding、Browser Validation。
+- Jamie：產品決策、Manual Validation、是否進入 commit / tag。
+
+若 Proposal Audit 發現會影響 Locked Completed Phases，必須停止並回報，不得自行修改。
+
+
 Before proposing any implementation：
 
 AI 必須先確認：

@@ -127,23 +127,25 @@
 固定流程：
 
 ```text
-Proposal
+Product Proposal（ChatGPT）
 ↓
-Audit
+Proposal Freeze
+↓
+Proposal Audit（Codex / Claude）
+↓
+Proposal Revision（ChatGPT）
 ↓
 Implementation Proposal
 ↓
-Codex 修改
+Coding（Codex）
 ↓
-Codex Browser 驗收
+Browser Validation（Codex）
 ↓
-Jamie 人工驗收
+Jamie Manual Validation
 ↓
 Code Commit
 ↓
-決定版本號
-↓
-更新所有文件
+Documentation Update
 ↓
 Documentation Validation（確認 Git Tag / Branch / Active Phase / Current Status / Roadmap 已同步）
 ↓
@@ -155,14 +157,23 @@ Git Tag（建立在最新 commit）
 ↓
 確認 Tag 指向 HEAD
 ↓
-Proposal 下一個 Phase
-↓
-建立新 Git Branch
-↓
-更新 AI-HANDOFF Active Phase（若開始新 Phase）
-↓
-開新 ChatGPT 對話
+Next Phase / Next Branch / New ChatGPT Conversation
 ```
+
+Proposal Audit 規則：
+
+- Proposal Audit 不是 Coding，不得在 Audit 階段修改功能程式或開始實作。
+- Proposal Audit 的目的：技術可行性檢查、Architecture / State Boundary 檢查、Locked Completed Phases 影響檢查、Scope creep 檢查，以及 edge cases / Browser Validation risk 檢查。
+- 在 Proposal Freeze 前，不得進入 Implementation Proposal。
+- 在 Proposal Audit PASS 或 Proposal Revision 完成前，不得 Coding。
+- 若 Proposal Audit 發現會影響 Locked Completed Phases，必須停止並回報，不得自行修改。
+- 此 SOP 適用所有後續 Phase，不只 UI Upgrade。
+
+角色分工：
+
+- ChatGPT：負責 Product Proposal、UX、Workflow、Information Architecture 與 Proposal Revision。
+- Codex / Claude：負責 Proposal Audit、Implementation Proposal、Coding 與 Browser Validation。
+- Jamie：負責產品決策、Manual Validation，以及是否進入 commit / tag。
 
 Release 規則：
 
