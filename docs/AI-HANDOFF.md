@@ -47,13 +47,13 @@ Photoshop Pipeline 角色：
 目前最新穩定 Git Tag：
 
 ```text
-v0.3.6
+v0.4.1
 ```
 
 目前分支：
 
 ```text
-feature/review-workspace
+feature/review-workspace-ux-polish
 ```
 
 已完成：
@@ -95,7 +95,7 @@ Completed：
 目前 Active Phase：
 
 ```text
-None（Waiting for next Proposal）
+Review Workspace UX Polish（Proposal）
 ```
 
 Next Phase：
@@ -305,6 +305,12 @@ v0.3.4
 
 Phase 2D-2C Batch Approved Assets。Batch ZIP export 使用 approved processed assets；Main Canvas / Thumbnail / Batch 共用 `BNAssetResolver` 與 Render Context；Batch 維持 read-only projection，不修改 `layoutStates` schema、Project State schema 或 Photoshop Pipeline。
 
+```text
+v0.4.1
+```
+
+Photoshop Rerun Automation。完成 Needs Rerun Collection、`photoshop-rerun-manifest.json`、Latest Processed overwrite 與 Review return loop；Import Processed Folder 後回到 Review Workspace，不直接更新 Main Canvas / Thumbnail / Batch。
+
 
 ## Smart Layout Propagation
 
@@ -331,7 +337,7 @@ Completed：
 
 Current：
 
-- None（Waiting for next Proposal）
+- Review Workspace UX Polish（Proposal）
 
 Next：
 
@@ -351,7 +357,7 @@ Future：
 - Extension System
 - UI Upgrade
 
-目前 Active Phase：None（Waiting for next Proposal）。Photoshop Rerun Automation 已完成，下一個 Phase 尚未開始。
+目前 Active Phase：Review Workspace UX Polish（Proposal）。Photoshop Rerun Automation 已完成並列入穩定版本 v0.4.1。
 
 以上 Roadmap 只代表建議方向。實作前必須另做 Architecture Proposal 並確認 Phase Boundary。
 

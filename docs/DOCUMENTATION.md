@@ -115,8 +115,9 @@
 - [ ] 依本文件檢查需要更新哪些文件。
 - [ ] 更新文件。
 - [ ] Review 文件內容是否與實作一致。
-- [ ] Git Commit（Docs）已完成，或明確標示尚未 commit。
+- [ ] Documentation Validation：確認 Git Tag / Branch / Active Phase / Current Status / Roadmap 是否同步。
 - [ ] 更新 `docs/AI-HANDOFF.md` 的穩定版本、分支、Phase 狀態或下一步 Roadmap（如適用）。
+- [ ] Git Commit（Docs）已完成，或明確標示尚未 commit。
 - [ ] Git Tag（穩定版本）已建立，或明確標示尚未 tag。
 
 ## Release Flow
@@ -141,6 +142,8 @@ Code Commit
 決定版本號
 ↓
 更新所有文件
+↓
+Documentation Validation（確認 Git Tag / Branch / Active Phase / Current Status / Roadmap 已同步）
 ↓
 Docs Commit
 ↓
@@ -167,6 +170,7 @@ Release 規則：
 - Codex 修改後必須先自行完成 Browser 驗收，全部 PASS 後才交給 Jamie 人工驗收。
 - Jamie 人工驗收通過後，才可以進入 Code Commit。
 - 每次文件更新必須一次列出所有需要更新的 md，不得分批猜測。
+- Docs Update 後、Docs Commit 前，必須完成 Documentation Validation：確認 Git Tag / Branch / Active Phase / Current Status / Roadmap 是否同步。
 
 
 ### Review Workspace Phase SOP

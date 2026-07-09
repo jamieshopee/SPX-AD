@@ -1,6 +1,6 @@
 # CHANGELOG
 
-Version: v0.3.6  
+Version: v0.4.1  
 Last Updated: 2026-07-09  
 Scope: 專案版本紀錄與重要設計決策。此文件不是 Git commit log，而是維護者交接用版本紀錄。
 

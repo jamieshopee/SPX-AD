@@ -1,7 +1,7 @@
 # Architecture
 
-Version: v0.3.6  
-Last Updated: 2026-07-08  
+Version: v0.4.1  
+Last Updated: 2026-07-09  
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界與新增 Style 流程。
 
 ## What's New
@@ -109,7 +109,7 @@ Completed
   └─ Smart Layout Propagation
 
 Current
-  └─ None（Waiting for next Proposal）
+  └─ Review Workspace UX Polish（Proposal）
 
 Next
   └─ None（Waiting for next Proposal）
@@ -120,7 +120,7 @@ Future
   └─ UI Upgrade
 ```
 
-Review Workspace（Crop / Eraser）與 Photoshop Rerun Automation 已完成。下一個 Phase 尚未開始。
+Review Workspace（Crop / Eraser）與 Photoshop Rerun Automation 已完成。目前 Active Phase 為 Review Workspace UX Polish（Proposal）。
 
 ## Pipeline Loop
 
