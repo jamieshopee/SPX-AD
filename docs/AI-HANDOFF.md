@@ -102,12 +102,6 @@ Completed：
 None（Waiting for next Proposal）
 ```
 
-Next Phase：
-
-```text
-None（Waiting for next Proposal）
-```
-
 
 Before proposing any implementation：
 
@@ -357,10 +351,6 @@ Current：
 
 - None（Waiting for next Proposal）
 
-Next：
-
-- None（Waiting for next Proposal）
-
 Photoshop Rerun Automation（Completed）：
 
 - Needs Rerun Collection 由 `status === needs_rerun` 派生，不建立 queue array。
@@ -371,11 +361,31 @@ Photoshop Rerun Automation（Completed）：
 
 Future：
 
+- UI Upgrade
 - AI Workflow
 - Extension System
-- UI Upgrade
+- QRCode
 
-目前 Active Phase：None（Waiting for next Proposal）。Project Persistence 已完成，下一個 Phase 尚未開始。
+## Next Planned Phase Order（Locked）
+
+The following roadmap order has been decided by the product owner.
+
+1. UI Upgrade
+2. AI Workflow
+3. Extension System
+4. QRCode
+
+Rules：
+
+- Follow this order by default.
+- Do not propose other roadmap phases unless explicitly requested by the product owner.
+- Review Workspace is feature complete.
+- Project Persistence is feature complete.
+- Locked Completed Phases must not be redesigned.
+- Review Workspace should not receive new editing tools, workflows, or UX redesigns unless explicitly requested by the product owner.
+- Only Bug Fix is allowed for Review Workspace unless explicitly requested.
+
+目前 Active Phase：None（Waiting for next Proposal）。Project Persistence 已完成。
 
 以上 Roadmap 只代表建議方向。實作前必須另做 Architecture Proposal 並確認 Phase Boundary。
 
