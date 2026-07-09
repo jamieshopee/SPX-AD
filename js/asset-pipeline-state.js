@@ -170,7 +170,8 @@
         });
         return;
       }
-      record.status = 'processed';
+      var existingDecision = normalizeDecision(record.review && record.review.decision || '');
+      var existingStatus = normalizeStatus(record.status || 'pending');
       record.processedAsset = {
         filename: filename,
         lookupKey: String(filename).trim().toLowerCase(),
@@ -178,6 +179,13 @@
         exists: true,
         importedAt: importedAt
       };
+      if (existingDecision) {
+        record.status = existingDecision;
+      } else if (existingStatus === 'approved' || existingStatus === 'needs_rerun') {
+        record.status = existingStatus;
+      } else {
+        record.status = 'processed';
+      }
       matched++;
     });
 

@@ -90,6 +90,7 @@ let assetFolderName = '';
 let assetSourceMode = '';
 let assetPipelineState = null;
 let processedAssetIndex = {};
+let reviewWorkspaceRerunAssetKeys = [];
 const productMasterLayoutsByJobId = new Map();
 
 let batchCancelled = false;
@@ -862,6 +863,7 @@ async function resetWorkspaceState(options = {}) {
   assetSourceMode = preservedAssetSourceMode;
   assetPipelineState = null;
   processedAssetIndex = {};
+  reviewWorkspaceRerunAssetKeys = [];
   updateNeedsRerunButton();
 
   resetPluginRuntimeState();
@@ -993,6 +995,7 @@ async function pickAssetFolder() {
       assetSourceMode = '';
       assetPipelineState = null;
       processedAssetIndex = {};
+      reviewWorkspaceRerunAssetKeys = [];
       updateNeedsRerunButton();
       setTopbarBadge(el.folderStatus, el.folderStatusText, '');
       renderAssetFileLists();
@@ -1019,6 +1022,7 @@ function updateNeedsRerunButton() {
 
 function refreshAssetPipelineState() {
   if (!window.BNAssetPipelineState?.buildAssetPipelineState) return null;
+  reviewWorkspaceRerunAssetKeys = [];
   assetPipelineState = window.BNAssetPipelineState.buildAssetPipelineState({
     jobs,
     sourceFolderName: assetFolderName,
@@ -1076,6 +1080,9 @@ async function pickProcessedFolder() {
   }
   try {
     const handle = await window.showDirectoryPicker({ mode: 'read' });
+    const rerunAssetKeysBeforeImport = window.BNAssetPipelineState?.getNeedsRerunAssets?.(assetPipelineState)
+      ?.map(asset => asset.assetKey)
+      ?.filter(Boolean) || [];
     const files = [];
     const runtimeIndex = {};
     for await (const [name, fh] of handle.entries()) {
@@ -1089,6 +1096,7 @@ async function pickProcessedFolder() {
     });
     assetPipelineState = result.state;
     processedAssetIndex = runtimeIndex;
+    reviewWorkspaceRerunAssetKeys = rerunAssetKeysBeforeImport.length ? rerunAssetKeysBeforeImport.slice() : [];
     console.log('[CC][assetPipeline] processed import', {
       folder: handle.name,
       files: files.length,
@@ -1098,7 +1106,11 @@ async function pickProcessedFolder() {
     updateNeedsRerunButton();
     setStatus(`Processed assets 已匯入：matched ${result.matched}，unmatched ${result.unmatched}。`, result.unmatched ? 'error' : 'success');
     if (result.matched) {
-      openAssetReviewWorkspace();
+      await refreshMainCanvasApprovedAssetsForActiveJob('processed-folder-import');
+      openAssetReviewWorkspace({
+        initialReviewMode: rerunAssetKeysBeforeImport.length ? 'needs_rerun' : 'all',
+        reviewAssetKeys: rerunAssetKeysBeforeImport,
+      });
     }
   } catch (e) {
     if (e.name !== 'AbortError') {
@@ -1212,6 +1224,28 @@ function formatReviewSummary(summary) {
   return `reviewable ${summary.reviewable || 0} / approved ${summary.approved || 0} / needs_rerun ${summary.needs_rerun || 0}`;
 }
 
+function activeRerunReviewAssetKeys() {
+  return (reviewWorkspaceRerunAssetKeys || []).filter(assetKey => {
+    const status = assetPipelineState?.assets?.[assetKey]?.status || '';
+    return status === 'pending' || status === 'processed' || status === 'needs_rerun';
+  });
+}
+
+function restoreReviewDecisionSnapshot(snapshot) {
+  const assetKey = String(snapshot?.assetKey || '');
+  const record = assetKey ? assetPipelineState?.assets?.[assetKey] : null;
+  if (!record) return { state: assetPipelineState, record: null, ok: false, reason: 'assetKey not found' };
+  record.status = snapshot.status || 'processed';
+  if (snapshot.review) record.review = { ...snapshot.review };
+  else delete record.review;
+  assetPipelineState.reviewUpdatedAt = new Date().toISOString();
+  updateNeedsRerunButton();
+  const nextSummary = window.BNAssetPipelineState?.getReviewSummary?.(assetPipelineState);
+  setStatus(`Processed review 已撤回上一筆：${formatReviewSummary(nextSummary)}。`, 'success');
+  console.log('[CC][assetPipeline] review decision restored', { assetKey, status: record.status });
+  return { state: assetPipelineState, record, ok: true };
+}
+
 function assetBelongsToJob(asset, job) {
   if (!asset || !job) return false;
   const jobKeys = [job.jobId, job.id, job.outputFilename].filter(value => value !== undefined && value !== null).map(String);
@@ -1312,7 +1346,7 @@ async function refreshMainCanvasApprovedAssetsForActiveJob(reason = '') {
   });
 }
 
-function openAssetReviewWorkspace() {
+function openAssetReviewWorkspace(options = {}) {
   if (!window.BNAssetReviewWorkspace?.open) {
     setStatus('Review Workspace 尚未載入。', 'error');
     return;
@@ -1327,11 +1361,16 @@ function openAssetReviewWorkspace() {
     setStatus('尚無 processed assets 可檢視，請先匯入 Processed Folder。', 'error');
     return;
   }
+  const reviewAssetKeys = options.reviewAssetKeys || activeRerunReviewAssetKeys();
   window.BNAssetReviewWorkspace.open({
     pipelineState: assetPipelineState,
+    initialReviewMode: options.initialReviewMode || (reviewAssetKeys?.length ? 'needs_rerun' : undefined),
+    reviewAssetKeys,
+    selectedAssetKey: options.selectedAssetKey,
     resolveOriginalImage: resolveReviewOriginalImage,
     resolveProcessedImage: resolveReviewProcessedImage,
     onSaveProcessedAsset: saveReviewProcessedRuntimeAsset,
+    onRestoreDecision: restoreReviewDecisionSnapshot,
     onDecision(assetKey, decision) {
       const result = window.BNAssetPipelineState.setAssetReviewDecision(assetPipelineState, assetKey, decision);
       assetPipelineState = result.state;
@@ -3507,6 +3546,7 @@ async function importState(file) {
     await resetWorkspaceState({ keepAssetsFolder: false });
     assetIndex = {};
     processedAssetIndex = {};
+    reviewWorkspaceRerunAssetKeys = [];
     assetPipelineState = window.BNAssetPipelineState?.importAssetPipelineMetadata?.(state.assetPipelineState) || null;
     updateNeedsRerunButton();
     assetFolderName = file.name.replace(/\.json$/i, '');

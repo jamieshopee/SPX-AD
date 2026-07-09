@@ -70,11 +70,13 @@ body {
    頂欄
 ───────────────────────────────────── */
 .topbar {
-  flex: 0 0 var(--topbar-h);
+  flex: 0 0 auto;
+  min-height: var(--topbar-h);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 14px;
+  flex-wrap: wrap;
+  padding: 7px 14px;
   background: rgba(6,9,15,0.88);
   backdrop-filter: var(--glass);
   -webkit-backdrop-filter: var(--glass);
@@ -92,7 +94,7 @@ body {
 .brand-icon { width: 17px; height: 17px; color: var(--accent); flex-shrink: 0; }
 .brand-name { font-size: 13px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
 
-.topbar-center { flex: 1; display: flex; justify-content: center; }
+.topbar-center { flex: 1 1 160px; min-width: 120px; display: flex; justify-content: center; }
 
 .status-badge,
 .status-pill,
@@ -135,15 +137,23 @@ body {
 .status-pill.error .status-dot,
 .folder-chip.error .status-dot { background: var(--error); }
 
-.topbar-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+.topbar-actions {
+  flex: 1 1 640px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 
 .topbar-badge { margin-left: -2px; }
 
 .btn-topbar {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 5px;
+  padding: 5px 9px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   background: var(--bg-surface-2);
@@ -158,6 +168,33 @@ body {
 .btn-topbar:hover { background: var(--bg-surface-3); border-color: rgba(255,255,255,.22); }
 .btn-topbar:disabled, .btn-topbar.is-disabled { opacity: .45; cursor: not-allowed; }
 .btn-topbar:disabled:hover, .btn-topbar.is-disabled:hover { background: var(--bg-surface-2); border-color: var(--border-strong); }
+
+@media (max-width: 1240px) {
+  .topbar {
+    align-items: flex-start;
+  }
+
+  .topbar-center {
+    order: 3;
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
+
+  .topbar-actions {
+    flex: 1 1 calc(100% - 190px);
+  }
+
+  .btn-topbar {
+    font-size: 11px;
+    padding-inline: 8px;
+  }
+
+  .status-badge,
+  .status-pill,
+  .folder-chip {
+    max-width: 150px;
+  }
+}
 
 /* ─────────────────────────────────────
    工作區：三欄

@@ -293,7 +293,7 @@
 
     function exitCropMode() {
       cancelCropDraft();
-      global.BNAssetEditSession.setTool(session, 'pan');
+      global.BNAssetEditSession.setTool(session, 'view');
       applyTransform();
     }
 
@@ -317,13 +317,13 @@
       hideBrushCursor();
       if (eraserCanvas) eraserCanvas.style.display = 'none';
       image.style.opacity = '';
-      global.BNAssetEditSession.setTool(session, 'pan');
+      global.BNAssetEditSession.setTool(session, 'view');
       applyTransform();
     }
 
     function applyTransform() {
       image.style.transform = 'translate(' + session.pan.x + 'px, ' + session.pan.y + 'px) scale(' + session.zoom + ')';
-      image.style.cursor = spaceDown || session.currentTool === 'pan' ? (dragState ? 'grabbing' : 'grab') : 'default';
+      image.style.cursor = spaceDown ? (dragState ? 'grabbing' : 'grab') : 'default';
       if (root) {
         root.setAttribute('data-view-mode', session.viewMode);
         root.setAttribute('data-tool', session.currentTool);
@@ -467,7 +467,7 @@
       cancelCropDraft();
       hideBrushCursor();
       if (eraserCanvas) eraserCanvas.style.display = 'none';
-      global.BNAssetEditSession.setTool(session, tool);
+      global.BNAssetEditSession.setTool(session, tool === 'pan' ? 'view' : tool);
       applyTransform();
     }
 
@@ -508,7 +508,7 @@
     }
 
     function canPan() {
-      return session.currentTool !== 'crop' && (spaceDown || session.currentTool === 'pan');
+      return !!spaceDown;
     }
 
     function applyMoveCrop(startRect, startPoint, point) {
@@ -653,6 +653,19 @@
     }
 
     function onPointerDown(event) {
+      if (spaceDown && event.button === 0 && canPan()) {
+        event.preventDefault();
+        dragState = {
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          panX: session.pan.x,
+          panY: session.pan.y,
+        };
+        stage.setPointerCapture(event.pointerId);
+        applyTransform();
+        return;
+      }
       if (session.currentTool === 'crop') {
         var part = event.target?.getAttribute?.('data-crop-part');
         if (!part || !session.cropDraft) return;
@@ -772,7 +785,7 @@
       cancelCropDraft();
       hideBrushCursor();
       if (eraserCanvas) eraserCanvas.style.display = 'none';
-      global.BNAssetEditSession.setTool(session, 'pan');
+      global.BNAssetEditSession.setTool(session, 'view');
       loadImage();
       updateUndoState();
       applyTransform();
@@ -783,10 +796,6 @@
       var key = event.key;
       var command = event.metaKey || event.ctrlKey;
       if (key === ' ') {
-        if (session.currentTool === 'crop') {
-          event.preventDefault();
-          return;
-        }
         event.preventDefault();
         spaceDown = true;
         applyTransform();
@@ -804,7 +813,7 @@
       }
       if (key === 'Escape') {
         event.preventDefault();
-        setTool('pan');
+        setTool('view');
       }
     }
 
@@ -872,6 +881,7 @@
     document.addEventListener('keyup', onKeyup);
     window.addEventListener('resize', onResize);
 
+    global.BNAssetEditSession.setTool(session, 'view');
     loadImage();
     setCropControls(false);
     updateUndoState();

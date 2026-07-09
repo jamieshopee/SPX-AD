@@ -4,7 +4,13 @@
   var root = null;
   var currentOptions = null;
   var currentAssets = [];
+  var allReviewAssets = [];
   var selectedAssetKey = '';
+  var currentReviewMode = 'all';
+  var runtimeReviewAssetKeys = null;
+  var completeMessage = '';
+  var lastDecisionSnapshot = null;
+  var undoDecisionButton = null;
   var loadSeq = 0;
   var currentSession = null;
   var currentEditor = null;
@@ -12,6 +18,7 @@
   var guardDialog = null;
   var toastTimer = null;
   var REVIEW_ROLES = { product: true, person: true, singleProduct: true };
+  var REVIEW_MODES = { all: true, needs_rerun: true };
 
   function text(value) {
     return value == null || value === '' ? '-' : String(value);
@@ -61,18 +68,52 @@
     }, { reviewable: 0, approved: 0, needs_rerun: 0 });
   }
 
-  function refreshAssets() {
+  function isUnreviewed(asset) {
+    var status = asset?.status || 'pending';
+    return status === 'pending' || status === 'processed';
+  }
+
+  function isTypingTarget(target) {
+    if (!target) return false;
+    var tag = String(target.tagName || '').toLowerCase();
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
+  }
+
+  function makeAssetKeySet(keys) {
+    var set = {};
+    (keys || []).forEach(function (key) {
+      if (key) set[String(key)] = true;
+    });
+    return Object.keys(set).length ? set : null;
+  }
+
+  function baseReviewAssets() {
     if (global.BNAssetPipelineState?.getReviewableAssets) {
-      currentAssets = global.BNAssetPipelineState.getReviewableAssets(currentOptions.pipelineState);
+      allReviewAssets = global.BNAssetPipelineState.getReviewableAssets(currentOptions.pipelineState);
     } else {
       var assets = currentOptions.pipelineState?.assets || {};
-      currentAssets = Object.keys(assets).map(function (key) { return assets[key]; }).filter(function (asset) {
+      allReviewAssets = Object.keys(assets).map(function (key) { return assets[key]; }).filter(function (asset) {
         return !!asset.processedAsset;
       });
     }
-    currentAssets = currentAssets.filter(function (asset) {
+    allReviewAssets = allReviewAssets.filter(function (asset) {
       return !!REVIEW_ROLES[asset.role];
     });
+    return allReviewAssets;
+  }
+
+  function filterAssetsForMode(assets) {
+    if (currentReviewMode !== 'needs_rerun') return assets.slice();
+    if (runtimeReviewAssetKeys) {
+      return assets.filter(function (asset) {
+        return !!runtimeReviewAssetKeys[asset.assetKey] && (asset.status || 'pending') !== 'approved';
+      });
+    }
+    return assets.filter(function (asset) { return (asset.status || 'pending') === 'needs_rerun'; });
+  }
+
+  function refreshAssets() {
+    currentAssets = filterAssetsForMode(baseReviewAssets());
     if (!selectedAssetKey && currentAssets[0]) selectedAssetKey = currentAssets[0].assetKey;
     if (selectedAssetKey && !currentAssets.some(function (asset) { return asset.assetKey === selectedAssetKey; })) {
       selectedAssetKey = currentAssets[0]?.assetKey || '';
@@ -80,12 +121,21 @@
   }
 
   function renderSummary(target) {
+    if (!target) return;
     var summary = getSummary();
-    target.textContent = [
-      'Reviewable ' + (summary.reviewable || 0),
-      'Approved ' + (summary.approved || 0),
-      'Needs Rerun ' + (summary.needs_rerun || 0)
-    ].join(' / ');
+    var index = selectedAssetIndex();
+    target.innerHTML = '';
+    target.appendChild(el('span', 'asset-review-progress-main', currentAssets.length ? ((index + 1) + ' / ' + currentAssets.length) : '0 / 0'));
+    target.appendChild(el('span', 'asset-review-progress-chip', 'Approved ' + (summary.approved || 0)));
+    target.appendChild(el('span', 'asset-review-progress-chip', 'Needs Rerun ' + (summary.needs_rerun || 0)));
+    if (completeMessage) target.appendChild(el('span', 'asset-review-complete-message', completeMessage));
+  }
+
+  function updateUndoDecisionButton() {
+    if (!undoDecisionButton) return;
+    var disabled = isSaving || !lastDecisionSnapshot;
+    undoDecisionButton.disabled = disabled;
+    undoDecisionButton.classList.toggle('is-disabled', disabled);
   }
 
   function selectedAssetIndex() {
@@ -112,6 +162,7 @@
       node.disabled = isSaving;
       node.classList.toggle('is-disabled', isSaving);
     });
+    updateUndoDecisionButton();
   }
 
   function hideToast() {
@@ -199,6 +250,11 @@
     runGuarded(function () { decide(assetKey, decision); });
   }
 
+  function requestUndoLastDecision() {
+    if (!lastDecisionSnapshot) return;
+    runGuarded(undoLastDecision);
+  }
+
   function destroyEditorSession() {
     loadSeq++;
     if (currentEditor?.destroy) currentEditor.destroy();
@@ -246,8 +302,6 @@
     var workspace = el('div', 'asset-review-workspace');
 
     var toolbar = el('aside', 'asset-review-tools');
-    var panButton = button('asset-review-tool is-active', '拖曳', function () {});
-    panButton.setAttribute('data-tool', 'pan');
     var cropButton = button('asset-review-tool', '裁切', function () {});
     cropButton.setAttribute('data-tool', 'crop');
     var eraserButton = button('asset-review-tool', '橡皮擦', function () {});
@@ -257,7 +311,6 @@
     var fitButton = button('asset-review-tool', '符合畫面', function () {});
     var saveButton = button('asset-review-tool asset-review-save-tool is-disabled', 'Save', function () {});
     saveButton.disabled = true;
-    toolbar.appendChild(panButton);
     toolbar.appendChild(cropButton);
     toolbar.appendChild(eraserButton);
     toolbar.appendChild(undoButton);
@@ -392,7 +445,7 @@
         brushSizeInput: brushSizeInput,
         brushSizeLabel: brushSizeLabel,
         eraserSettings: eraserSettings,
-        toolButtons: [panButton, cropButton, eraserButton],
+        toolButtons: [cropButton, eraserButton],
         onSavingChange: setBusy,
         onSave: function (payload) {
           if (typeof currentOptions.onSaveProcessedAsset === 'function') {
@@ -410,11 +463,66 @@
     });
   }
 
+  function snapshotDecision(assetKey) {
+    var record = currentOptions.pipelineState?.assets?.[assetKey];
+    if (!record) return null;
+    return {
+      assetKey: assetKey,
+      status: record.status || 'pending',
+      review: record.review ? Object.assign({}, record.review) : null,
+    };
+  }
+
+  function isAssetReviewed(asset) {
+    return asset && !isUnreviewed(asset);
+  }
+
+  function updateCompleteMessage() {
+    if (!currentAssets.length) {
+      completeMessage = currentReviewMode === 'needs_rerun' ? '✓ All Rerun Assets Reviewed' : '✓ Review Complete';
+      return;
+    }
+    completeMessage = currentAssets.every(isAssetReviewed)
+      ? (currentReviewMode === 'needs_rerun' ? '✓ All Rerun Assets Reviewed' : '✓ Review Complete')
+      : '';
+  }
+
   function decide(assetKey, decision) {
     if (!currentOptions.onDecision) return;
+    var beforeAssets = currentAssets.slice();
+    var beforeIndex = selectedAssetIndex();
+    var snapshot = snapshotDecision(assetKey);
     var result = currentOptions.onDecision(assetKey, decision);
     if (result && result.state) currentOptions.pipelineState = result.state;
+    if (result?.ok && snapshot) lastDecisionSnapshot = snapshot;
     refreshAssets();
+    var nextAsset = null;
+    if (beforeIndex >= 0 && beforeIndex < beforeAssets.length - 1) {
+      var nextKey = beforeAssets[beforeIndex + 1]?.assetKey;
+      nextAsset = currentAssets.find(function (item) { return item.assetKey === nextKey; })
+        || currentAssets[Math.min(beforeIndex, currentAssets.length - 1)];
+    }
+    if (nextAsset) {
+      selectedAssetKey = nextAsset.assetKey;
+      completeMessage = '';
+    } else {
+      if (!currentAssets.some(function (item) { return item.assetKey === selectedAssetKey; })) {
+        selectedAssetKey = currentAssets[currentAssets.length - 1]?.assetKey || '';
+      }
+      updateCompleteMessage();
+    }
+    render();
+  }
+
+  function undoLastDecision() {
+    if (!lastDecisionSnapshot || !currentOptions.onRestoreDecision) return;
+    var result = currentOptions.onRestoreDecision(lastDecisionSnapshot);
+    if (result && result.state) currentOptions.pipelineState = result.state;
+    selectedAssetKey = lastDecisionSnapshot.assetKey;
+    lastDecisionSnapshot = null;
+    completeMessage = '';
+    refreshAssets();
+    updateCompleteMessage();
     render();
   }
 
@@ -426,12 +534,71 @@
     root = null;
     currentOptions = null;
     currentAssets = [];
+    allReviewAssets = [];
     selectedAssetKey = '';
+    currentReviewMode = 'all';
+    runtimeReviewAssetKeys = null;
+    completeMessage = '';
+    lastDecisionSnapshot = null;
+    undoDecisionButton = null;
     document.removeEventListener('keydown', onKeydown);
   }
 
   function onKeydown(event) {
-    if (event.key === 'Escape') return;
+    if (!root || isSaving || isTypingTarget(event.target)) return;
+    var key = event.key;
+    if (key === 'Escape') {
+      event.preventDefault();
+      requestClose();
+      return;
+    }
+    if (key === 'ArrowLeft') {
+      event.preventDefault();
+      requestSelectAssetAt(selectedAssetIndex() - 1);
+      return;
+    }
+    if (key === 'ArrowRight') {
+      event.preventDefault();
+      requestSelectAssetAt(selectedAssetIndex() + 1);
+      return;
+    }
+    if (key.toLowerCase() === 'a') {
+      event.preventDefault();
+      if (selectedAssetKey) requestDecision(selectedAssetKey, 'approved');
+      return;
+    }
+    if (key.toLowerCase() === 'r') {
+      event.preventDefault();
+      if (selectedAssetKey) requestDecision(selectedAssetKey, 'needs_rerun');
+    }
+  }
+
+  function setReviewMode(mode) {
+    if (!REVIEW_MODES[mode] || currentReviewMode === mode) return;
+    currentReviewMode = mode;
+    selectedAssetKey = '';
+    completeMessage = '';
+    refreshAssets();
+    pickSmartEntry();
+    render();
+  }
+
+  function pickSmartEntry() {
+    if (!currentAssets.length) {
+      selectedAssetKey = '';
+      return;
+    }
+    var firstUnreviewed = currentAssets.find(isUnreviewed);
+    selectedAssetKey = (firstUnreviewed || currentAssets[0]).assetKey;
+  }
+
+  function chooseInitialMode(options) {
+    if (REVIEW_MODES[options.initialReviewMode]) return options.initialReviewMode;
+    if (runtimeReviewAssetKeys) return 'needs_rerun';
+    var assets = allReviewAssets.length ? allReviewAssets : baseReviewAssets();
+    if (assets.some(isUnreviewed)) return 'all';
+    if (assets.some(function (asset) { return (asset.status || 'pending') === 'needs_rerun'; })) return 'needs_rerun';
+    return 'all';
   }
 
   function render() {
@@ -442,13 +609,27 @@
     renderSummary(summary);
     renderList(list);
     renderDetail(detail);
+    updateUndoDecisionButton();
+    root.querySelectorAll('[data-review-mode]').forEach(function (button) {
+      button.classList.toggle('is-active', button.getAttribute('data-review-mode') === currentReviewMode);
+    });
   }
 
   function open(options) {
     currentOptions = options || {};
     if (!currentOptions.pipelineState) return;
-    refreshAssets();
     if (root) root.remove();
+    runtimeReviewAssetKeys = makeAssetKeySet(currentOptions.reviewAssetKeys || currentOptions.runtimeReviewAssetKeys || []);
+    allReviewAssets = [];
+    baseReviewAssets();
+    currentReviewMode = chooseInitialMode(currentOptions);
+    var requestedAssetKey = currentOptions.selectedAssetKey || '';
+    selectedAssetKey = requestedAssetKey;
+    completeMessage = '';
+    lastDecisionSnapshot = null;
+    refreshAssets();
+    if (!requestedAssetKey) pickSmartEntry();
+    updateCompleteMessage();
 
     root = el('div', 'asset-review-modal asset-review-modal-workspace');
     root.setAttribute('role', 'dialog');
@@ -461,10 +642,21 @@
     titleWrap.appendChild(el('div', 'asset-review-title', '素材審閱'));
     var summary = el('div', 'asset-review-summary');
     summary.setAttribute('data-review-summary', '');
+    var modeWrap = el('div', 'asset-review-mode-switch');
+    var allButton = button('asset-review-mode-btn', 'All Assets', function () { setReviewMode('all'); });
+    allButton.setAttribute('data-review-mode', 'all');
+    var rerunButton = button('asset-review-mode-btn', 'Needs Rerun Only', function () { setReviewMode('needs_rerun'); });
+    rerunButton.setAttribute('data-review-mode', 'needs_rerun');
+    modeWrap.appendChild(allButton);
+    modeWrap.appendChild(rerunButton);
     titleWrap.appendChild(summary);
+    titleWrap.appendChild(modeWrap);
     header.appendChild(titleWrap);
 
     var nav = el('div', 'asset-review-nav');
+    undoDecisionButton = button('asset-review-nav-btn asset-review-undo-decision is-disabled', 'Undo Last Decision', requestUndoLastDecision);
+    undoDecisionButton.disabled = true;
+    nav.appendChild(undoDecisionButton);
     nav.appendChild(button('asset-review-nav-btn', '上一張', function () {
       requestSelectAssetAt(selectedAssetIndex() - 1);
     }));
