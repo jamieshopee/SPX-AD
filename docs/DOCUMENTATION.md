@@ -175,6 +175,26 @@ Proposal Audit 規則：
 - Codex / Claude：負責 Proposal Audit、Implementation Proposal、Coding 與 Browser Validation。
 - Jamie：負責產品決策、Manual Validation，以及是否進入 commit / tag。
 
+Browser Validation 規則：
+
+- Browser Validation（Codex / Claude）不得只回覆 `PASS`。
+- Codex / Claude 不得要求 Jamie 協助完成 Browser Validation。
+- Browser Validation 完成並提交 Report 後，才能交由 Jamie Manual Validation。
+- Browser Validation Report 至少必須包含：
+  - Test Environment：Branch、Browser、Commit（若適用）。
+  - Test Scope：本次驗證功能範圍。
+  - Test Cases：每個測試案例需列出測試項目、操作步驟、預期結果、實際結果、PASS / FAIL。
+  - Regression Validation：明確列出驗證了哪些既有功能、哪些未驗證；不得只寫「沒有影響」。
+  - Known Issues：若沒有問題，需明確寫 `No Known Issues`。
+  - Final Result：明確說明是否可交 Jamie Manual Validation，以及是否仍有 Blocking Issue。
+
+Jamie Manual Validation 規則：
+
+- Jamie Manual Validation 是產品驗收，不是 Browser Validation。
+- Jamie 驗收時需明確回覆驗收項目、PASS / FAIL。
+- 若 FAIL，需描述 Issue 與重現方式。
+- Jamie Manual Validation PASS 後，才能進入 Code Commit。
+
 Release 規則：
 
 - Git Tag 必須建立在最新 commit。

@@ -147,6 +147,12 @@ Proposal Audit 不是 Coding。Audit 階段只做技術可行性、Architecture 
 - Codex / Claude：Proposal Audit、Implementation Proposal、Coding、Browser Validation。
 - Jamie：產品決策、Manual Validation、是否進入 commit / tag。
 
+Browser Validation（Codex / Claude）不得只回覆 `PASS`。Report 至少必須包含 Test Environment、Test Scope、Test Cases（操作步驟 / 預期結果 / 實際結果 / PASS 或 FAIL）、Regression Validation、Known Issues 與 Final Result。若沒有已知問題，必須明確寫 `No Known Issues`。
+
+Codex / Claude 不得要求 Jamie 協助完成 Browser Validation。Browser Validation 完成並提交 Report 後，才能交由 Jamie Manual Validation。
+
+Jamie Manual Validation 是產品驗收，不是 Browser Validation。Jamie 驗收需回覆驗收項目、PASS / FAIL；若 FAIL，需描述 Issue 與重現方式。Jamie Manual Validation PASS 後，才能進入 Code Commit。
+
 若 Proposal Audit 發現會影響 Locked Completed Phases，必須停止並回報，不得自行修改。
 
 
