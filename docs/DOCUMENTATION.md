@@ -88,6 +88,7 @@
 - Smart Layout Propagation
 - Review Workspace（Crop / Eraser）
 - Review Workspace UX Polish
+- Project Persistence
 
 不得：
 
@@ -253,6 +254,50 @@ Save 只更新 Runtime Processed Asset。
 - Resolver API
 - Project State schema
 - Photoshop Pipeline
+
+## Project Persistence Rules
+
+Project Persistence 已完成並列入 Locked Completed Phase。後續不得重新設計 Workspace Save / Restore contract，除非屬於 Bug Fix、User Request 或 Architecture 明確改版。
+
+### Project Save = Workspace Save
+
+- 專案保存必須代表目前工作區狀態。
+- Restore 後應回到存檔當下可繼續工作的狀態。
+- Restore 包含 jobs、文字、Template、Style、`layoutStates`、Review decision 與 latest processed image。
+
+### single-state Restore
+
+- `single-state.json` 使用 Project State v5。
+- 可內嵌單張工單需要的 processed image `dataUrl`。
+- 匯入後不需要重新 Import Processed Folder。
+- 匯入後 Review Workspace、Main Canvas、Thumbnail、Batch resolver 都應使用 restored latest processed image。
+
+### project.zip Restore
+
+- 完整專案 ZIP 內含 `project-state.json` 與 `processed/`。
+- `project-state.json` 的 `processedAssets` 只保存 `filename`，不保存 `dataUrl`。
+- `processed/` 保存 latest processed image。
+- 匯入後由 Persistence Layer 重建 runtime `processedAssetIndex`。
+
+### Download Complete Project
+
+- 使用者主要下載流程為「下載完整專案」。
+- ZIP 內包含所有輸出 PNG、`project-state.json` 與 `processed/`。
+- 不再要求使用者理解「批次產圖」與「專案 ZIP」的差異。
+
+### Latest Processed Image Persistence
+
+- 永遠只有 latest processed image。
+- 不建立 version history。
+- 不新增 `edited.png`、`cleaned.png`、`processed_v2.png` 或 version folders。
+- 新 Photoshop output 或 Review Workspace Save 會覆蓋目前 processed image。
+
+### Review Workspace Save Contract
+
+- Review Workspace 仍是唯一可以修改 processed image 的地方。
+- Crop / Eraser Save 只更新 runtime processed asset。
+- Persistence Export 從 runtime processed asset 收集 latest processed image。
+- Save 不自動 Approve、不改 Review decision、不直接改 Canvas / Thumbnail / Batch 架構。
 
 ## 4. AI 接手規則
 

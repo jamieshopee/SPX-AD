@@ -1,12 +1,13 @@
 # Architecture
 
-Version: v0.4.2  
+Version: v0.4.3  
 Last Updated: 2026-07-09  
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界與新增 Style 流程。
 
 ## What's New
 
-- Roadmap 已更新：Review Workspace UX Polish 已完成，目前沒有 Active Phase。
+- Roadmap 已更新：Project Persistence 已完成，目前沒有 Active Phase。
+- Project Persistence 完成：Project State v5、Persistence Layer、single-state restore、project.zip restore 與 Download Complete Project。
 - Review Workspace UX Polish 完成：Auto Next、Multi-pass Review、Progress Header、Smart Entry、Keyboard Shortcuts、Decision Guard 與 Remove Drag Tool。
 - Smart Layout Propagation 已完成：每個 Job 擁有 runtime-only 3 商品 Master Layout，可建立 target size 自己的 layoutState。
 - Project State v4 已完成，保存 Asset Pipeline metadata 與 Review decision，並達成可恢復工作區核心目標。
@@ -26,15 +27,16 @@ Scope: 最新系統架構、Render Flow、Template / Style / Project State / Ass
 4. [Template](#template)
 5. [Style](#style)
 6. [Project State](#project-state)
-7. [Asset Payload](#asset-payload)
-8. [Smart Layout Propagation](#smart-layout-propagation)
-9. [Master Layout](#master-layout)
-10. [State Boundary](#state-boundary)
-11. [Photoshop Pipeline 邊界](#photoshop-pipeline-邊界)
-12. [Documentation Structure](#documentation-structure)
-13. [資料夾結構](#資料夾結構)
-14. [新增 Style 流程](#新增-style-流程)
-15. [維護原則](#維護原則)
+7. [Project Persistence Architecture](#project-persistence-architecture)
+8. [Asset Payload](#asset-payload)
+9. [Smart Layout Propagation](#smart-layout-propagation)
+10. [Master Layout](#master-layout)
+11. [State Boundary](#state-boundary)
+12. [Photoshop Pipeline 邊界](#photoshop-pipeline-邊界)
+13. [Documentation Structure](#documentation-structure)
+14. [資料夾結構](#資料夾結構)
+15. [新增 Style 流程](#新增-style-流程)
+16. [維護原則](#維護原則)
 
 ## 最新架構圖
 
@@ -108,6 +110,7 @@ Completed
   ├─ Render Context
   ├─ Master + Style
   ├─ Project State
+  ├─ Project Persistence
   └─ Smart Layout Propagation
 
 Current
@@ -122,7 +125,7 @@ Future
   └─ UI Upgrade
 ```
 
-Review Workspace（Crop / Eraser）、Photoshop Rerun Automation 與 Review Workspace UX Polish 已完成。目前沒有 Active Phase。
+Review Workspace（Crop / Eraser）、Photoshop Rerun Automation、Review Workspace UX Polish 與 Project Persistence 已完成。目前沒有 Active Phase。
 
 ## Pipeline Loop
 
@@ -350,17 +353,29 @@ Project State 是控制台目前工作區的資料來源。
 - layoutStates
 - thumbnail / quickThumbnail
 - Asset Pipeline metadata（v4）
+- processedAssets persistence（v5）
 
-Project State v4（Completed）：
+Project State v5（Completed）：
+
+- Project State v5 建立 Project Persistence contract。
+- `single-state.json` 可保存單張工單需要的 latest processed image `dataUrl`。
+- `project.zip` 會保存 `project-state.json` 與 `processed/` folder。
+- `project-state.json` 的 `processedAssets` 只保存 `filename`，不保存 processed image `dataUrl`。
+- 匯入 single-state / project.zip 後會重建 runtime `processedAssetIndex`。
+- 匯入後不需要重新 Import Processed Folder，即可恢復 approved processed assets。
+- Main Canvas、Thumbnail、Batch 透過既有 `BNAssetResolver` 與 Render Context 自然使用 restored latest processed image。
+- Download Complete Project 會輸出所有 PNG、`project-state.json` 與 `processed/`。
+
+Project State v4（Completed / legacy metadata layer）：
 
 - `project-state.json` / `single-state.json` 會保存 `assetPipelineState` metadata。
-- Project State 已達成「可恢復工作區」核心目標。
+- Project State v4 已達成 Asset Pipeline metadata 與 Review decision 的可恢復目標。
 - 保存 Review decision：`approved` / `needs_rerun`。Legacy `rejected` import 會 migration 為 `needs_rerun`。
 - 保存 `processedAsset` metadata，但不保存 processed image `dataUrl`。
 - 不保存 `FileSystemHandle` / object URL / `processedAssetIndex` / runtime cache。
 - 匯入 v4 後可恢復 Asset Pipeline metadata 與 Review decision。
-- 匯入後若尚未重新 Import Processed Folder，approved processed asset 會 fallback original。
-- 重新 Import Processed Folder 後，Main Canvas 可恢復 approved processed assets。
+- 匯入 v4 後若尚未重新 Import Processed Folder，approved processed asset 會 fallback original。
+- v5 起由 Project Persistence 保存 latest processed image，不需要重新 Import Processed Folder。
 - v2 / v3 Project State 保持相容。
 - Thumbnail refresh UX 屬於未來優化，不屬於 Project State 缺口。
 
@@ -373,9 +388,89 @@ Project State v4（Completed）：
 - `layoutStates` key 固定為 `placementId|templateId`。
 - 有 `layoutStates` map 時只能讀目前 key；目前 key 不存在時使用該 template 預設 layout。
 - `layoutState` 僅保留 legacy 相容，不作為跨尺寸同步機制。
-- Project State v4 不修改 `layoutStates` schema。
-- Project State v4 不修改 Main Canvas / Thumbnail / Batch 架構。
-- Project State v4 不修改 Photoshop Pipeline。
+- Project State v5 不修改 `layoutStates` schema。
+- Project State v5 不修改 Main Canvas / Thumbnail / Batch 架構。
+- Project State v5 不修改 Photoshop Pipeline。
+
+## Project Persistence Architecture
+
+Project Persistence 是正式的 Workspace Save / Restore layer。
+
+核心原則：
+
+- Project Save = Workspace Save。
+- Restore 後回到存檔當下可繼續工作的狀態。
+- Review Workspace Save 的 latest processed image 需要被保存與恢復。
+- 不保存 `FileSystemHandle`、object URL、runtime cache 或 Photoshop runtime。
+- 不建立 processed image version history。
+
+Persistence Layer：
+
+- `js/project-persistence.js` 負責 processed assets persistence helper。
+- Export 時從 runtime `processedAssetIndex` 收集 latest processed image。
+- Import 時從 `single-state.json` 或 `project.zip` 重建 runtime `processedAssetIndex`。
+- Persistence Layer 不 Render、不操作 Canvas、不改 Resolver decision、不執行 Photoshop。
+
+Project State v5：
+
+```json
+{
+  "schema": "spx-ad-project-state",
+  "version": 5,
+  "type": "project",
+  "processedAssets": {
+    "assetKey": {
+      "filename": "assetKey__processed.png"
+    }
+  }
+}
+```
+
+`single-state.json`：
+
+- `type = single`。
+- 可在 `processedAssets[assetKey]` 內保存 `filename` 與 `dataUrl`。
+- 一個 JSON 可恢復單張工單與 latest processed image。
+
+`project.zip`：
+
+```text
+project_YYYY-MM-DD.zip
+├── JOB-1.png
+├── JOB-2.png
+├── project-state.json
+└── processed/
+    ├── {assetKey}__processed.png
+    └── ...
+```
+
+- `project-state.json` 不保存 processed image `dataUrl`。
+- `processed/` 保存 latest processed image。
+- ZIP import 讀取 `project-state.json` 與 `processed/` 後重建 runtime source。
+
+Restore Flow：
+
+```text
+Import single-state.json / project.zip
+  ↓
+Restore jobs / assets / layoutStates / assetPipelineState
+  ↓
+Restore processedAssets into runtime processedAssetIndex
+  ↓
+Existing BNAssetResolver
+  ↓
+Asset Payload
+  ↓
+Main Canvas / Thumbnail / Batch
+```
+
+Boundary：
+
+- 不修改 Approved Asset Resolver API。
+- 不讓 Canvas 讀 Project State `processedAssets`。
+- 不修改 Main Canvas / Thumbnail / Batch render flow。
+- 不修改 Photoshop Pipeline。
+- `layoutStates` schema 不變。
 
 ## Asset Payload
 
@@ -487,8 +582,8 @@ State Boundary 定義哪些流程可以讀或寫 state。
 | Main Canvas | active job、Template、Style、Asset Payload、目前 key 的 `layoutStates` | `job.layoutStates[current placement|template]` | 唯一互動編輯來源 |
 | Thumbnail | 指定 job 的文字、素材、Style、Template、`layoutStates` | `job.thumbnail`、`thumbnailStatus` | hidden iframe 只產縮圖，不寫 transform |
 | Batch Render | render job 自己的文字、素材、Style、Template、approved processed assets、`layoutStates` | PNG ZIP、可更新 UI thumbnail | deterministic renderer，不寫 layout state |
-| Project State Export | jobs、assets、style、`layoutStates`、thumbnail、Asset Pipeline metadata | `single-state.json` / `project-state.json` | 只序列化可恢復狀態，不保存 runtime cache |
-| Project State Import | 暫存 JSON | jobs、assets、style、`layoutStates`、thumbnail、Asset Pipeline metadata | 合法 replace workspace 邊界；processed runtime source 需重新 Import Processed Folder |
+| Project State Export | jobs、assets、style、`layoutStates`、thumbnail、Asset Pipeline metadata、latest processed image metadata | `single-state.json` / `project-state.json` / `project.zip` | v5 可保存 latest processed image；不保存 FileSystemHandle、object URL 或 runtime cache |
+| Project State Import | 暫存 JSON / project.zip | jobs、assets、style、`layoutStates`、thumbnail、Asset Pipeline metadata、runtime `processedAssetIndex` | 合法 replace workspace 邊界；v5 可從 single-state / project.zip 直接恢復 processed source |
 | Asset Payload | assets、template default layout | Canvas payload messages | 不碰 Project State |
 | Photoshop Pipeline | original / processed / approved assets | asset processing status、approved asset mapping | 不碰 Canvas transform |
 

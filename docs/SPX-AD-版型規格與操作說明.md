@@ -244,3 +244,60 @@ Review Workspace UX：
 Rerun 後再次匯入 Processed Folder，新的 processed asset 會覆蓋上一版 processed asset，但 original asset 仍保留。匯入後會回到 Review Workspace，必須再次核准後才會進入成品渲染。
 
 若原始素材本身需要更換，請使用控制台右側既有素材更換流程，不在 Review Workspace 中換圖。
+
+## Project Persistence / 完整專案保存
+
+Project Persistence 的使用原則是：Project Save = Workspace Save。
+
+### Download Complete Project
+
+控制台主要下載流程為「下載完整專案」。下載後會得到：
+
+```text
+project_YYYY-MM-DD.zip
+├── JOB-1.png
+├── JOB-2.png
+├── project-state.json
+└── processed/
+    ├── {assetKey}__processed.png
+    └── ...
+```
+
+ZIP 內包含：
+
+- 所有輸出 PNG。
+- `project-state.json`。
+- Review Workspace 最後一次 Save 的 latest processed image。
+
+使用者不需要另外保存素材資料夾或 Photoshop processed folder，匯入 `project.zip` 後即可恢復工作區。
+
+### Import Project ZIP
+
+匯入 `project.zip` 後會恢復：
+
+- Jobs / 文字。
+- Template / Style。
+- `layoutStates`。
+- Review decision。
+- Approved processed assets。
+- Review Workspace 最後一次 Save 的 processed result。
+
+匯入後不需要重新 Import Processed Folder。Main Canvas、Thumbnail 與 Batch 會使用 ZIP 內恢復的 latest processed image。
+
+### single-state Restore
+
+`single-state.json` 用於保存單張工單。匯入後會恢復該工單需要的 processed image，因此不需要保留原素材資料夾或 processed folder。
+
+### Review Workspace Restore
+
+匯入 single-state 或 project.zip 後，Review Workspace 開啟時會顯示最後一次 Save 的 processed result。
+
+Approved asset 仍可重新進入 Review Workspace 編輯。Crop / Eraser Save 後會覆蓋目前 processed image，不建立版本歷史。
+
+### Latest Save Restore
+
+系統只保存 latest processed image：
+
+- 不保存 v1 / v2 / v3。
+- 不另存 `edited.png` 或 `cleaned.png`。
+- 新 Photoshop output 或 Review Workspace Save 會覆蓋目前 processed image。

@@ -251,6 +251,38 @@ Decision actions 固定為：
 - 若 Project State 已恢復 `approved` decision，Main Canvas 可透過既有 approved asset refresh flow 更新 approved processed asset source。
 - Main Canvas refresh 僅更新既有 DOM 的圖片來源，不重建 DOM、不重設 transform、不修改 `layoutState`。
 
+## Project Persistence UX
+
+Project Persistence 的 UX 原則是讓使用者理解「保存的是完整工作區」，而不是理解內部 state / folder 差異。
+
+### Download Complete Project
+
+- 主要下載 CTA 使用「下載完整專案」。
+- ZIP 同時包含輸出 PNG、`project-state.json` 與 `processed/`。
+- UI 不應要求使用者區分「批次產圖」與「專案 ZIP」。
+- 匯入 `project.zip` 後應回到可繼續工作的狀態。
+
+### Latest Save Principle
+
+- Review Workspace 最後一次 Save 是唯一會被保存的 processed result。
+- 不顯示版本歷史。
+- 不出現 `edited` / `cleaned` / `v2` 等使用者不需要理解的版本語言。
+- 新 Photoshop output 或新的 Review Workspace Save 會覆蓋目前 processed image。
+
+### Review Workspace Integration
+
+- Approved asset 重新開啟 Review Workspace 時，應顯示最後一次 Save 的 result。
+- Approved asset 可繼續 Crop / Eraser 編輯。
+- Save 不自動 Approve、不改 decision、不直接改 Render Engine。
+- Restore 後 Main Canvas、Thumbnail、Batch 透過既有 Resolver 使用 restored processed source。
+
+### No Version History / Latest Only
+
+- 不新增版本切換 UI。
+- 不新增 processed history panel。
+- 不新增 original / edited / cleaned folder 的 UI 概念。
+- 使用者只需要知道目前 project.zip 會保存「最新狀態」。
+
 ## UI 原則
 
 - 維持 Apple / Figma 風格。

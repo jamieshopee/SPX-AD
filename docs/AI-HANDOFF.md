@@ -47,7 +47,7 @@ Photoshop Pipeline 角色：
 目前最新穩定 Git Tag：
 
 ```text
-v0.4.2
+v0.4.3
 ```
 
 目前分支：
@@ -68,6 +68,7 @@ feature/review-workspace-ux-polish
 - Phase 2D-2C：Batch Approved Assets，Batch ZIP export 已使用 approved processed assets。
 - Project State：single-state.json / project-state.json 匯出與匯入。
 - Project State Phase：Completed。Project State v4 保存 Asset Pipeline metadata 與 Review decision，已達成可恢復工作區核心目標。
+- Project Persistence：Project State v5、single-state restore、project.zip restore 與 Download Complete Project 已完成。Project Save = Workspace Save，會保存 latest processed image，不需要保留素材資料夾或 processed folder。
 - Thumbnail System：quickThumbnail 與 hidden iframe 正式縮圖流程。
 - LayoutState Restore：依 `placementId|templateId` 保存與恢復 transform。
 - Product identity restore by filename：三商品 restore 使用 `id → filename → position`。
@@ -92,6 +93,7 @@ Completed：
 - Render Context
 - Master + Style
 - Project State
+- Project Persistence
 - Smart Layout Propagation
 
 目前 Active Phase：
@@ -319,6 +321,12 @@ v0.4.2
 
 Review Workspace UX Polish。完成 Auto Next、Multi-pass Review、Review Progress Header、Smart Entry、Keyboard Shortcuts、Decision Guard 與 Remove Drag Tool；Review Workspace UX Polish 已列入 Locked Completed Phases。
 
+```text
+v0.4.3
+```
+
+Project Persistence。完成 Project State v5、Persistence Layer、single-state processed image restore、project.zip restore 與 Download Complete Project；Project Save = Workspace Save，latest processed image 可隨專案恢復。
+
 
 ## Smart Layout Propagation
 
@@ -342,6 +350,7 @@ Completed：
 - Render Context
 - Master + Style
 - Project State
+- Project Persistence
 - Smart Layout Propagation
 
 Current：
@@ -366,7 +375,7 @@ Future：
 - Extension System
 - UI Upgrade
 
-目前 Active Phase：None（Waiting for next Proposal）。Review Workspace UX Polish 已完成，下一個 Phase 尚未開始。
+目前 Active Phase：None（Waiting for next Proposal）。Project Persistence 已完成，下一個 Phase 尚未開始。
 
 以上 Roadmap 只代表建議方向。實作前必須另做 Architecture Proposal 並確認 Phase Boundary。
 
