@@ -87,7 +87,7 @@
           <span id="csv-status-text">—</span>
         </div>
         <input id="import-file" type="file" accept=".xlsx,.xls,.csv" style="display:none" aria-hidden="true">
-        <input id="import-state-file" type="file" accept=".json,application/json" style="display:none" aria-hidden="true">
+        <input id="import-state-file" type="file" accept=".json,.zip,application/json,application/zip" style="display:none" aria-hidden="true">
       </div>
     </header>
 
@@ -183,7 +183,7 @@
           </button>
           <button id="batch-btn" class="btn-primary" type="button">
             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/></svg>
-            批次產圖
+            下載完整專案
           </button>
           <button id="reset-workspace-btn" class="btn-danger" type="button">
             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 1h3a.5.5 0 0 1 .5.5V2h3.5a.5.5 0 0 1 0 1H13l-.64 10.2A2 2 0 0 1 10.36 15H5.64a2 2 0 0 1-1.996-1.8L3 3h-.5a.5.5 0 0 1 0-1H6v-.5a.5.5 0 0 1 .5-.5zM4 3l.64 10.14a1 1 0 0 0 .998.86h4.724a1 1 0 0 0 .998-.86L12 3H4z"/><path d="M6.5 5.5A.5.5 0 0 1 7 6v5a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 0A.5.5 0 0 1 10 6v5a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5z"/></svg>
@@ -196,10 +196,10 @@
   </div><!-- /shell -->
 
   <!-- ── 批次進度 Modal ── -->
-  <div id="batch-modal" class="batch-modal" style="display:none" role="dialog" aria-modal="true" aria-label="批次產圖進度">
+  <div id="batch-modal" class="batch-modal" style="display:none" role="dialog" aria-modal="true" aria-label="下載完整專案進度">
     <div class="batch-modal-box">
       <div class="batch-modal-head">
-        <span class="batch-modal-title">批次產圖</span>
+        <span class="batch-modal-title">下載完整專案</span>
         <button id="batch-cancel-btn" class="batch-cancel-btn" type="button" aria-label="關閉">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         </button>
@@ -245,6 +245,7 @@
   <script src="js/smart-layout-propagation.js?v=20260707-smart-layout-a"></script>
   <script src="js/asset-pipeline-state.js?v=20260709-review-ux-b"></script>
   <script src="js/asset-pipeline-manifest.js?v=20260705-2a"></script>
+  <script src="js/project-persistence.js?v=20260709-persistence-core-a"></script>
   <script src="js/asset-resolver.js?v=20260705-2a"></script>
   <script src="js/asset-edit-session.js?v=20260708-review-editor-a"></script>
   <script src="js/asset-review-editor.js?v=20260709-review-ux-a"></script>

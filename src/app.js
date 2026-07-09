@@ -35,6 +35,7 @@ const el = {
   captureBtn:       document.querySelector('#capture-btn'),
   downloadBtn:      document.querySelector('#download-btn'),
   singleStateBtn:    document.querySelector('#single-state-btn'),
+  projectZipBtn:    document.querySelector('#project-zip-btn'),
   batchBtn:         document.querySelector('#batch-btn'),
   resetWorkspaceBtn: document.querySelector('#reset-workspace-btn'),
   jobPanel:         document.querySelector('#job-panel'),
@@ -2084,7 +2085,9 @@ async function selectJob(id, options = {}) {
       if (loadSeq !== canvasLoadSeq) return;
       if (layoutToApply) {
         setJobLayoutState(job, layoutToApply, layoutKey);
-        await applyJobLayoutStateToFrame(job, el.frame.contentWindow, layoutToApply);
+        await applyJobLayoutStateToFrame(job, el.frame.contentWindow, layoutToApply, {
+          skipRequest: !!options.skipLayoutStateRequest,
+        });
       }
     }).catch(err => console.warn('[CC] selectJob waitForFrameReady:', err));
   }
@@ -3023,6 +3026,15 @@ function addBatchLog(filename, status, note = '') {
   el.batchJobLog.scrollTop = el.batchJobLog.scrollHeight;
 }
 
+function addProcessedEntriesToZip(zip, processedEntries, folderName = 'processed') {
+  const processedFolder = zip.folder(folderName);
+  (processedEntries || []).forEach(item => {
+    const b64 = dataUrlBase64(item.dataUrl);
+    if (!b64) return;
+    processedFolder.file(safeZipSegment(item.filename), b64, { base64: true });
+  });
+}
+
 async function batchRender() {
   const validJobs = jobs.filter(j => j.headline);
   if (!validJobs.length) { setStatus('沒有可用工單', 'error'); return; }
@@ -3074,16 +3086,18 @@ async function batchRender() {
   }
 
   if (pngFiles.length) {
-    setBatchProgress(validJobs.length, validJobs.length, '打包 ZIP 中…');
+    setBatchProgress(validJobs.length, validJobs.length, '打包完整專案 ZIP 中…');
     const zip = new JSZip();
     pngFiles.forEach(({ name, dataUrl }) => {
       const b64 = dataUrlBase64(dataUrl);
       if (b64) zip.file(safeZipSegment(name), b64, { base64: true });
     });
     const state = await exportProjectState(validJobs);
-    zip.file('project-state.json', JSON.stringify(state, null, 2));
+    const projectZip = window.BNProjectPersistence?.prepareProjectZipState?.(state) || { state, processedEntries: [] };
+    zip.file('project-state.json', JSON.stringify(projectZip.state, null, 2));
+    addProcessedEntriesToZip(zip, projectZip.processedEntries, 'processed');
     const blob = await zip.generateAsync({ type: 'blob' });
-    downloadBlob(blob, `banners_${new Date().toISOString().slice(0, 10)}.zip`);
+    downloadBlob(blob, `project_${new Date().toISOString().slice(0, 10)}.zip`);
   }
 
   thumbnailPaused = false;
@@ -3419,12 +3433,20 @@ async function readImageSize(dataUrl) {
   });
 }
 
+
+async function buildProcessedAssetsStatePayload(pipelineMetadata) {
+  const payload = await window.BNProjectPersistence?.buildProcessedAssetsPayloadAsync?.(pipelineMetadata, processedAssetIndex, {
+    readEntryDataUrl: processedAssetEntryToDataUrl,
+  });
+  return payload && Object.keys(payload).length ? payload : null;
+}
+
 async function buildProjectState(sourceJobs, type = 'project') {
   const exportJobs = prepareJobsForStateExport(sourceJobs);
   const exportedAt = new Date().toISOString();
   const state = {
     schema: 'spx-ad-project-state',
-    version: 4,
+    version: 5,
     type,
     exportedAt,
     activePlacementId: activePlacement?.id || exportJobs[0]?.placementId || '',
@@ -3469,7 +3491,11 @@ async function buildProjectState(sourceJobs, type = 'project') {
   };
 
   const pipelineMetadata = window.BNAssetPipelineState?.exportAssetPipelineMetadataForJobs?.(assetPipelineState, exportJobs, { exportedAt });
-  if (pipelineMetadata) state.assetPipelineState = pipelineMetadata;
+  if (pipelineMetadata) {
+    state.assetPipelineState = pipelineMetadata;
+    const processedAssets = await buildProcessedAssetsStatePayload(pipelineMetadata);
+    if (processedAssets) state.processedAssets = processedAssets;
+  }
 
   for (const job of exportJobs) {
     const item = serializeJobBase(job);
@@ -3525,22 +3551,56 @@ async function exportProjectState(sourceJobs) {
   return buildProjectState(sourceJobs, 'project');
 }
 
+async function exportProjectZip() {
+  if (!jobs.length) {
+    setStatus('沒有可匯出的專案資料。', 'error');
+    return;
+  }
+  if (typeof JSZip === 'undefined') {
+    setStatus('JSZip 未載入，無法匯出專案 ZIP。', 'error');
+    return;
+  }
+  try {
+    setStatus('產生專案 ZIP 中…');
+    await syncActiveLayoutState();
+    const state = await exportProjectState(jobs);
+    const projectZip = window.BNProjectPersistence?.prepareProjectZipState?.(state) || { state, processedEntries: [] };
+    const zip = new JSZip();
+    zip.file('project-state.json', JSON.stringify(projectZip.state, null, 2));
+    addProcessedEntriesToZip(zip, projectZip.processedEntries, 'processed');
+    const blob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(blob, `project_${new Date().toISOString().slice(0, 10)}.zip`);
+    setStatus(`專案 ZIP 下載完成。processed assets：${projectZip.processedEntries.length}`, 'success');
+  } catch (error) {
+    console.error(error);
+    setStatus('專案 ZIP 匯出失敗：' + error.message, 'error');
+  }
+}
+
 async function importState(file) {
   if (!file) return;
-  if (!/\.json$/i.test(file.name || '')) {
-    setStatus('不支援的暫存格式：請選擇 single-state.json 或 project-state.json', 'error');
+  if (!/\.(json|zip)$/i.test(file.name || '')) {
+    setStatus('不支援的暫存格式：請選擇 single-state.json、project-state.json 或 project.zip', 'error');
     return;
   }
   try {
     setStatus('匯入暫存中…');
     let state;
-    try {
-      state = JSON.parse(await file.text());
-    } catch (error) {
-      throw new Error('暫存 JSON 解析失敗');
+    if (/\.zip$/i.test(file.name || '')) {
+      try {
+        state = await window.BNProjectPersistence.extractProjectZipState(file, JSZip);
+      } catch (error) {
+        throw new Error('project.zip 解析失敗：' + error.message);
+      }
+    } else {
+      try {
+        state = JSON.parse(await file.text());
+      } catch (error) {
+        throw new Error('暫存 JSON 解析失敗');
+      }
     }
     if (state.schema !== 'spx-ad-project-state') throw new Error('不支援的暫存格式');
-    if (![2, 3, 4].includes(Number(state.version))) throw new Error('暫存檔版本不相容');
+    if (![2, 3, 4, 5].includes(Number(state.version))) throw new Error('暫存檔版本不相容');
     if (!Array.isArray(state.jobs)) throw new Error('暫存格式不正確：找不到 jobs');
 
     await resetWorkspaceState({ keepAssetsFolder: false });
@@ -3548,8 +3608,11 @@ async function importState(file) {
     processedAssetIndex = {};
     reviewWorkspaceRerunAssetKeys = [];
     assetPipelineState = window.BNAssetPipelineState?.importAssetPipelineMetadata?.(state.assetPipelineState) || null;
+    if (Number(state.version) >= 5 && state.processedAssets) {
+      processedAssetIndex = window.BNProjectPersistence?.buildProcessedAssetIndex?.(state.processedAssets) || {};
+    }
     updateNeedsRerunButton();
-    assetFolderName = file.name.replace(/\.json$/i, '');
+    assetFolderName = file.name.replace(/\.(json|zip)$/i, '');
     assetSourceMode = 'state';
     const assetsById = new Map();
     for (const asset of stateAssetList(state)) {
@@ -3610,7 +3673,7 @@ async function importState(file) {
     setTopbarBadge(el.folderStatus, el.folderStatusText, `${assetFolderName}（${stateAssetList(state).length}）`);
     validateAllJobs();
     renderJobList();
-    if (activeJobId) await selectJob(activeJobId, { skipSync: true });
+    if (activeJobId) await selectJob(activeJobId, { skipSync: true, skipLayoutStateRequest: true });
     setStatus(`暫存已匯入：${jobs.length} 筆工單。`, 'success');
   } catch (error) {
     console.error(error);
@@ -3763,6 +3826,7 @@ if (el.captureBtn) {
 // 下載單張
 el.downloadBtn.addEventListener('click', downloadCurrentBanner);
 el.singleStateBtn.addEventListener('click', exportSingleState);
+if (el.projectZipBtn) el.projectZipBtn.addEventListener('click', exportProjectZip);
 
 // 批次產圖
 el.batchBtn.addEventListener('click', batchRender);
