@@ -47,7 +47,7 @@ Photoshop Pipeline 角色：
 目前最新穩定 Git Tag：
 
 ```text
-v0.4.4
+v0.4.5
 ```
 
 目前分支：
@@ -74,7 +74,7 @@ feature/review-workspace-ui-upgrade
 - LayoutState Restore：依 `placementId|templateId` 保存與恢復 transform。
 - Product identity restore by filename：三商品 restore 使用 `id → filename → position`。
 - Approved Asset Resolver：Main Canvas / Thumbnail / Batch 共用 `BNAssetResolver` 與 Render Context。
-
+- Review Workspace UI Upgrade：Navigator 只顯示檔名、Review Status、Dirty Status；Review Summary 與 Filter（全部素材／待重新去背）移至 Navigator 上方；Workspace 預設 Navigator + Workspace，Inspector 預設收合，點選裁切或橡皮擦才展開 Dynamic Inspector，儲存或取消後收合；Header 僅保留素材審閱／關閉；底部 Decision Area 三顆按鈕同列（核准 / 重新去背 / 撤回上一個決策）；新增 Completion Screen 與 Completion Recovery；Review Workspace 正式 UI 中文化。詳見 CHANGELOG v0.4.5。
 
 ## Locked Completed Phases
 
@@ -97,6 +97,7 @@ Completed：
 - Project State
 - Project Persistence
 - Smart Layout Propagation
+- Review Workspace UI Upgrade
 
 目前 Active Phase：
 
@@ -382,6 +383,12 @@ v0.4.4
 
 Control Center UI Upgrade。控制台 Header 改為 `SPX BN生成器`，固定一般使用者入口為匯入CSV、匯入暫存、選擇素材資料夾、素材審核；一般 UI 隱藏 Photoshop / Manifest / Processed Folder 等技術術語；素材審核入口整合處理結果匯入、重新處理素材與開啟審核；中央版位下拉僅調整 display order，不修改 placementId、templateId、layoutState key 或 schema。
 
+```text
+v0.4.5
+```
+
+Review Workspace UI Upgrade。Navigator Information Architecture 簡化為檔名、Review Status、Dirty Status，移除 Role / Job ID / Slot / Asset Key / Processed Filename / Mode 等技術 Metadata；Review Summary 與 Filter（全部素材／待重新去背）移至 Navigator 上方；Workspace Layout 預設 Navigator + Workspace，Inspector 預設收合，選取裁切或橡皮擦時展開 Dynamic Inspector，儲存或取消後收合；Header 僅保留素材審閱／關閉；底部 Decision Area 三顆按鈕同列（核准 Primary、重新去背 Warning/Danger、撤回上一個決策灰階 Outline）；新增 Completion Screen（依全域 Reviewable Assets 判斷，區分 Needs Rerun = 0 / > 0）；新增 Completion Recovery（Completion Screen 可撤回上一個決策，使用者可重新進入任一已完成素材繼續編輯）；Review Workspace 正式 UI 中文化，internal values（`approved` / `needs_rerun` / `pending` / `processed` / `all` / `crop` / `eraser`）不變；「重新去背素材（N）」目前僅呼叫既有 `exportPhotoshopRerunManifest` callback，未包含 Background Runner、Photoshop 自動啟動、自動 Import 或自動第二輪 Review。未修改 Crop / Eraser Core Logic、Undo Stack、Save Runtime Processed Asset Flow、Keyboard Shortcut 底層邏輯、Photoshop Pipeline 或 Rerun Architecture。
+
 
 ## Smart Layout Propagation
 
@@ -408,6 +415,7 @@ Completed：
 - Project State
 - Project Persistence
 - Smart Layout Propagation
+- Review Workspace UI Upgrade
 
 Current：
 
@@ -423,7 +431,6 @@ Photoshop Rerun Automation（Completed）：
 
 Future：
 
-- Review Workspace UI Upgrade
 - AI Workflow
 - Render Context & Export Workflow
 - Extension System
@@ -433,24 +440,76 @@ Future：
 
 The following roadmap order has been decided by the product owner.
 
-1. Review Workspace UI Upgrade
-2. AI Workflow
-3. Render Context & Export Workflow
-4. Extension System
-5. QR Code
+1. AI Workflow
+2. Render Context & Export Workflow
+3. Extension System
+4. QR Code
 
 Rules：
 
 - Follow this order by default.
 - Do not propose other roadmap phases unless explicitly requested by the product owner.
-- Completed Review Workspace phases are locked; Review Workspace UI Upgrade is a future phase and must start with Proposal / Audit before implementation.
-- Project Persistence is feature complete.
+- Review Workspace UI Upgrade is Completed and locked; do not reopen, redesign, or re-Proposal it.
+- AI Workflow is the next planned phase and must start with Product Proposal / Proposal Audit before any implementation. See "Future AI Workflow Target" below for the target end state that the Proposal must align with.
+- Project Persistence and Review Workspace UI Upgrade are feature complete.
 - Locked Completed Phases must not be redesigned.
-- Review Workspace should not receive new editing tools, workflows, or UX redesigns outside the planned Review Workspace UI Upgrade or explicit product-owner request.
+- AI Workflow must not redesign Review Workspace UI, Navigator, Dynamic Inspector, Decision Area, or Completion Screen; it may only automate the background asset-processing flow and wire it into the existing UI.
 
-目前 Active Phase：None（Waiting for next Proposal）。Project Persistence 與 Control Center UI Upgrade 已完成。
+目前 Active Phase：None（Waiting for next Proposal）。Project Persistence、Control Center UI Upgrade 與 Review Workspace UI Upgrade 已完成。
 
 以上 Roadmap 只代表建議方向。實作前必須另做 Architecture Proposal 並確認 Phase Boundary。
+
+## Future AI Workflow Target（尚未實作，僅為下一階段方向）
+
+以下內容描述 AI Workflow Phase 的目標方向，不是目前已完成行為，不得視為 Completed 功能。
+
+### 核心產品原則
+
+最終產品必須讓一般使用者完全不需要知道 Photoshop 的存在。Photoshop 是系統背景素材處理引擎，不是使用者操作介面。
+
+使用者只需要：
+
+1. 提供素材。
+2. 審閱素材。
+
+使用者不需要：
+
+- 開啟 Photoshop
+- 操作 Photoshop
+- 匯出 Manifest
+- 執行 Runner
+- 選擇 Processed Folder
+- 手動匯入處理結果
+- 理解 Photoshop Pipeline 技術細節
+
+### 最終使用者流程（Future）
+
+```text
+1. 使用者匯入 CSV。
+2. 使用者選擇素材資料夾。
+3. 系統自動在背景啟動 Photoshop 素材處理能力。
+4. Photoshop 在背景批次去背。
+5. 控制台顯示一般使用者能理解的狀態：素材處理中（18/63）、素材處理完成、等待審閱。
+6. Photoshop 完成後，系統自動帶入 processed assets。
+7. 使用者直接進入素材審閱。
+8. 使用者只操作：核准、重新去背、裁切、橡皮擦。
+9. 全部素材審閱完成後：Needs Rerun = 0 → 返回控制台；Needs Rerun > 0 → 顯示「重新去背素材（N）」。
+10. 使用者點擊「重新去背素材（N）」後，系統背景再次啟動 Photoshop、批次重新去背、自動偵測完成、自動帶入最新 processed assets、Review Workspace 自動更新，並自動進入「待重新去背」第二輪審閱。
+11. 重複至所有素材完成。
+```
+
+使用者可見 UI 只使用工作語言：素材處理中、素材處理完成、等待審閱、素材審閱、核准、重新去背、待重新去背、重新去背素材（N）。不得暴露 Photoshop、Manifest、Runner、Processed Folder、Import Processed Folder。
+
+### UI 與 AI Workflow 邊界
+
+Review Workspace UI Upgrade 已依最終 AI Workflow 目標預先設計完成（Navigator、Dynamic Inspector、Decision Area、Completion Screen 皆已考慮未來自動化銜接）。AI Workflow Phase：
+
+- 只負責將背景素材處理流程自動化，接到目前已完成的 UI。
+- 不得重新設計 Review Workspace、Navigator、Dynamic Inspector、Decision Area 或 Completion Screen。
+- 不得重新暴露 Photoshop 技術流程給一般使用者。
+- 所有自動化能力都必須維持既有 State Boundary（Asset Pipeline / Review Decision / Photoshop Adapter / Project State 邊界不變）。
+
+此章節為 Future Target，不代表目前已實作行為；目前 Rerun 入口仍只呼叫既有 `exportPhotoshopRerunManifest` callback，Background Runner、Photoshop 自動啟動、自動 Import Processed Result、自動第二輪 Review 皆尚未實作。
 
 ## 8. AI 接手規則
 

@@ -1,18 +1,21 @@
 # UI Design Guideline
 
-Version: 2026.07.01-s  
-Last Updated: 2026-07-10  
+Version: 2026.07.11-review-ui  
+Last Updated: 2026-07-11  
 Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
 
+- Review Workspace UI Upgrade：Navigator Information Architecture 簡化、Workspace Layout 與 Dynamic Inspector 改版、Decision Area 三顆按鈕同列、新增 Completion Screen / Completion Recovery、Review Workspace 正式中文化。
 - Control Center UI Upgrade：Header 簡化為一般使用者主入口，素材審核入口整合狀態與操作。
 - 控制台 UI 文件同步 Template + Style 架構。
 - 新增目前控制台架構圖。
 - 明確定義 Template = 排版，Style = 背景 / 資訊圖 / 文字顏色。
 - 補上 `template.json`、`styles/`、`backgrounds/`、`info/` 命名規範。
 - 初始狀態、匯入 CSV、匯入暫存與重設工作區 UI 狀態需保持一致。
-- Review Workspace decision UI 只保留「核准」與「重新處理」。
+- Review Workspace decision UI 三顆按鈕：核准、重新去背、撤回上一個決策。
+- 新增 Review Workspace 繁體中文 UI Terminology 對照表。
+- 新增 Future AI Workflow 背景處理狀態 UI 方向（尚未實作）。
 
 ## Table of Contents
 
@@ -249,15 +252,54 @@ Hover、Focus、Disabled、Loading 狀態需一致。
 
 ## Review Workspace UI
 
-Review Workspace 是 processed result 的檢查與修圖工作區，不是素材管理或換圖介面。
+Review Workspace（素材審閱）是 processed result 的檢查與修圖工作區，不是素材管理或換圖介面。
 
 Decision actions 固定為：
 
 - 核准
-- 重新處理
+- 重新去背
+- 撤回上一個決策
 
 不得再新增 `Rejected` action。原始素材若需要更換，沿用控制台右側素材欄。
 
+### Navigator（Review Workspace UI Upgrade）
+
+- Navigator 主要顯示：檔名、Review Status、Dirty Status。
+- 不顯示 Role、Job ID、Slot、Asset Key、Processed Filename、Mode 等素材技術 Metadata。
+- Review Summary 與 Filter 固定在 Navigator 上方；Filter 並排顯示「全部素材」與「待重新去背」兩個選項。
+
+### Workspace Layout（Review Workspace UI Upgrade）
+
+- 預設畫面為 Navigator + Workspace，Inspector 預設收合。
+- 點選裁切或橡皮擦時展開 Dynamic Inspector；儲存或取消後收合 Inspector。
+- Workspace 永遠使用剩餘最大空間；不建立新的 Editor Session，不重建 Editor DOM。
+
+### Dynamic Inspector（Review Workspace UI Upgrade）
+
+- Inspector 依目前工具顯示對應設定：View、裁切、橡皮擦。
+- Inspector 不再顯示素材 Metadata（Asset Key、Role、Job ID、Slot、Mode、Processed Filename 等一律移除）。
+
+### Header 與 Decision Area（Review Workspace UI Upgrade）
+
+- Header 僅保留：素材審閱（標題）、關閉。
+- 已移除可見的上一張、下一張、撤回上一個決策 Header 按鈕；底層 Navigator 點擊、Keyboard ← / →、Auto Next、非循環導航皆保留，只是不再是 Header 常駐按鈕。
+- 底部 Decision Area 三顆按鈕同列，由左至右：核准、重新去背、撤回上一個決策。
+- 樣式：核准為 Primary；重新去背為 Warning / Danger；撤回上一個決策為灰色 Outline、低視覺權重。
+
+### Completion Screen（Review Workspace UI Upgrade）
+
+所有 Reviewable Assets 完成 Decision 後顯示 Completion Screen：
+
+- Needs Rerun = 0：顯示「全部素材已完成審閱」「返回控制台」「撤回上一個決策」。
+- Needs Rerun > 0：額外顯示「X 個素材待重新去背」與「重新去背素材（X）」。
+
+Completion 判斷必須使用全域 Reviewable Assets，不得使用目前 Filter collection；Needs Rerun 數量沿用 `BNAssetPipelineState.getNeedsRerunAssets()`。「待重新去背」Filter 為空、但全域仍有未審閱素材時，顯示「目前沒有待重新去背的素材」，不得誤顯示全域完成。
+
+### Completion Recovery（Review Workspace UI Upgrade）
+
+- Completion Screen 可撤回上一個決策，撤回後回到正確素材。
+- 使用者可點 Navigator 任一已完成素材重新進入 Editor 繼續查看、裁切、橡皮擦、儲存、核准或重新去背，不是只能審閱一次。
+- Completion Screen 不得永久覆蓋 Editor。
 
 ### Review Workspace UX Polish
 
@@ -269,15 +311,44 @@ Decision actions 固定為：
 - Temporary Pan（Space）是 momentary action，放開 Space 後必須回到原工具。
 - Remove Drag Tool UX Principle：Pan 不應是 persistent tool；不顯示固定 Drag Tool 按鈕。
 
-`重新處理素材（N）` 屬於素材審核選單內的流程型 action：
+`重新去背素材（N）` 屬於素材審核選單／Completion Screen 內的流程型 action：
 
 - `N=0` 時 disabled。
-- `N>0` 時可啟動既有重新處理素材流程。
-- 一般 UI 使用「重新處理素材」，不使用 Photoshop / Manifest 等技術術語。
-- 底層仍沿用既有 Photoshop Rerun Automation，不修改 Rerun architecture。
+- `N>0` 時可啟動既有重新去背流程。
+- 一般 UI 使用「重新去背素材」，不使用 Photoshop / Manifest 等技術術語。
+- 目前只呼叫既有 `exportPhotoshopRerunManifest` callback，底層仍沿用既有 Photoshop Rerun Automation，不修改 Rerun architecture。
 - 匯入處理結果後回到 Review Workspace，不刷新 Thumbnail / Batch。
 - 若 Project State 已恢復 `approved` decision，Main Canvas 可透過既有 approved asset refresh flow 更新 approved processed asset source。
 - Main Canvas refresh 僅更新既有 DOM 的圖片來源，不重建 DOM、不重設 transform、不修改 `layoutState`。
+
+### Review Workspace 繁體中文 UI Terminology
+
+| 英文 / 內部概念 | 正式中文 UI Label | Internal value（不變） |
+|---|---|---|
+| Review Workspace | 素材審閱 | - |
+| All Assets | 全部素材 | `all` |
+| Needs Rerun Only | 待重新去背 | - |
+| Approved | 核准 | `approved` |
+| Needs Rerun | 重新去背 | `needs_rerun` |
+| Pending | 待審閱 | `pending` |
+| Processed | 已處理 | `processed` |
+| Undo Last Decision | 撤回上一個決策 | - |
+| Crop | 裁切 | `crop` |
+| Eraser | 橡皮擦 | `eraser` |
+| Restore | 復原 | - |
+| Fit to Canvas | 符合畫面 | - |
+| Save | 儲存 | - |
+| View Original | 查看原圖 | - |
+
+中文化只限 UI Label，internal values 必須繼續維持英文小寫原值，不得因中文化而改變資料格式或 API 契約。
+
+### Future：Control Center 背景處理狀態（Future / Not Implemented）
+
+以下為 AI Workflow Phase 的目標方向，尚未實作：
+
+- 控制台可能顯示背景處理狀態：`素材處理中（18 / 63）`、`素材處理完成`、`等待審閱`。
+- 這些狀態文案只使用一般使用者工作語言，不得出現 Photoshop、Manifest、Runner、Processed Folder、Import Processed Folder 等技術詞彙。
+- AI Workflow 只負責讓背景處理狀態自動化並顯示在 Control Center，不得重新設計 Review Workspace UI（Navigator、Dynamic Inspector、Decision Area、Completion Screen 皆維持 Review Workspace UI Upgrade 的既有設計）。
 
 ## Project Persistence UX
 

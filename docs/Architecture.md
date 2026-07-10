@@ -1,12 +1,13 @@
 # Architecture
 
-Version: v0.4.4  
-Last Updated: 2026-07-10  
+Version: v0.4.5  
+Last Updated: 2026-07-11  
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界與新增 Style 流程。
 
 ## What's New
 
-- Roadmap 已更新：Control Center UI Upgrade 已完成，目前沒有 Active Phase。
+- Roadmap 已更新：Review Workspace UI Upgrade 已完成，目前沒有 Active Phase；下一個 Planned Phase 為 AI Workflow。
+- Review Workspace UI Upgrade 完成：Navigator Information Architecture 簡化（檔名 / Review Status / Dirty Status）、Workspace Layout（Inspector 預設收合、依工具展開 Dynamic Inspector）、Decision Area 三顆按鈕同列、Completion Screen 與 Completion Recovery、Review Workspace 正式中文化。此為 UI 層改版，未修改 Asset Pipeline schema、Review Decision Model、Crop / Eraser Core Logic、Approved Asset Resolver 或 Photoshop Pipeline。新增 Future AI Workflow 資料流（見下方章節），標註 Future / Not Implemented。
 - Control Center UI Upgrade 完成：Header 簡化為一般使用者入口，素材審核整合狀態與入口，中央版位下拉只調整 display order。
 - Project Persistence 完成：Project State v5、Persistence Layer、single-state restore、project.zip restore 與 Download Complete Project。
 - Review Workspace UX Polish 完成：Auto Next、Multi-pass Review、Progress Header、Smart Entry、Keyboard Shortcuts、Decision Guard 與 Remove Drag Tool。
@@ -34,10 +35,11 @@ Scope: 最新系統架構、Render Flow、Template / Style / Project State / Ass
 10. [Master Layout](#master-layout)
 11. [State Boundary](#state-boundary)
 12. [Photoshop Pipeline 邊界](#photoshop-pipeline-邊界)
-13. [Documentation Structure](#documentation-structure)
-14. [資料夾結構](#資料夾結構)
-15. [新增 Style 流程](#新增-style-流程)
-16. [維護原則](#維護原則)
+13. [Future AI Workflow Architecture](#future-ai-workflow-architecturefuture--not-implemented)
+14. [Documentation Structure](#documentation-structure)
+15. [資料夾結構](#資料夾結構)
+16. [新增 Style 流程](#新增-style-流程)
+17. [維護原則](#維護原則)
 
 ## 最新架構圖
 
@@ -105,6 +107,7 @@ Completed
   ├─ Review Workspace（Crop / Eraser）
   ├─ Review Workspace UX Polish
   ├─ Control Center UI Upgrade
+  ├─ Review Workspace UI Upgrade
   ├─ Photoshop Rerun Automation
   ├─ Approved Asset Resolver
   ├─ Main Canvas / Thumbnail use processed asset
@@ -119,21 +122,19 @@ Current
   └─ None（Waiting for next Proposal）
 
 Next Planned Phase Order
-  ├─ Review Workspace UI Upgrade
   ├─ AI Workflow
   ├─ Render Context & Export Workflow
   ├─ Extension System
   └─ QR Code
 
 Future
-  ├─ Review Workspace UI Upgrade
   ├─ AI Workflow
   ├─ Render Context & Export Workflow
   ├─ Extension System
   └─ QR Code
 ```
 
-Review Workspace（Crop / Eraser）、Photoshop Rerun Automation、Review Workspace UX Polish、Project Persistence 與 Control Center UI Upgrade 已完成。目前沒有 Active Phase。
+Review Workspace（Crop / Eraser）、Photoshop Rerun Automation、Review Workspace UX Polish、Project Persistence、Control Center UI Upgrade 與 Review Workspace UI Upgrade 已完成。目前沒有 Active Phase。
 
 ## Pipeline Loop
 
@@ -226,6 +227,18 @@ Review Workspace 不負責：
 - Photoshop execution
 
 Logo 不屬於 Review Workspace。Logo 維持控制台右側素材編輯。
+
+### Review Workspace UI Upgrade（Completed）
+
+Review Workspace UI Upgrade 是 UI 層改版，只調整 Review Workspace 的 Information Architecture、Layout 與呈現方式，不改變本節定義的資料責任、Review Decision Model 或 State Boundary：
+
+- Navigator：只顯示檔名、Review Status、Dirty Status；Review Summary 與 Filter（全部素材／待重新去背）在 Navigator 上方。
+- Workspace Layout：預設 Navigator + Workspace；Inspector 預設收合，選取裁切或橡皮擦才展開 Dynamic Inspector，儲存或取消後收合；不建立新的 Editor Session，不重建 Editor DOM。
+- Decision Area：核准／重新去背／撤回上一個決策三顆按鈕同列；上一張／下一張／撤回上一個決策僅移除可見 Header UI，Navigator 點擊、Keyboard ← / →、Auto Next、非循環導航底層邏輯不變。
+- Completion Screen / Completion Recovery：完成判斷讀取全域 Reviewable Assets（非目前 Filter collection），可從 Completion Screen 撤回決策並透過 Navigator 重新進入已完成素材繼續編輯。
+- 中文化僅限 UI Label；`approved` / `needs_rerun` / `pending` / `processed` / `all` / `crop` / `eraser` 等 internal values 不變。
+
+完整 UI 規格見 `docs/UI Design Guideline.md`；操作流程見 `docs/SPX-AD-版型規格與操作說明.md`。
 
 ### Photoshop Rerun Automation Responsibilities
 
@@ -673,6 +686,58 @@ Photoshop Pipeline 不可寫：
 - Product / SingleProduct transform
 - Template placement
 - Batch Render runtime state
+
+## Future AI Workflow Architecture（Future / Not Implemented）
+
+本節描述 AI Workflow Phase 的目標資料流，屬於 Future 方向，尚未實作，不得視為目前行為。
+
+目的：讓一般使用者完全不需要知道 Photoshop 的存在；Photoshop 維持背景素材處理引擎角色，不作為使用者操作介面。
+
+### 使用者可見流程（Future）
+
+```text
+匯入 CSV + 選擇素材資料夾
+  ↓
+Control Center 顯示背景處理狀態（素材處理中 N/M、素材處理完成、等待審閱）
+  ↓
+系統自動帶入 processed assets
+  ↓
+素材審閱（Review Workspace，UI 不變）
+  ↓
+Needs Rerun = 0 → 返回控制台
+Needs Rerun > 0 → 重新去背素材（N）→ 背景自動重跑 → 自動回到待重新去背審閱
+```
+
+### 背景處理流程（Future，對使用者隱藏）
+
+```text
+Control Center（觸發）
+  ↓
+Background Automation（新模組，Future）
+  ↓
+Photoshop Adapter（既有，不改介面）
+  ↓
+processed folder
+  ↓
+Background Automation 自動偵測完成並自動 Import
+  ↓
+Review Workspace（既有 UI，接收 processed assets 更新）
+```
+
+### 責任分工（Future）
+
+- Control Center：顯示一般使用者能理解的背景處理狀態；觸發背景自動化；不暴露 Photoshop / Manifest / Processed Folder 技術細節。
+- Background Automation（Future，尚未建立）：負責啟動 Photoshop Adapter、輪詢或偵測處理進度與完成、自動執行 Import Processed Folder、通知 Review Workspace 有新的 processed assets。不得直接寫 Canvas、`layoutStates` 或 Project State schema。
+- Photoshop Adapter：責任不變，只讀 manifest 與原始素材，輸出 processed assets 與 run report；不得知道 Control Center 自動化細節。
+- Review Workspace：責任與 UI 不變（Navigator / Dynamic Inspector / Decision Area / Completion Screen 已於 Review Workspace UI Upgrade 完成，AI Workflow 不得重新設計），只需接收 Background Automation 帶入的 processed assets 並照既有 flow 顯示。
+
+### 邊界（Future）
+
+- Background Automation 是新增的協調層，不是 Render Engine，也不是 Asset Pipeline 的替代品。
+- 所有既有 State Boundary（Asset Pipeline / Review Decision Model / Approved Asset Resolver / Project State / Photoshop Pipeline）維持不變。
+- AI Workflow 不得重新設計 Review Workspace UI、Navigator、Dynamic Inspector、Decision Area 或 Completion Screen。
+- AI Workflow 不得重新暴露 Photoshop / Manifest / Processed Folder 給一般使用者。
+- 本節在 AI Workflow 完成並通過 Jamie Manual Validation 前，僅代表方向，不代表已實作行為。
 
 ## Documentation Structure
 

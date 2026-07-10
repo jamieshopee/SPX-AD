@@ -1,8 +1,8 @@
 # Photoshop Asset Pipeline
 
-Version: 2026.07.07-doc-cleanup-1  
-Last Updated: 2026-07-07  
-Scope: Photoshop Asset Pipeline 的操作流程、內部資料契約、State Boundary 與 Troubleshooting。此文件只描述行為與規則，不改變 Pipeline、Canvas、Thumbnail、Batch 或 Project State 行為。
+Version: 2026.07.11-future-automation-note  
+Last Updated: 2026-07-11  
+Scope: Photoshop Asset Pipeline 的操作流程、內部資料契約、State Boundary 與 Troubleshooting。此文件只描述行為與規則，不改變 Pipeline、Canvas、Thumbnail、Batch 或 Project State 行為。目前文件描述的是人工操作 Pipeline 的真實行為；文末新增 Future Automation Target，標註尚未實作的自動化方向。
 
 ## Quick Workflow
 
@@ -592,3 +592,25 @@ Needs Rerun Collection 由 `status === needs_rerun` 派生，不建立 queue arr
 ### PS-2A
 
 Project State v4 保存 Asset Pipeline metadata 與 Review decision，但不保存 processed image dataUrl、FileSystemHandle、object URL、`processedAssetIndex` 或 runtime cache。
+
+### Review Workspace UI Upgrade（v0.4.5）
+
+Review Workspace UI Upgrade 只調整 Review Workspace 的 UI（Navigator / Dynamic Inspector / Decision Area / Completion Screen），不修改本文件描述的 Pipeline Flow、Asset Pipeline State schema、Manifest schema、Processed Folder Matching、Review Decision 資料格式或 Approved Asset Resolver。控制台「重新去背素材（N）」目前只呼叫既有 callback（`exportPhotoshopRerunManifest`），本文件描述的 Photoshop Rerun Automation 流程（匯出 rerun manifest → 人工執行 Photoshop Runner → 人工 Import Processed Folder → 回到 Review Workspace）維持不變、仍需人工操作。
+
+## Future Automation Target（Future / Not Implemented）
+
+本節描述下一個 Planned Phase「AI Workflow」的目標方向，尚未實作，不得視為目前已完成行為。目前 Quick Workflow 與 Internal Pipeline 章節描述的人工流程仍是唯一真實行為。
+
+目標方向：
+
+- 控制台在使用者匯入 CSV 與選擇素材資料夾後，自動在背景觸發 Photoshop Adapter，取代目前「手動匯出 Manifest → 手動執行 Photoshop Runner」的步驟。
+- 新增 Background Automation 協調層，負責偵測 Photoshop 處理進度與完成，並自動執行目前的「Import Processed Folder」動作，取代使用者手動操作。
+- 控制台只顯示一般使用者能理解的背景處理狀態（例如「素材處理中（18/63）」「素材處理完成」「等待審閱」），不暴露 Photoshop / Manifest / Processed Folder 等技術詞彙。
+- Rerun 流程比照辦理：使用者點擊「重新去背素材（N）」後，Background Automation 自動重跑 Photoshop、自動偵測完成、自動 Import，並自動帶使用者回到「待重新去背」第二輪 Review Workspace。
+
+邊界（Future）：
+
+- Photoshop Adapter 本身的職責與 Boundary（只讀 manifest、只輸出 processed assets）不變。
+- Background Automation 不得直接寫 Canvas、`layoutStates` 或 Project State schema，僅能呼叫既有 Asset Pipeline / Photoshop Adapter / Review Workspace 介面。
+- Review Workspace UI（Navigator / Dynamic Inspector / Decision Area / Completion Screen）不因自動化而重新設計。
+- 在 AI Workflow Phase 完成 Coding、Browser Validation 與 Jamie Manual Validation 前，本節內容不得寫入 CHANGELOG 的 Completed 功能，也不得視為目前系統行為。
