@@ -203,7 +203,7 @@ function updateAssetReviewControls() {
     el.processedFolderBtn.disabled = !jobs.length;
   }
   if (el.rerunManifestBtn) {
-    el.rerunManifestBtn.textContent = `重新處理素材（${stats.needsRerunCount}）`;
+    el.rerunManifestBtn.textContent = `重新去背素材（${stats.needsRerunCount}）`;
     el.rerunManifestBtn.disabled = stats.needsRerunCount <= 0;
     el.rerunManifestBtn.classList.toggle('is-disabled', stats.needsRerunCount <= 0);
   }
@@ -1097,7 +1097,7 @@ function lookupAsset(filename) {
 function updateNeedsRerunButton() {
   const count = window.BNAssetPipelineState?.getNeedsRerunAssets?.(assetPipelineState)?.length || 0;
   if (el.rerunManifestBtn) {
-    el.rerunManifestBtn.textContent = `重新處理素材（${count}）`;
+    el.rerunManifestBtn.textContent = `重新去背素材（${count}）`;
     el.rerunManifestBtn.disabled = count <= 0;
     el.rerunManifestBtn.classList.toggle('is-disabled', count <= 0);
   }
