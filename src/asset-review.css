@@ -104,15 +104,16 @@
 }
 
 .asset-review-close {
-  width: 28px;
+  min-width: 52px;
   height: 28px;
-  padding: 0;
+  padding: 0 10px;
   flex: 0 0 auto;
   border: 1px solid var(--border-strong);
-  border-radius: 50%;
+  border-radius: 999px;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 18px;
+  font-size: 12px;
+  font-weight: 800;
   line-height: 1;
   cursor: pointer;
 }
@@ -131,10 +132,16 @@
 
 .asset-review-list {
   min-height: 0;
+  flex: 1 1 auto;
   overflow: auto;
   padding: 10px;
   border-right: 1px solid var(--border);
   background: rgba(255,255,255,.02);
+}
+
+.asset-review-modal-workspace .asset-review-list {
+  border-right: 0;
+  background: transparent;
 }
 
 .asset-review-item {
@@ -192,6 +199,14 @@
   color: #ffe0a8;
   border-color: rgba(255,159,10,.42);
   background: rgba(255,159,10,.13);
+}
+
+.asset-review-dirty-dot {
+  margin-left: auto;
+  color: #ffd166;
+  font-size: 13px;
+  line-height: 1;
+  text-shadow: 0 0 10px rgba(255,209,102,.35);
 }
 
 .asset-review-filename {
@@ -300,7 +315,8 @@
 
 .asset-review-loading,
 .asset-review-missing,
-.asset-review-empty {
+.asset-review-empty,
+.asset-review-filter-empty {
   color: var(--text-tertiary);
   font-size: 12px;
   font-weight: 700;
@@ -310,9 +326,18 @@
   padding: 18px;
 }
 
+.asset-review-filter-empty {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
 .asset-review-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-top: 14px;
 }
@@ -337,7 +362,25 @@
   background: rgba(255,159,10,.16);
 }
 
-.asset-review-action:hover {
+.asset-review-action.undo-decision {
+  border-color: var(--border-strong);
+  background: rgba(255,255,255,.025);
+  color: var(--text-secondary);
+}
+
+.asset-review-action.undo-decision:not(:disabled):hover {
+  color: var(--text-primary);
+  background: rgba(255,255,255,.06);
+}
+
+.asset-review-action.is-disabled,
+.asset-review-action:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+  filter: grayscale(.35);
+}
+
+.asset-review-action:not(:disabled):hover {
   filter: brightness(1.12);
 }
 
@@ -419,8 +462,50 @@
 }
 
 .asset-review-modal-workspace .asset-review-body {
-  grid-template-columns: minmax(220px, 280px) 1fr;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
   min-height: 0;
+}
+
+.asset-review-navigator {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: rgba(255,255,255,.02);
+}
+
+.asset-review-navigator-header {
+  flex: 0 0 auto;
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  background: #101722;
+}
+
+.asset-review-navigator-summary {
+  margin-top: 0;
+}
+
+.asset-review-navigator-summary .asset-review-progress-main {
+  display: flex;
+  margin-right: 0;
+  margin-bottom: 7px;
+  font-size: 15px;
+}
+
+.asset-review-navigator-summary .asset-review-progress-chip,
+.asset-review-navigator-summary .asset-review-complete-message {
+  margin-right: 5px;
+  margin-bottom: 4px;
+}
+
+.asset-review-navigator .asset-review-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 8px;
+}
+
+.asset-review-navigator .asset-review-mode-btn {
+  width: 100%;
 }
 
 .asset-review-modal-workspace .asset-review-detail {
@@ -437,6 +522,10 @@
   display: grid;
   grid-template-columns: 78px minmax(0, 1fr) minmax(220px, 290px);
   background: #0b1018;
+}
+
+.asset-review-workspace[data-inspector="collapsed"] {
+  grid-template-columns: 78px minmax(0, 1fr) 0;
 }
 
 .asset-review-tools {
@@ -563,6 +652,27 @@
   background: #101722;
 }
 
+.asset-review-workspace[data-inspector="collapsed"] .asset-review-settings {
+  display: none;
+}
+
+.asset-review-inspector-panel {
+  display: none;
+}
+
+.asset-review-workspace[data-inspector="expanded"] .asset-review-view-settings {
+  display: block;
+}
+
+.asset-review-workspace[data-inspector="expanded"][data-tool="crop"] .asset-review-view-settings,
+.asset-review-workspace[data-inspector="expanded"][data-tool="eraser"] .asset-review-view-settings {
+  display: none;
+}
+
+.asset-review-workspace[data-inspector="expanded"][data-tool="crop"] .asset-review-crop-settings {
+  display: block;
+}
+
 .asset-review-settings .asset-review-status {
   display: inline-flex;
   margin-bottom: 12px;
@@ -587,10 +697,100 @@
 
 .asset-review-bottom-actions {
   flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
   margin: 0;
   padding: 10px 12px;
   border-top: 1px solid var(--border);
   background: #101722;
+}
+
+.asset-review-completion {
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 32px;
+  text-align: center;
+  background: #0b1018;
+}
+
+.asset-review-completion-mark {
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(48,209,88,.38);
+  border-radius: 999px;
+  background: rgba(48,209,88,.12);
+  color: #bdf7d2;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.asset-review-completion-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.asset-review-completion-copy {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.asset-review-completion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.asset-review-completion-btn {
+  min-height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.asset-review-completion-btn.rerun {
+  border-color: rgba(255,159,10,.48);
+  background: rgba(255,159,10,.16);
+}
+
+.asset-review-completion-btn.secondary {
+  background: var(--bg-surface-2);
+}
+
+.asset-review-completion-btn.undo-decision {
+  border-color: var(--border-strong);
+  background: rgba(255,255,255,.025);
+  color: var(--text-secondary);
+}
+
+.asset-review-completion-btn.undo-decision:not(:disabled):hover {
+  color: var(--text-primary);
+  background: rgba(255,255,255,.06);
+}
+
+.asset-review-completion-btn.is-disabled,
+.asset-review-completion-btn:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+  filter: grayscale(.35);
 }
 
 .asset-review-workspace[data-view-mode="original"] .asset-review-editor-stage {
@@ -602,7 +802,7 @@
     grid-template-columns: 1fr;
   }
 
-  .asset-review-modal-workspace .asset-review-list {
+  .asset-review-modal-workspace .asset-review-navigator {
     max-height: 150px;
   }
 
@@ -610,8 +810,21 @@
     grid-template-columns: 66px minmax(0, 1fr);
   }
 
-  .asset-review-settings {
+  .asset-review-settings,
+  .asset-review-workspace[data-inspector="expanded"] .asset-review-settings {
     display: none;
+  }
+
+  .asset-review-modal-workspace .asset-review-bottom-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .asset-review-modal-workspace .asset-review-action {
+    min-height: 32px;
+    padding: 0 5px;
+    font-size: 11px;
   }
 }
 

@@ -119,7 +119,7 @@
     function updateSaveState(label) {
       if (!saveButton) return;
       if (label) saveButton.textContent = label;
-      else if (!saving) saveButton.textContent = 'Save';
+      else if (!saving) saveButton.textContent = '儲存';
       saveButton.disabled = saving || !session.dirty;
       saveButton.classList.toggle('is-disabled', saveButton.disabled);
       saveButton.classList.toggle('is-saving', saving);
@@ -245,6 +245,8 @@
         global.BNAssetEditSession.setDirty(session, true);
         image.onload = null;
         image.src = dataUrl;
+        updateUndoState();
+        notifyDirtyState();
         if (eraserStroke.moved) {
           recentEraserClickStrokes = [];
         } else {
@@ -359,7 +361,7 @@
       saving = true;
       if (typeof options.onSavingChange === 'function') options.onSavingChange(true);
       clearSaveFeedbackTimer();
-      updateSaveState('Saving...');
+      updateSaveState('儲存中...');
       var wasDirty = !!session.dirty;
       var result = global.BNAssetEditSession.saveSession(session);
       return Promise.resolve()
@@ -411,7 +413,6 @@
     }
 
     function fitToScreen() {
-      if (session.currentTool === 'crop') return;
       var rect = stage.getBoundingClientRect();
       var size = imageSize();
       var scale = Math.min((rect.width - 48) / size.width, (rect.height - 48) / size.height);
@@ -436,10 +437,10 @@
       image.removeAttribute('src');
       image.style.opacity = '';
       if (!src) {
-        setStatus('No image');
+        setStatus('沒有圖片');
         return;
       }
-      setStatus('Loading');
+      setStatus('載入中');
       image.onload = function () {
         if (disposed) return;
         global.BNAssetEditSession.setImageSize(session, image.naturalWidth, image.naturalHeight);
@@ -447,7 +448,7 @@
       };
       image.onerror = function () {
         if (disposed) return;
-        setStatus('Load failed');
+        setStatus('載入失敗');
       };
       image.src = src;
     }
@@ -779,13 +780,23 @@
     }
 
     function undoEdit() {
+      var previousTool = session.currentTool;
       cancelEraserStroke(false);
       var result = global.BNAssetEditSession.undo(session);
       if (!result.ok) return;
       cancelCropDraft();
       hideBrushCursor();
-      if (eraserCanvas) eraserCanvas.style.display = 'none';
-      global.BNAssetEditSession.setTool(session, 'view');
+      if (previousTool === 'eraser' && session.viewMode !== 'original') {
+        global.BNAssetEditSession.setTool(session, 'eraser');
+        syncEraserCanvasFromCurrentImage().then(function () {
+          if (session.currentTool === 'eraser') applyTransform();
+        }).catch(function (error) {
+          console.error('[asset-review] eraser undo sync failed', error);
+        });
+      } else {
+        if (eraserCanvas) eraserCanvas.style.display = 'none';
+        global.BNAssetEditSession.setTool(session, 'view');
+      }
       loadImage();
       updateUndoState();
       applyTransform();

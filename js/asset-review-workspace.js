@@ -17,6 +17,7 @@
   var isSaving = false;
   var guardDialog = null;
   var toastTimer = null;
+  var inspectorState = 'collapsed';
   var REVIEW_ROLES = { product: true, person: true, singleProduct: true };
   var REVIEW_MODES = { all: true, needs_rerun: true };
 
@@ -26,10 +27,20 @@
 
   function statusLabel(status) {
     var labels = {
-      pending: 'Pending',
-      processed: 'Processed',
-      approved: 'Approved',
-      needs_rerun: 'Needs Rerun'
+      pending: '待審閱',
+      processed: '已處理',
+      approved: '核准',
+      needs_rerun: '重新去背'
+    };
+    return labels[status] || text(status);
+  }
+
+  function shortStatusLabel(status) {
+    var labels = {
+      pending: '待審閱',
+      processed: '已處理',
+      approved: '核准',
+      needs_rerun: '重新去背'
     };
     return labels[status] || text(status);
   }
@@ -66,6 +77,22 @@
       summary[status]++;
       return summary;
     }, { reviewable: 0, approved: 0, needs_rerun: 0 });
+  }
+
+  function getNeedsRerunAssets() {
+    if (global.BNAssetPipelineState?.getNeedsRerunAssets) {
+      return global.BNAssetPipelineState.getNeedsRerunAssets(currentOptions.pipelineState) || [];
+    }
+    var assets = allReviewAssets.length ? allReviewAssets : baseReviewAssets();
+    return assets.filter(function (asset) { return (asset.status || 'pending') === 'needs_rerun'; });
+  }
+
+  function getGlobalReviewableAssets() {
+    return allReviewAssets.length ? allReviewAssets : baseReviewAssets();
+  }
+
+  function dirtyAssetKey() {
+    return hasUnsavedChanges() ? selectedAssetKey : '';
   }
 
   function isUnreviewed(asset) {
@@ -126,9 +153,36 @@
     var index = selectedAssetIndex();
     target.innerHTML = '';
     target.appendChild(el('span', 'asset-review-progress-main', currentAssets.length ? ((index + 1) + ' / ' + currentAssets.length) : '0 / 0'));
-    target.appendChild(el('span', 'asset-review-progress-chip', 'Approved ' + (summary.approved || 0)));
-    target.appendChild(el('span', 'asset-review-progress-chip', 'Needs Rerun ' + (summary.needs_rerun || 0)));
+    target.appendChild(el('span', 'asset-review-progress-chip', '核准 ' + (summary.approved || 0)));
+    target.appendChild(el('span', 'asset-review-progress-chip', '重新去背 ' + (summary.needs_rerun || 0)));
     if (completeMessage) target.appendChild(el('span', 'asset-review-complete-message', completeMessage));
+  }
+
+  function setInspectorState(state) {
+    inspectorState = state === 'expanded' ? 'expanded' : 'collapsed';
+    root?.querySelector?.('.asset-review-workspace')?.setAttribute('data-inspector', inspectorState);
+  }
+
+  function expandInspector() {
+    setInspectorState('expanded');
+  }
+
+  function collapseInspector() {
+    setInspectorState('collapsed');
+  }
+
+  function updateNavigatorDirtyIndicators() {
+    if (!root) return;
+    var dirtyKey = dirtyAssetKey();
+    root.querySelectorAll('.asset-review-item').forEach(function (item) {
+      var assetKey = item.getAttribute('data-asset-key') || '';
+      var dot = item.querySelector('.asset-review-dirty-dot');
+      if (assetKey === dirtyKey) {
+        if (!dot) item.querySelector('.asset-review-item-top')?.appendChild(el('span', 'asset-review-dirty-dot', '●'));
+      } else if (dot) {
+        dot.remove();
+      }
+    });
   }
 
   function updateUndoDecisionButton() {
@@ -147,6 +201,8 @@
     var next = currentAssets[Math.max(0, Math.min(currentAssets.length - 1, index))];
     if (!next) return;
     selectedAssetKey = next.assetKey;
+    inspectorState = 'collapsed';
+    completeMessage = '';
     render();
   }
 
@@ -158,7 +214,7 @@
     isSaving = !!busy;
     if (!root) return;
     root.setAttribute('data-saving', isSaving ? 'true' : 'false');
-    root.querySelectorAll('.asset-review-nav-btn, .asset-review-close, .asset-review-item, .asset-review-action').forEach(function (node) {
+    root.querySelectorAll('.asset-review-nav-btn, .asset-review-close, .asset-review-item, .asset-review-action, .asset-review-completion-btn').forEach(function (node) {
       node.disabled = isSaving;
       node.classList.toggle('is-disabled', isSaving);
     });
@@ -235,9 +291,11 @@
   }
 
   function requestSelectAsset(assetKey) {
-    if (assetKey === selectedAssetKey) return;
+    if (assetKey === selectedAssetKey && !completeMessage) return;
     runGuarded(function () {
       selectedAssetKey = assetKey;
+      inspectorState = 'collapsed';
+      completeMessage = '';
       render();
     });
   }
@@ -255,6 +313,15 @@
     runGuarded(undoLastDecision);
   }
 
+  function requestRunRerun() {
+    if (isSaving || typeof currentOptions.onRunRerun !== 'function') return;
+    var assets = getNeedsRerunAssets();
+    currentOptions.onRunRerun({
+      count: assets.length,
+      assets: assets,
+    });
+  }
+
   function destroyEditorSession() {
     loadSeq++;
     if (currentEditor?.destroy) currentEditor.destroy();
@@ -268,24 +335,23 @@
   function renderList(target) {
     target.innerHTML = '';
     if (!currentAssets.length) {
-      target.appendChild(el('div', 'asset-review-empty', '尚無 processed assets 可檢視'));
+      target.appendChild(el('div', 'asset-review-empty', '尚無可審閱素材'));
       return;
     }
+    var dirtyKey = dirtyAssetKey();
     currentAssets.forEach(function (asset) {
       var item = button('asset-review-item' + (asset.assetKey === selectedAssetKey ? ' is-active' : ''), '', function () {
         requestSelectAsset(asset.assetKey);
       });
+      item.setAttribute('data-asset-key', asset.assetKey || '');
       var top = el('div', 'asset-review-item-top');
-      top.appendChild(el('span', 'asset-review-role', roleLabel(asset.role)));
-      top.appendChild(el('span', 'asset-review-status status-' + (asset.status || 'pending'), statusLabel(asset.status)));
+      top.appendChild(el('span', 'asset-review-status status-' + (asset.status || 'pending'), shortStatusLabel(asset.status)));
+      if (asset.assetKey === dirtyKey) {
+        top.appendChild(el('span', 'asset-review-dirty-dot', '●'));
+      }
       var name = el('div', 'asset-review-filename', asset.originalFilename || asset.assetKey);
-      var meta = el('div', 'asset-review-meta', [
-        'job ' + text((asset.jobIds || [])[0]),
-        asset.slot == null ? 'slot -' : 'slot ' + asset.slot
-      ].join(' · '));
       item.appendChild(top);
       item.appendChild(name);
-      item.appendChild(meta);
       target.appendChild(item);
     });
   }
@@ -295,21 +361,25 @@
     target.innerHTML = '';
     var asset = currentAssets.find(function (item) { return item.assetKey === selectedAssetKey; });
     if (!asset) {
-      target.appendChild(el('div', 'asset-review-empty', '請選擇 processed asset'));
+      var emptyMessage = currentReviewMode === 'needs_rerun'
+        ? '目前沒有待重新去背的素材'
+        : '請選擇素材';
+      target.appendChild(el('div', 'asset-review-filter-empty', emptyMessage));
       return;
     }
 
     var workspace = el('div', 'asset-review-workspace');
+    workspace.setAttribute('data-inspector', inspectorState);
 
     var toolbar = el('aside', 'asset-review-tools');
-    var cropButton = button('asset-review-tool', '裁切', function () {});
+    var cropButton = button('asset-review-tool', '裁切', expandInspector);
     cropButton.setAttribute('data-tool', 'crop');
-    var eraserButton = button('asset-review-tool', '橡皮擦', function () {});
+    var eraserButton = button('asset-review-tool', '橡皮擦', expandInspector);
     eraserButton.setAttribute('data-tool', 'eraser');
     var undoButton = button('asset-review-tool is-disabled', '復原', function () {});
     undoButton.disabled = true;
     var fitButton = button('asset-review-tool', '符合畫面', function () {});
-    var saveButton = button('asset-review-tool asset-review-save-tool is-disabled', 'Save', function () {});
+    var saveButton = button('asset-review-tool asset-review-save-tool is-disabled', '儲存', function () {});
     saveButton.disabled = true;
     toolbar.appendChild(cropButton);
     toolbar.appendChild(eraserButton);
@@ -321,16 +391,11 @@
     var editorHead = el('div', 'asset-review-editor-head');
     var titleWrap = el('div', 'asset-review-editor-title-wrap');
     titleWrap.appendChild(el('div', 'asset-review-detail-title', asset.originalFilename || asset.assetKey));
-    titleWrap.appendChild(el('div', 'asset-review-meta', [
-      roleLabel(asset.role),
-      'job ' + text((asset.jobIds || [])[0]),
-      asset.slot == null ? 'slot -' : 'slot ' + asset.slot
-    ].join(' · ')));
     var editorActions = el('div', 'asset-review-editor-actions');
     var viewToggle = button('asset-review-secondary-action', '查看原圖', function () {});
     var cropApplyButton = button('asset-review-secondary-action asset-review-crop-action', '套用裁切', function () {});
     cropApplyButton.hidden = true;
-    var cropCancelButton = button('asset-review-secondary-action asset-review-crop-action', '取消裁切', function () {});
+    var cropCancelButton = button('asset-review-secondary-action asset-review-crop-action', '取消裁切', collapseInspector);
     cropCancelButton.hidden = true;
     var zoomStatus = el('span', 'asset-review-zoom-status', '100%');
     editorActions.appendChild(cropApplyButton);
@@ -347,29 +412,20 @@
     image.alt = asset.originalFilename || asset.assetKey;
     stageInner.appendChild(image);
     stage.appendChild(stageInner);
-    stage.appendChild(el('div', 'asset-review-loading asset-review-editor-loading', 'Loading'));
+    stage.appendChild(el('div', 'asset-review-loading asset-review-editor-loading', '載入中'));
     editorPane.appendChild(editorHead);
     editorPane.appendChild(stage);
 
     var settings = el('aside', 'asset-review-settings');
-    var status = el('span', 'asset-review-status status-' + (asset.status || 'pending'), statusLabel(asset.status));
-    var facts = el('div', 'asset-review-facts');
-    [
-      ['Asset Key', asset.assetKey],
-      ['Role', roleLabel(asset.role)],
-      ['Job ID', (asset.jobIds || []).join(', ') || '-'],
-      ['Slot', asset.slot == null ? '-' : asset.slot],
-      ['Mode', asset.mode || '-'],
-      ['Processed', asset.processedAsset?.filename || '-']
-    ].forEach(function (pair) {
-      var row = el('div', 'asset-review-fact');
-      row.appendChild(el('span', '', pair[0]));
-      row.appendChild(el('strong', '', text(pair[1])));
-      facts.appendChild(row);
-    });
+    var viewSettings = el('div', 'asset-review-inspector-panel asset-review-view-settings');
+    viewSettings.appendChild(el('div', 'asset-review-settings-title', '查看'));
+    viewSettings.appendChild(el('div', 'asset-review-settings-note', '目前顯示處理結果，可切換查看原圖，或使用符合畫面調整顯示範圍。'));
+    var cropSettings = el('div', 'asset-review-inspector-panel asset-review-crop-settings');
+    cropSettings.appendChild(el('div', 'asset-review-settings-title', '裁切'));
+    cropSettings.appendChild(el('div', 'asset-review-settings-note', '拖曳裁切框調整範圍，完成後按「套用裁切」，或按「取消裁切」放棄本次裁切。'));
     var eraserSettings = el('div', 'asset-review-eraser-settings');
     eraserSettings.hidden = true;
-    eraserSettings.appendChild(el('div', 'asset-review-settings-title', '橡皮擦設定'));
+    eraserSettings.appendChild(el('div', 'asset-review-settings-title', '橡皮擦'));
     var brushModeWrap = el('div', 'asset-review-brush-mode');
     var hardBrushButton = button('asset-review-brush-mode-btn is-active', '硬邊', function () {});
     hardBrushButton.setAttribute('data-brush-mode', 'hard');
@@ -392,10 +448,10 @@
     eraserSettings.appendChild(brushModeWrap);
     eraserSettings.appendChild(brushSizeWrap);
 
-    settings.appendChild(status);
-    settings.appendChild(facts);
+    settings.appendChild(viewSettings);
+    settings.appendChild(cropSettings);
     settings.appendChild(eraserSettings);
-    settings.appendChild(el('div', 'asset-review-settings-note', '裁切與橡皮擦只修改目前 Edit Session。可復原，但不會儲存 cleaned asset，也不會改變 Review Decision。'));
+    settings.appendChild(el('div', 'asset-review-settings-note', '修圖只會影響目前素材的處理結果；按「儲存」後才會套用。'));
 
     workspace.appendChild(toolbar);
     workspace.appendChild(editorPane);
@@ -406,9 +462,12 @@
     actions.appendChild(button('asset-review-action approve', '核准', function () {
       requestDecision(asset.assetKey, 'approved');
     }));
-    actions.appendChild(button('asset-review-action rerun', '重新處理', function () {
+    actions.appendChild(button('asset-review-action rerun', '重新去背', function () {
       requestDecision(asset.assetKey, 'needs_rerun');
     }));
+    undoDecisionButton = button('asset-review-action undo-decision is-disabled', '撤回上一個決策', requestUndoLastDecision);
+    undoDecisionButton.disabled = true;
+    actions.appendChild(undoDecisionButton);
     target.appendChild(actions);
 
     var seq = ++loadSeq;
@@ -420,7 +479,7 @@
       var loading = stage.querySelector('.asset-review-editor-loading');
       if (loading) loading.remove();
       if (!global.BNAssetEditSession?.createSession || !global.BNAssetReviewEditor?.createEditor) {
-        stage.appendChild(el('div', 'asset-review-missing', 'Review editor is not loaded'));
+        stage.appendChild(el('div', 'asset-review-missing', '素材編輯器尚未載入'));
         return;
       }
       currentSession = global.BNAssetEditSession.createSession(asset, {
@@ -446,6 +505,7 @@
         brushSizeLabel: brushSizeLabel,
         eraserSettings: eraserSettings,
         toolButtons: [cropButton, eraserButton],
+        onDirtyChange: updateNavigatorDirtyIndicators,
         onSavingChange: setBusy,
         onSave: function (payload) {
           if (typeof currentOptions.onSaveProcessedAsset === 'function') {
@@ -453,14 +513,47 @@
           }
           return null;
         },
-        onSaved: function () { showToast('✓ 已儲存修改'); },
+        onSaved: function () {
+          collapseInspector();
+          showToast('✓ 已儲存修改');
+        },
       });
     }).catch(function (error) {
       if (seq !== loadSeq) return;
       var loading = stage.querySelector('.asset-review-editor-loading');
       if (loading) loading.remove();
-      stage.appendChild(el('div', 'asset-review-missing', error?.message || 'Load failed'));
+      stage.appendChild(el('div', 'asset-review-missing', error?.message || '載入失敗'));
     });
+  }
+
+  function renderCompletion(target) {
+    destroyEditorSession();
+    undoDecisionButton = null;
+    target.innerHTML = '';
+
+    var needsRerunCount = getNeedsRerunAssets().length;
+    var screen = el('section', 'asset-review-completion');
+    screen.appendChild(el('div', 'asset-review-completion-mark', '✓'));
+    screen.appendChild(el('h2', 'asset-review-completion-title', '全部素材已完成審閱'));
+    if (needsRerunCount > 0) {
+      screen.appendChild(el('p', 'asset-review-completion-copy', needsRerunCount + ' 個素材待重新去背'));
+    }
+
+    var actions = el('div', 'asset-review-completion-actions');
+    if (needsRerunCount > 0) {
+      var rerunButton = button('asset-review-completion-btn rerun', '重新去背素材（' + needsRerunCount + '）', requestRunRerun);
+      if (typeof currentOptions.onRunRerun !== 'function') {
+        rerunButton.disabled = true;
+        rerunButton.classList.add('is-disabled');
+      }
+      actions.appendChild(rerunButton);
+    }
+    actions.appendChild(button('asset-review-completion-btn secondary', '返回控制台', requestClose));
+    undoDecisionButton = button('asset-review-completion-btn undo-decision is-disabled', '撤回上一個決策', requestUndoLastDecision);
+    undoDecisionButton.disabled = true;
+    actions.appendChild(undoDecisionButton);
+    screen.appendChild(actions);
+    target.appendChild(screen);
   }
 
   function snapshotDecision(assetKey) {
@@ -477,14 +570,13 @@
     return asset && !isUnreviewed(asset);
   }
 
+  function isGlobalReviewComplete() {
+    var assets = getGlobalReviewableAssets();
+    return !!assets.length && assets.every(isAssetReviewed);
+  }
+
   function updateCompleteMessage() {
-    if (!currentAssets.length) {
-      completeMessage = currentReviewMode === 'needs_rerun' ? '✓ All Rerun Assets Reviewed' : '✓ Review Complete';
-      return;
-    }
-    completeMessage = currentAssets.every(isAssetReviewed)
-      ? (currentReviewMode === 'needs_rerun' ? '✓ All Rerun Assets Reviewed' : '✓ Review Complete')
-      : '';
+    completeMessage = isGlobalReviewComplete() ? '✓ 全部素材已完成審閱' : '';
   }
 
   function decide(assetKey, decision) {
@@ -496,6 +588,11 @@
     if (result && result.state) currentOptions.pipelineState = result.state;
     if (result?.ok && snapshot) lastDecisionSnapshot = snapshot;
     refreshAssets();
+    if (isGlobalReviewComplete()) {
+      updateCompleteMessage();
+      render();
+      return;
+    }
     var nextAsset = null;
     if (beforeIndex >= 0 && beforeIndex < beforeAssets.length - 1) {
       var nextKey = beforeAssets[beforeIndex + 1]?.assetKey;
@@ -504,6 +601,7 @@
     }
     if (nextAsset) {
       selectedAssetKey = nextAsset.assetKey;
+      inspectorState = 'collapsed';
       completeMessage = '';
     } else {
       if (!currentAssets.some(function (item) { return item.assetKey === selectedAssetKey; })) {
@@ -519,6 +617,7 @@
     var result = currentOptions.onRestoreDecision(lastDecisionSnapshot);
     if (result && result.state) currentOptions.pipelineState = result.state;
     selectedAssetKey = lastDecisionSnapshot.assetKey;
+    inspectorState = 'collapsed';
     lastDecisionSnapshot = null;
     completeMessage = '';
     refreshAssets();
@@ -608,7 +707,11 @@
     var detail = root.querySelector('[data-review-detail]');
     renderSummary(summary);
     renderList(list);
-    renderDetail(detail);
+    if (completeMessage) {
+      renderCompletion(detail);
+    } else {
+      renderDetail(detail);
+    }
     updateUndoDecisionButton();
     root.querySelectorAll('[data-review-mode]').forEach(function (button) {
       button.classList.toggle('is-active', button.getAttribute('data-review-mode') === currentReviewMode);
@@ -627,6 +730,7 @@
     selectedAssetKey = requestedAssetKey;
     completeMessage = '';
     lastDecisionSnapshot = null;
+    inspectorState = 'collapsed';
     refreshAssets();
     if (!requestedAssetKey) pickSmartEntry();
     updateCompleteMessage();
@@ -634,44 +738,37 @@
     root = el('div', 'asset-review-modal asset-review-modal-workspace');
     root.setAttribute('role', 'dialog');
     root.setAttribute('aria-modal', 'true');
-    root.setAttribute('aria-label', 'Processed Assets Review Workspace');
+    root.setAttribute('aria-label', '素材審閱工作區');
 
     var dialog = el('div', 'asset-review-dialog');
     var header = el('div', 'asset-review-header');
     var titleWrap = el('div', 'asset-review-title-wrap');
     titleWrap.appendChild(el('div', 'asset-review-title', '素材審閱'));
-    var summary = el('div', 'asset-review-summary');
+    header.appendChild(titleWrap);
+
+    header.appendChild(button('asset-review-close', '關閉', requestClose));
+
+    var body = el('div', 'asset-review-body');
+    var navigator = el('aside', 'asset-review-navigator');
+    var navigatorHeader = el('div', 'asset-review-navigator-header');
+    var summary = el('div', 'asset-review-summary asset-review-navigator-summary');
     summary.setAttribute('data-review-summary', '');
     var modeWrap = el('div', 'asset-review-mode-switch');
-    var allButton = button('asset-review-mode-btn', 'All Assets', function () { setReviewMode('all'); });
+    var allButton = button('asset-review-mode-btn', '全部素材', function () { setReviewMode('all'); });
     allButton.setAttribute('data-review-mode', 'all');
-    var rerunButton = button('asset-review-mode-btn', 'Needs Rerun Only', function () { setReviewMode('needs_rerun'); });
+    var rerunButton = button('asset-review-mode-btn', '待重新去背', function () { setReviewMode('needs_rerun'); });
     rerunButton.setAttribute('data-review-mode', 'needs_rerun');
     modeWrap.appendChild(allButton);
     modeWrap.appendChild(rerunButton);
-    titleWrap.appendChild(summary);
-    titleWrap.appendChild(modeWrap);
-    header.appendChild(titleWrap);
-
-    var nav = el('div', 'asset-review-nav');
-    undoDecisionButton = button('asset-review-nav-btn asset-review-undo-decision is-disabled', 'Undo Last Decision', requestUndoLastDecision);
-    undoDecisionButton.disabled = true;
-    nav.appendChild(undoDecisionButton);
-    nav.appendChild(button('asset-review-nav-btn', '上一張', function () {
-      requestSelectAssetAt(selectedAssetIndex() - 1);
-    }));
-    nav.appendChild(button('asset-review-nav-btn', '下一張', function () {
-      requestSelectAssetAt(selectedAssetIndex() + 1);
-    }));
-    header.appendChild(nav);
-    header.appendChild(button('asset-review-close', '×', requestClose));
-
-    var body = el('div', 'asset-review-body');
-    var list = el('aside', 'asset-review-list');
+    navigatorHeader.appendChild(summary);
+    navigatorHeader.appendChild(modeWrap);
+    var list = el('div', 'asset-review-list');
     list.setAttribute('data-review-list', '');
+    navigator.appendChild(navigatorHeader);
+    navigator.appendChild(list);
     var detail = el('main', 'asset-review-detail');
     detail.setAttribute('data-review-detail', '');
-    body.appendChild(list);
+    body.appendChild(navigator);
     body.appendChild(detail);
 
     dialog.appendChild(header);

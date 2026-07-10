@@ -1459,6 +1459,7 @@ function openAssetReviewWorkspace(options = {}) {
     resolveProcessedImage: resolveReviewProcessedImage,
     onSaveProcessedAsset: saveReviewProcessedRuntimeAsset,
     onRestoreDecision: restoreReviewDecisionSnapshot,
+    onRunRerun: exportPhotoshopRerunManifest,
     onDecision(assetKey, decision) {
       const result = window.BNAssetPipelineState.setAssetReviewDecision(assetPipelineState, assetKey, decision);
       assetPipelineState = result.state;
