@@ -228,12 +228,10 @@ Header 固定四個一般使用者入口：
 素材審核選單：
 
 - 匯入處理結果
-- 重新處理素材（N）
+- 重新去背素材（N）
 - 開啟素材審核
 
 一般使用者 UI 不顯示 Photoshop / Manifest / Processed Folder 等技術術語。底層素材處理、rerun manifest 與 processed import 能力保留，但不作為一般使用者需要理解的主入口。
-
-註：控制台選單目前仍顯示「重新處理素材（N）」（Control Center UI Upgrade 用詞），Review Workspace 內的 Decision Area 與 Completion Screen 則使用本次 Review Workspace UI Upgrade 的新用詞「重新去背」。兩者指同一個 Photoshop Rerun Automation 動作，僅用詞尚未統一；非 Blocking Issue，可留待下次小修或 UI 文案調整時一併處理。
 
 ## 素材審核 / 素材審閱
 

@@ -6,7 +6,7 @@ Scope: 最新系統架構、Render Flow、Template / Style / Project State / Ass
 
 ## What's New
 
-- Roadmap 已更新：Review Workspace UI Upgrade 已完成，目前沒有 Active Phase；下一個 Planned Phase 為 AI Workflow。
+- Roadmap 已更新：Review Workspace UI Upgrade 已完成並列入 Locked Completed Phases；目前 Active Phase 為 AI Workflow（Proposal），尚未進入 Coding。
 - Review Workspace UI Upgrade 完成：Navigator Information Architecture 簡化（檔名 / Review Status / Dirty Status）、Workspace Layout（Inspector 預設收合、依工具展開 Dynamic Inspector）、Decision Area 三顆按鈕同列、Completion Screen 與 Completion Recovery、Review Workspace 正式中文化。此為 UI 層改版，未修改 Asset Pipeline schema、Review Decision Model、Crop / Eraser Core Logic、Approved Asset Resolver 或 Photoshop Pipeline。新增 Future AI Workflow 資料流（見下方章節），標註 Future / Not Implemented。
 - Control Center UI Upgrade 完成：Header 簡化為一般使用者入口，素材審核整合狀態與入口，中央版位下拉只調整 display order。
 - Project Persistence 完成：Project State v5、Persistence Layer、single-state restore、project.zip restore 與 Download Complete Project。
@@ -119,16 +119,14 @@ Completed
   └─ Smart Layout Propagation
 
 Current
-  └─ AI Workflow（Proposal）
+  └─ AI Workflow（Proposal，尚未 Coding）
 
-Next Planned Phase Order
-  ├─ AI Workflow
+Next Planned Phase Order（after AI Workflow）
   ├─ Render Context & Export Workflow
   ├─ Extension System
   └─ QR Code
 
 Future
-  ├─ AI Workflow
   ├─ Render Context & Export Workflow
   ├─ Extension System
   └─ QR Code
