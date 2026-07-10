@@ -169,6 +169,64 @@ body {
 .btn-topbar:disabled, .btn-topbar.is-disabled { opacity: .45; cursor: not-allowed; }
 .btn-topbar:disabled:hover, .btn-topbar.is-disabled:hover { background: var(--bg-surface-2); border-color: var(--border-strong); }
 
+.topbar-review-entry {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-topbar-review {
+  max-width: 240px;
+}
+
+.btn-topbar-review span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.asset-review-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 240;
+  min-width: 180px;
+  padding: 6px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  background: rgba(12,16,24,0.96);
+  box-shadow: 0 16px 40px rgba(0,0,0,.42);
+  backdrop-filter: var(--glass);
+  -webkit-backdrop-filter: var(--glass);
+}
+
+.asset-review-menu[hidden] { display: none; }
+
+.asset-review-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 30px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.asset-review-menu-item:hover { background: var(--bg-surface-2); }
+.asset-review-menu-item.primary { color: #dbeafe; }
+.asset-review-menu-item:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+.asset-review-menu-item:disabled:hover { background: transparent; }
+
 @media (max-width: 1240px) {
   .topbar {
     align-items: flex-start;
@@ -187,6 +245,10 @@ body {
   .btn-topbar {
     font-size: 11px;
     padding-inline: 8px;
+  }
+
+  .btn-topbar-review {
+    max-width: 190px;
   }
 
   .status-badge,

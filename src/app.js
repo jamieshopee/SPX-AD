@@ -22,6 +22,9 @@ const el = {
   importFile:       document.querySelector('#import-file'),
   importStateBtn:    document.querySelector('#import-state-btn'),
   importStateFile:   document.querySelector('#import-state-file'),
+  assetReviewMenuBtn: document.querySelector('#asset-review-menu-btn'),
+  assetReviewMenu:    document.querySelector('#asset-review-menu'),
+  assetReviewEntryText: document.querySelector('#asset-review-entry-text'),
   manifestBtn:       document.querySelector('#manifest-btn'),
   rerunManifestBtn:  document.querySelector('#rerun-manifest-btn'),
   processedFolderBtn: document.querySelector('#processed-folder-btn'),
@@ -107,6 +110,18 @@ let thumbnailQueueTimer   = null;
 const thumbnailQueue      = [];
 const HIDDEN_FRAME_READY_TIMEOUT = 5000;
 const HIDDEN_CAPTURE_TIMEOUT     = 30000;
+const PLACEMENT_DISPLAY_ORDER = [
+  'tvbn-smart-store',
+  'tvbn-standard-store',
+  'payment-phone-banner',
+  'smart-payment-banner',
+];
+const PLACEMENT_DISPLAY_NAME_ORDER = [
+  'TVBN-智取店_1080x1920',
+  'TVBN-一般門市_1599x1080',
+  '繳費機手機號碼輸入畫面下BN_984x309',
+  '智取店繳費機 BN_3189x3992',
+];
 
 window.addEventListener('resize', () => { if (frameReady) fitPreview(); });
 
@@ -133,6 +148,69 @@ function setTopbarBadge(badge, textEl, text) {
   textEl.textContent = text;
   badge.className = 'status-badge success topbar-badge';
   badge.style.display = 'inline-flex';
+}
+
+function orderedPlacementsForDisplay(placements = []) {
+  const orderById = new Map(PLACEMENT_DISPLAY_ORDER.map((id, index) => [id, index]));
+  const orderByName = new Map(PLACEMENT_DISPLAY_NAME_ORDER.map((name, index) => [name, index]));
+  return placements.slice().sort((a, b) => {
+    const aOrder = orderById.has(a?.id) ? orderById.get(a.id) : orderByName.get(a?.name);
+    const bOrder = orderById.has(b?.id) ? orderById.get(b.id) : orderByName.get(b?.name);
+    const aRank = Number.isFinite(aOrder) ? aOrder : 1000 + placements.indexOf(a);
+    const bRank = Number.isFinite(bOrder) ? bOrder : 1000 + placements.indexOf(b);
+    return aRank - bRank;
+  });
+}
+
+function getAssetReviewStats() {
+  const summary = window.BNAssetPipelineState?.getReviewSummary?.(assetPipelineState) || null;
+  const needsRerunCount = window.BNAssetPipelineState?.getNeedsRerunAssets?.(assetPipelineState)?.length || 0;
+  const total = Number(summary?.total || 0);
+  const reviewable = Number(summary?.reviewable || 0);
+  const pendingReview = Number(summary?.processed || 0);
+  const completed = Number(summary?.approved || 0) + Number(summary?.needs_rerun || 0);
+  return { summary, total, reviewable, pendingReview, completed, needsRerunCount };
+}
+
+function formatAssetReviewEntryText(stats = getAssetReviewStats()) {
+  if (stats.total && stats.reviewable < stats.total) {
+    return `處理中（${stats.reviewable} / ${stats.total}）`;
+  }
+  if (stats.pendingReview > 0) {
+    return `素材審核（已完成：${stats.completed}｜待審核：${stats.pendingReview}）`;
+  }
+  if (stats.reviewable > 0) {
+    return `素材審核（${stats.reviewable}）`;
+  }
+  return '素材審核';
+}
+
+function setAssetReviewMenuOpen(open) {
+  if (!el.assetReviewMenu || !el.assetReviewMenuBtn) return;
+  el.assetReviewMenu.hidden = !open;
+  el.assetReviewMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function updateAssetReviewControls() {
+  const stats = getAssetReviewStats();
+  if (el.assetReviewEntryText) {
+    el.assetReviewEntryText.textContent = formatAssetReviewEntryText(stats);
+  }
+  if (el.manifestBtn) {
+    el.manifestBtn.disabled = !jobs.length || !assetFolderName || !Object.keys(assetIndex || {}).length;
+  }
+  if (el.processedFolderBtn) {
+    el.processedFolderBtn.disabled = !jobs.length;
+  }
+  if (el.rerunManifestBtn) {
+    el.rerunManifestBtn.textContent = `重新處理素材（${stats.needsRerunCount}）`;
+    el.rerunManifestBtn.disabled = stats.needsRerunCount <= 0;
+    el.rerunManifestBtn.classList.toggle('is-disabled', stats.needsRerunCount <= 0);
+  }
+  if (el.reviewAssetsBtn) {
+    el.reviewAssetsBtn.disabled = stats.reviewable <= 0;
+  }
+  return stats;
 }
 
 function scheduleActiveJobThumbnailUpdate(delay = 650) {
@@ -816,6 +894,7 @@ function showInitialWorkspaceState() {
   el.frame.removeAttribute('src');
   el.frame.style.display = 'none';
   el.previewLoader.style.display = 'none';
+  updateAssetReviewControls();
   clearStatus();
 }
 
@@ -866,6 +945,7 @@ async function resetWorkspaceState(options = {}) {
   processedAssetIndex = {};
   reviewWorkspaceRerunAssetKeys = [];
   updateNeedsRerunButton();
+  updateAssetReviewControls();
 
   resetPluginRuntimeState();
   fillFields({});
@@ -938,8 +1018,9 @@ async function resetWorkspace() {
 function ensureWorkspaceReadyForJob() {
   if (!registry || activePlacement) return;
   el.placement.replaceChildren();
-  registry.placements.forEach(p => el.placement.add(new Option(p.name, p.id)));
-  const first = registry.placements.find(p => p.templates.length) || registry.placements[0];
+  const displayPlacements = orderedPlacementsForDisplay(registry.placements || []);
+  displayPlacements.forEach(p => el.placement.add(new Option(p.name, p.id)));
+  const first = displayPlacements.find(p => p.templates.length) || displayPlacements[0];
   if (!first) return;
   el.placement.disabled = false;
   el.placement.value = first.id;
@@ -978,6 +1059,7 @@ async function pickAssetFolder() {
     setStatus(`素材已就緒：${count} 個圖檔。`, 'success');
     validateAllJobs();
     refreshAssetPipelineState();
+    updateAssetReviewControls();
     renderJobList();
     renderAssetFileLists();
     // 素材資料夾選好後，若模板已就緒則立即套圖
@@ -998,6 +1080,7 @@ async function pickAssetFolder() {
       processedAssetIndex = {};
       reviewWorkspaceRerunAssetKeys = [];
       updateNeedsRerunButton();
+      updateAssetReviewControls();
       setTopbarBadge(el.folderStatus, el.folderStatusText, '');
       renderAssetFileLists();
     } else {
@@ -1014,10 +1097,11 @@ function lookupAsset(filename) {
 function updateNeedsRerunButton() {
   const count = window.BNAssetPipelineState?.getNeedsRerunAssets?.(assetPipelineState)?.length || 0;
   if (el.rerunManifestBtn) {
-    el.rerunManifestBtn.textContent = `Run Photoshop Rerun (${count})`;
+    el.rerunManifestBtn.textContent = `重新處理素材（${count}）`;
     el.rerunManifestBtn.disabled = count <= 0;
     el.rerunManifestBtn.classList.toggle('is-disabled', count <= 0);
   }
+  updateAssetReviewControls();
   return count;
 }
 
@@ -1031,38 +1115,39 @@ function refreshAssetPipelineState() {
   });
   const count = Object.keys(assetPipelineState.assets || {}).length;
   updateNeedsRerunButton();
+  updateAssetReviewControls();
   console.log('[CC][assetPipeline] state refreshed', { count, sourceFolderName: assetFolderName });
   return assetPipelineState;
 }
 
 function exportPhotoshopManifest() {
   if (!jobs.length) {
-    setStatus('尚未匯入工單，無法建立 Photoshop manifest。', 'error');
+    setStatus('尚未匯入工單，無法建立素材處理檔。', 'error');
     return;
   }
   if (!assetFolderName || !Object.keys(assetIndex).length) {
-    setStatus('請先選擇素材資料夾，再匯出 Photoshop manifest。', 'error');
+    setStatus('請先選擇素材資料夾，再建立素材處理檔。', 'error');
     return;
   }
   const state = refreshAssetPipelineState();
   const manifest = window.BNAssetPipelineManifest.buildPhotoshopJobManifest(state);
   downloadJson(manifest, 'photoshop-job-manifest.json');
-  setStatus(`Photoshop manifest 已建立（${manifest.itemCount} 個素材）。`, 'success');
+  setStatus(`素材處理檔已建立（${manifest.itemCount} 個素材）。`, 'success');
 }
 
 function exportPhotoshopRerunManifest() {
   if (!assetPipelineState) {
-    setStatus('尚無 Needs Rerun Collection，請先完成 processed review。', 'error');
+    setStatus('尚無需要重新處理的素材，請先完成素材審核。', 'error');
     return;
   }
   const count = updateNeedsRerunButton();
   if (!count) {
-    setStatus('目前沒有 needs_rerun 素材。', 'error');
+    setStatus('目前沒有需要重新處理的素材。', 'error');
     return;
   }
   const manifest = window.BNAssetPipelineManifest.buildPhotoshopRerunManifest(assetPipelineState);
   downloadJson(manifest, 'photoshop-rerun-manifest.json');
-  setStatus(`Photoshop rerun manifest 已建立（${manifest.itemCount} 個素材）。請沿用現有 Photoshop Runner。`, 'success');
+  setStatus(`重新處理檔已建立（${manifest.itemCount} 個素材）。請沿用既有素材處理流程。`, 'success');
 }
 
 async function pickProcessedFolder() {
@@ -1071,12 +1156,12 @@ async function pickProcessedFolder() {
     return;
   }
   if (!jobs.length) {
-    setStatus('尚未匯入工單，無法匯入 processed assets。', 'error');
+    setStatus('尚未匯入工單，無法匯入處理結果。', 'error');
     return;
   }
   if (!assetPipelineState) refreshAssetPipelineState();
   if (!assetPipelineState) {
-    setStatus('Asset Pipeline 尚未就緒。', 'error');
+    setStatus('素材處理流程尚未就緒。', 'error');
     return;
   }
   try {
@@ -1105,7 +1190,8 @@ async function pickProcessedFolder() {
       unmatched: result.unmatched,
     });
     updateNeedsRerunButton();
-    setStatus(`Processed assets 已匯入：matched ${result.matched}，unmatched ${result.unmatched}。`, result.unmatched ? 'error' : 'success');
+    updateAssetReviewControls();
+    setStatus(`處理結果已匯入：成功 ${result.matched}，未對應 ${result.unmatched}。`, result.unmatched ? 'error' : 'success');
     if (result.matched) {
       await refreshMainCanvasApprovedAssetsForActiveJob('processed-folder-import');
       openAssetReviewWorkspace({
@@ -1115,7 +1201,7 @@ async function pickProcessedFolder() {
     }
   } catch (e) {
     if (e.name !== 'AbortError') {
-      setStatus('匯入 processed folder 失敗：' + e.message, 'error');
+      setStatus('匯入處理結果失敗：' + e.message, 'error');
     }
   }
 }
@@ -1221,8 +1307,8 @@ async function buildBatchResolvedAssets(job) {
 }
 
 function formatReviewSummary(summary) {
-  if (!summary) return 'review 0';
-  return `reviewable ${summary.reviewable || 0} / approved ${summary.approved || 0} / needs_rerun ${summary.needs_rerun || 0}`;
+  if (!summary) return '素材 0';
+  return `可審核 ${summary.reviewable || 0} / 已核准 ${summary.approved || 0} / 需重新處理 ${summary.needs_rerun || 0}`;
 }
 
 function activeRerunReviewAssetKeys() {
@@ -1242,7 +1328,8 @@ function restoreReviewDecisionSnapshot(snapshot) {
   assetPipelineState.reviewUpdatedAt = new Date().toISOString();
   updateNeedsRerunButton();
   const nextSummary = window.BNAssetPipelineState?.getReviewSummary?.(assetPipelineState);
-  setStatus(`Processed review 已撤回上一筆：${formatReviewSummary(nextSummary)}。`, 'success');
+  updateAssetReviewControls();
+  setStatus(`素材審核已撤回上一筆：${formatReviewSummary(nextSummary)}。`, 'success');
   console.log('[CC][assetPipeline] review decision restored', { assetKey, status: record.status });
   return { state: assetPipelineState, record, ok: true };
 }
@@ -1349,17 +1436,17 @@ async function refreshMainCanvasApprovedAssetsForActiveJob(reason = '') {
 
 function openAssetReviewWorkspace(options = {}) {
   if (!window.BNAssetReviewWorkspace?.open) {
-    setStatus('Review Workspace 尚未載入。', 'error');
+    setStatus('素材審核工作區尚未載入。', 'error');
     return;
   }
   if (!assetPipelineState) refreshAssetPipelineState();
   if (!assetPipelineState) {
-    setStatus('Asset Pipeline 尚未就緒。', 'error');
+    setStatus('素材處理流程尚未就緒。', 'error');
     return;
   }
   const summary = window.BNAssetPipelineState?.getReviewSummary?.(assetPipelineState);
   if (!summary || !summary.reviewable) {
-    setStatus('尚無 processed assets 可檢視，請先匯入 Processed Folder。', 'error');
+    setStatus('尚無可審核素材，請先匯入處理結果。', 'error');
     return;
   }
   const reviewAssetKeys = options.reviewAssetKeys || activeRerunReviewAssetKeys();
@@ -1377,7 +1464,8 @@ function openAssetReviewWorkspace(options = {}) {
       assetPipelineState = result.state;
       const nextSummary = window.BNAssetPipelineState.getReviewSummary(assetPipelineState);
       updateNeedsRerunButton();
-      setStatus(`Processed review 已更新：${formatReviewSummary(nextSummary)}。`, 'success');
+      updateAssetReviewControls();
+      setStatus(`素材審核已更新：${formatReviewSummary(nextSummary)}。`, 'success');
       console.log('[CC][assetPipeline] review decision', { assetKey, decision, ok: result.ok });
       if (decision === 'approved' && result.ok && assetBelongsToJob(result.record, activeJob())) {
         refreshMainCanvasApprovedAssetsForActiveJob('review-decision:' + decision).catch(error => {
@@ -3570,7 +3658,7 @@ async function exportProjectZip() {
     addProcessedEntriesToZip(zip, projectZip.processedEntries, 'processed');
     const blob = await zip.generateAsync({ type: 'blob' });
     downloadBlob(blob, `project_${new Date().toISOString().slice(0, 10)}.zip`);
-    setStatus(`專案 ZIP 下載完成。processed assets：${projectZip.processedEntries.length}`, 'success');
+    setStatus(`完整專案下載完成。處理結果：${projectZip.processedEntries.length}`, 'success');
   } catch (error) {
     console.error(error);
     setStatus('專案 ZIP 匯出失敗：' + error.message, 'error');
@@ -3800,10 +3888,26 @@ el.importStateFile.addEventListener('change', e => {
 
 // 素材資料夾
 el.folderBtn.addEventListener('click', pickAssetFolder);
+el.assetReviewMenuBtn?.addEventListener('click', event => {
+  event.stopPropagation();
+  updateAssetReviewControls();
+  setAssetReviewMenuOpen(!!el.assetReviewMenu?.hidden);
+});
+document.addEventListener('click', event => {
+  if (!el.assetReviewMenu || el.assetReviewMenu.hidden) return;
+  if (event.target.closest('#asset-review-entry')) return;
+  setAssetReviewMenuOpen(false);
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') setAssetReviewMenuOpen(false);
+});
 el.manifestBtn?.addEventListener('click', exportPhotoshopManifest);
 el.rerunManifestBtn?.addEventListener('click', exportPhotoshopRerunManifest);
 el.processedFolderBtn?.addEventListener('click', pickProcessedFolder);
 el.reviewAssetsBtn?.addEventListener('click', openAssetReviewWorkspace);
+[el.manifestBtn, el.rerunManifestBtn, el.processedFolderBtn, el.reviewAssetsBtn].forEach(button => {
+  button?.addEventListener('click', () => setAssetReviewMenuOpen(false));
+});
 
 // 拖曳 CSV 到工單面板
 el.jobPanel.addEventListener('dragover', e => {
