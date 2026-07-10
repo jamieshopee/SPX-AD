@@ -119,7 +119,7 @@ Completed
   └─ Smart Layout Propagation
 
 Current
-  └─ None（Waiting for next Proposal）
+  └─ AI Workflow（Proposal）
 
 Next Planned Phase Order
   ├─ AI Workflow
@@ -134,7 +134,7 @@ Future
   └─ QR Code
 ```
 
-Review Workspace（Crop / Eraser）、Photoshop Rerun Automation、Review Workspace UX Polish、Project Persistence、Control Center UI Upgrade 與 Review Workspace UI Upgrade 已完成。目前沒有 Active Phase。
+Review Workspace（Crop / Eraser）、Photoshop Rerun Automation、Review Workspace UX Polish、Project Persistence、Control Center UI Upgrade 與 Review Workspace UI Upgrade 已完成。目前 Active Phase 為 AI Workflow（Proposal 階段，尚未 Coding）。
 
 ## Pipeline Loop
 

@@ -53,7 +53,7 @@ v0.4.5
 目前分支：
 
 ```text
-feature/review-workspace-ui-upgrade
+feature/ai-workflow
 ```
 
 已完成：
@@ -102,7 +102,7 @@ Completed：
 目前 Active Phase：
 
 ```text
-None（Waiting for next Proposal）
+AI Workflow（Proposal）
 ```
 
 
@@ -419,7 +419,7 @@ Completed：
 
 Current：
 
-- None（Waiting for next Proposal）
+- AI Workflow（Proposal）
 
 Photoshop Rerun Automation（Completed）：
 
@@ -455,7 +455,7 @@ Rules：
 - Locked Completed Phases must not be redesigned.
 - AI Workflow must not redesign Review Workspace UI, Navigator, Dynamic Inspector, Decision Area, or Completion Screen; it may only automate the background asset-processing flow and wire it into the existing UI.
 
-目前 Active Phase：None（Waiting for next Proposal）。Project Persistence、Control Center UI Upgrade 與 Review Workspace UI Upgrade 已完成。
+目前 Active Phase：AI Workflow（Proposal）。Project Persistence、Control Center UI Upgrade 與 Review Workspace UI Upgrade 已完成並列入 Locked Completed Phases。
 
 以上 Roadmap 只代表建議方向。實作前必須另做 Architecture Proposal 並確認 Phase Boundary。
 
