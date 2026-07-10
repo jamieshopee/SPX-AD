@@ -47,7 +47,7 @@ Photoshop Pipeline 角色：
 目前最新穩定 Git Tag：
 
 ```text
-v0.4.3
+v0.4.4
 ```
 
 目前分支：
@@ -69,6 +69,7 @@ feature/review-workspace-ux-polish
 - Project State：single-state.json / project-state.json 匯出與匯入。
 - Project State Phase：Completed。Project State v4 保存 Asset Pipeline metadata 與 Review decision，已達成可恢復工作區核心目標。
 - Project Persistence：Project State v5、single-state restore、project.zip restore 與 Download Complete Project 已完成。Project Save = Workspace Save，會保存 latest processed image，不需要保留素材資料夾或 processed folder。
+- Control Center UI Upgrade：Header 已簡化為一般使用者入口，隱藏 Photoshop / Manifest / Processed Folder 等技術術語，版位下拉只調整 display order。
 - Thumbnail System：quickThumbnail 與 hidden iframe 正式縮圖流程。
 - LayoutState Restore：依 `placementId|templateId` 保存與恢復 transform。
 - Product identity restore by filename：三商品 restore 使用 `id → filename → position`。
@@ -86,6 +87,7 @@ Completed：
 - Review Workspace
 - Review Workspace（Crop / Eraser）
 - Review Workspace UX Polish
+- UI Upgrade
 - Photoshop Rerun Automation
 - Approved Asset Resolver
 - Main Canvas / Thumbnail use processed asset
@@ -374,6 +376,12 @@ v0.4.3
 
 Project Persistence。完成 Project State v5、Persistence Layer、single-state processed image restore、project.zip restore 與 Download Complete Project；Project Save = Workspace Save，latest processed image 可隨專案恢復。
 
+```text
+v0.4.4
+```
+
+Control Center UI Upgrade。控制台 Header 改為 `SPX BN生成器`，固定一般使用者入口為匯入CSV、匯入暫存、選擇素材資料夾、素材審核；一般 UI 隱藏 Photoshop / Manifest / Processed Folder 等技術術語；素材審核入口整合處理結果匯入、重新處理素材與開啟審核；中央版位下拉僅調整 display order，不修改 placementId、templateId、layoutState key 或 schema。
+
 
 ## Smart Layout Propagation
 
@@ -390,6 +398,7 @@ Completed：
 - Review Workspace
 - Review Workspace（Crop / Eraser）
 - Review Workspace UX Polish
+- UI Upgrade
 - Photoshop Rerun Automation
 - Approved Asset Resolver
 - Main Canvas / Thumbnail use processed asset
@@ -414,19 +423,19 @@ Photoshop Rerun Automation（Completed）：
 
 Future：
 
-- UI Upgrade
 - AI Workflow
+- Render Context & Export Workflow
 - Extension System
-- QRCode
+- QR Code
 
 ## Next Planned Phase Order（Locked）
 
 The following roadmap order has been decided by the product owner.
 
-1. UI Upgrade
-2. AI Workflow
+1. AI Workflow
+2. Render Context & Export Workflow
 3. Extension System
-4. QRCode
+4. QR Code
 
 Rules：
 
@@ -438,7 +447,7 @@ Rules：
 - Review Workspace should not receive new editing tools, workflows, or UX redesigns unless explicitly requested by the product owner.
 - Only Bug Fix is allowed for Review Workspace unless explicitly requested.
 
-目前 Active Phase：None（Waiting for next Proposal）。Project Persistence 已完成。
+目前 Active Phase：None（Waiting for next Proposal）。Project Persistence 與 Control Center UI Upgrade 已完成。
 
 以上 Roadmap 只代表建議方向。實作前必須另做 Architecture Proposal 並確認 Phase Boundary。
 

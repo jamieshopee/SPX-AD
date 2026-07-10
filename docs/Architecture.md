@@ -1,12 +1,13 @@
 # Architecture
 
-Version: v0.4.3  
-Last Updated: 2026-07-09  
+Version: v0.4.4  
+Last Updated: 2026-07-10  
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界與新增 Style 流程。
 
 ## What's New
 
-- Roadmap 已更新：Project Persistence 已完成，目前沒有 Active Phase。
+- Roadmap 已更新：Control Center UI Upgrade 已完成，目前沒有 Active Phase。
+- Control Center UI Upgrade 完成：Header 簡化為一般使用者入口，素材審核整合狀態與入口，中央版位下拉只調整 display order。
 - Project Persistence 完成：Project State v5、Persistence Layer、single-state restore、project.zip restore 與 Download Complete Project。
 - Review Workspace UX Polish 完成：Auto Next、Multi-pass Review、Progress Header、Smart Entry、Keyboard Shortcuts、Decision Guard 與 Remove Drag Tool。
 - Smart Layout Propagation 已完成：每個 Job 擁有 runtime-only 3 商品 Master Layout，可建立 target size 自己的 layoutState。
@@ -103,6 +104,7 @@ Completed
   ├─ Review Workspace
   ├─ Review Workspace（Crop / Eraser）
   ├─ Review Workspace UX Polish
+  ├─ UI Upgrade
   ├─ Photoshop Rerun Automation
   ├─ Approved Asset Resolver
   ├─ Main Canvas / Thumbnail use processed asset
@@ -116,16 +118,20 @@ Completed
 Current
   └─ None（Waiting for next Proposal）
 
-Next
-  └─ None（Waiting for next Proposal）
+Next Planned Phase Order
+  ├─ AI Workflow
+  ├─ Render Context & Export Workflow
+  ├─ Extension System
+  └─ QR Code
 
 Future
   ├─ AI Workflow
+  ├─ Render Context & Export Workflow
   ├─ Extension System
-  └─ UI Upgrade
+  └─ QR Code
 ```
 
-Review Workspace（Crop / Eraser）、Photoshop Rerun Automation、Review Workspace UX Polish 與 Project Persistence 已完成。目前沒有 Active Phase。
+Review Workspace（Crop / Eraser）、Photoshop Rerun Automation、Review Workspace UX Polish、Project Persistence 與 Control Center UI Upgrade 已完成。目前沒有 Active Phase。
 
 ## Pipeline Loop
 
