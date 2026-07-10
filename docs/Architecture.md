@@ -104,7 +104,7 @@ Completed
   ├─ Review Workspace
   ├─ Review Workspace（Crop / Eraser）
   ├─ Review Workspace UX Polish
-  ├─ UI Upgrade
+  ├─ Control Center UI Upgrade
   ├─ Photoshop Rerun Automation
   ├─ Approved Asset Resolver
   ├─ Main Canvas / Thumbnail use processed asset
@@ -119,12 +119,14 @@ Current
   └─ None（Waiting for next Proposal）
 
 Next Planned Phase Order
+  ├─ Review Workspace UI Upgrade
   ├─ AI Workflow
   ├─ Render Context & Export Workflow
   ├─ Extension System
   └─ QR Code
 
 Future
+  ├─ Review Workspace UI Upgrade
   ├─ AI Workflow
   ├─ Render Context & Export Workflow
   ├─ Extension System

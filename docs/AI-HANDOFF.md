@@ -53,7 +53,7 @@ v0.4.4
 目前分支：
 
 ```text
-feature/review-workspace-ux-polish
+feature/review-workspace-ui-upgrade
 ```
 
 已完成：
@@ -87,7 +87,7 @@ Completed：
 - Review Workspace
 - Review Workspace（Crop / Eraser）
 - Review Workspace UX Polish
-- UI Upgrade
+- Control Center UI Upgrade
 - Photoshop Rerun Automation
 - Approved Asset Resolver
 - Main Canvas / Thumbnail use processed asset
@@ -107,7 +107,7 @@ None（Waiting for next Proposal）
 
 ## Formal Development SOP
 
-以下流程適用所有後續 Phase，不只 UI Upgrade：
+以下流程適用所有後續 Phase，不只單一特定 Phase：
 
 ```text
 Product Proposal（ChatGPT）
@@ -398,7 +398,7 @@ Completed：
 - Review Workspace
 - Review Workspace（Crop / Eraser）
 - Review Workspace UX Polish
-- UI Upgrade
+- Control Center UI Upgrade
 - Photoshop Rerun Automation
 - Approved Asset Resolver
 - Main Canvas / Thumbnail use processed asset
@@ -423,6 +423,7 @@ Photoshop Rerun Automation（Completed）：
 
 Future：
 
+- Review Workspace UI Upgrade
 - AI Workflow
 - Render Context & Export Workflow
 - Extension System
@@ -432,20 +433,20 @@ Future：
 
 The following roadmap order has been decided by the product owner.
 
-1. AI Workflow
-2. Render Context & Export Workflow
-3. Extension System
-4. QR Code
+1. Review Workspace UI Upgrade
+2. AI Workflow
+3. Render Context & Export Workflow
+4. Extension System
+5. QR Code
 
 Rules：
 
 - Follow this order by default.
 - Do not propose other roadmap phases unless explicitly requested by the product owner.
-- Review Workspace is feature complete.
+- Completed Review Workspace phases are locked; Review Workspace UI Upgrade is a future phase and must start with Proposal / Audit before implementation.
 - Project Persistence is feature complete.
 - Locked Completed Phases must not be redesigned.
-- Review Workspace should not receive new editing tools, workflows, or UX redesigns unless explicitly requested by the product owner.
-- Only Bug Fix is allowed for Review Workspace unless explicitly requested.
+- Review Workspace should not receive new editing tools, workflows, or UX redesigns outside the planned Review Workspace UI Upgrade or explicit product-owner request.
 
 目前 Active Phase：None（Waiting for next Proposal）。Project Persistence 與 Control Center UI Upgrade 已完成。
 
