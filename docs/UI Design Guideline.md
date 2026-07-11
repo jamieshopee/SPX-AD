@@ -344,11 +344,38 @@ Completion 判斷必須使用全域 Reviewable Assets，不得使用目前 Filte
 
 ### Future：Control Center 背景處理狀態（Future / Not Implemented）
 
-以下為 AI Workflow Phase 的目標方向，尚未實作：
+以下為 AI Workflow Phase 的目標方向，尚未實作。此 UI 依賴 Photoshop Automation Phase（目前 Active Phase，Proposal 階段）先完成背景自動化能力；AI Workflow 目前為 Draft / Paused pending Photoshop Automation，此節內容在 Photoshop Automation 完成前不會被實作。以下屬於 Current Product Decisions，不代表 Proposal 已 Freeze。
 
-- 控制台可能顯示背景處理狀態：`素材處理中（18 / 63）`、`素材處理完成`、`等待審閱`。
-- 這些狀態文案只使用一般使用者工作語言，不得出現 Photoshop、Manifest、Runner、Processed Folder、Import Processed Folder 等技術詞彙。
-- AI Workflow 只負責讓背景處理狀態自動化並顯示在 Control Center，不得重新設計 Review Workspace UI（Navigator、Dynamic Inspector、Decision Area、Completion Screen 皆維持 Review Workspace UI Upgrade 的既有設計）。
+正常狀態：
+
+```text
+素材處理中
+18 / 63
+完成後將自動開啟素材審閱
+```
+
+完成狀態：
+
+```text
+素材處理完成
+```
+
+Ready Check 未通過提示（唯一允許直接顯示 Photoshop 名稱的前置條件訊息）：
+
+```text
+請先開啟 Photoshop
+素材處理需要使用 Photoshop。
+開啟後按「重新檢查」即可繼續。
+［重新檢查］
+```
+
+說明：
+
+- 正常工作流程仍不暴露 Manifest、Runner、Processed Folder、Watcher、Heartbeat 等技術詞彙；Ready Check 失敗提示是唯一允許直接顯示「Photoshop」名稱的前置條件訊息。
+- Processing Mode 期間 Control Center 不可操作（不可修改文字、不可切換工單、不可下載、不可開始新的工作）。
+- 「素材處理完成」停留約 0.5～1 秒為完成轉場動畫，不是處理完成的判定依據；完成後直接自動開啟素材審閱，不存在獨立的「等待審閱」中繼狀態。
+- AI Workflow 只負責讓背景處理狀態（含 Ready Check 提示）自動化並顯示在 Control Center，不得重新設計 Review Workspace UI Upgrade 的 Locked 規格（Navigator、Dynamic Inspector、Decision Area、Completion Screen 皆維持既有設計）。
+- Photoshop Automation 與 AI Workflow 責任不重疊：本節描述的 Control Center UI 屬於 AI Workflow；Photoshop 端的 Ready Contract、批次處理、狀態回報屬於 Photoshop Automation，不在本節範圍內。
 
 ## Project Persistence UX
 

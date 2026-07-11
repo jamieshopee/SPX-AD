@@ -1,8 +1,8 @@
 # Photoshop Asset Pipeline
 
-Version: 2026.07.11-future-automation-note  
+Version: 2026.07.11-photoshop-automation-split
 Last Updated: 2026-07-11  
-Scope: Photoshop Asset Pipeline 的操作流程、內部資料契約、State Boundary 與 Troubleshooting。此文件只描述行為與規則，不改變 Pipeline、Canvas、Thumbnail、Batch 或 Project State 行為。目前文件描述的是人工操作 Pipeline 的真實行為；文末新增 Future Automation Target，標註尚未實作的自動化方向。
+Scope: Photoshop Asset Pipeline 的操作流程、內部資料契約、State Boundary 與 Troubleshooting。此文件只描述行為與規則，不改變 Pipeline、Canvas、Thumbnail、Batch 或 Project State 行為。目前文件描述的是人工操作 Pipeline 的真實行為；文末 Future Automation Target 拆分為 A. Photoshop Automation（目前 Active Phase，Proposal 階段）與 B. AI Workflow（Draft / Paused pending Photoshop Automation），皆標註尚未實作。
 
 ## Quick Workflow
 
@@ -66,23 +66,23 @@ unmatched：記錄 unmatchedProcessedAssets
 
 ### 4. Review Processed Assets
 
-開啟 Review Workspace 檢查 processed assets。
+開啟 Review Workspace（素材審閱）檢查 processed assets。
 
 可標記：
 
 - `approved`
 - `needs_rerun`
 
-Review Workspace 顯示：
+Review Workspace 使用者 UI 顯示（Review Workspace UI Upgrade，v0.4.5，Completed）：
 
-- original image
-- processed image
-- `assetKey`
-- `role`
-- `jobIds`
-- `slot`
-- `mode`
-- `status`
+- original image / processed image（Editor 畫面）
+- 檔名
+- Review Status（待審閱 / 已處理 / 核准 / 重新去背）
+- Dirty Status（尚未儲存的修改）
+- Review Summary（進度、核准數、重新去背數）
+- Filter：全部素材 / 待重新去背
+
+`assetKey`、`role`、`jobIds`、`slot`、`mode`、processed filename 等技術 Metadata 仍保留於內部資料結構（`assetPipelineState.assets[assetKey]`），供 Matching、Manifest、Resolver 等內部流程使用，但**不顯示**於使用者 UI（Navigator 與 Dynamic Inspector 皆已移除這些欄位，詳見 `docs/UI Design Guideline.md` 與 `docs/SPX-AD-版型規格與操作說明.md`）。
 
 ### 4.1 Photoshop Rerun Automation
 
@@ -599,18 +599,54 @@ Review Workspace UI Upgrade 只調整 Review Workspace 的 UI（Navigator / Dyna
 
 ## Future Automation Target（Future / Not Implemented）
 
-本節描述下一個 Planned Phase「AI Workflow」的目標方向，尚未實作，不得視為目前已完成行為。目前 Quick Workflow 與 Internal Pipeline 章節描述的人工流程仍是唯一真實行為。
+本節描述 Roadmap 上兩個相關但獨立的 Future Phase 的目標方向，尚未實作，不得視為目前已完成行為。目前 Quick Workflow 與 Internal Pipeline 章節描述的人工流程仍是唯一真實行為。Photoshop Automation 必須先完成，AI Workflow 才能開始串接。
+
+### A. Photoshop Automation（目前 Active Phase，Proposal 階段）
+
+前提：所有使用者已安裝 Adobe Photoshop，並會在使用控制台前自行開啟 Photoshop。本 Phase 不負責自動安裝、自動啟動或自動關閉 Photoshop；目標是讓 Photoshop 開啟後，使用者不需要再操作 Photoshop。
+
+目前真實現況（已透過 Current Photoshop Pipeline Architecture Audit 確認）：
+
+- Manifest 建立已是純記憶體運算（`buildPhotoshopJobManifest` / `buildPhotoshopRerunManifest`），下載 JSON 只是最後一步輸出動作。
+- 現有 Runner 是**一次性**流程：使用者雙擊 `tools/photoshop/run-photoshop-manifest.command` → 手動選 manifest / 原始素材資料夾 / 輸出資料夾（3 個原生對話框）→ AppleScript 呼叫 Photoshop 執行 `remove-background.jsx` → 跑完 manifest 內全部 items 即結束。
+- 目前**不存在**：Watcher、Daemon、Node helper、Native Messaging Host、自動觸發、Ready Check、Heartbeat、自動 Progress、自動 Import、固定 Runtime Job Folder。
+
+目標方向（Proposal 討論中，尚未 Freeze）——只涵蓋 Photoshop 端能力，不包含 Control Center orchestration（Manifest 建立、送出、自動 Import、自動開啟 Review Workspace 屬於 B. AI Workflow）：
+
+- 定義 Photoshop Ready Contract：讓已由使用者開啟的 Photoshop 可準備接收工作（機制尚未 Freeze）。
+- 接收由 AI Workflow 透過既有 `buildPhotoshopJobManifest` / `buildPhotoshopRerunManifest` 建立並送出的 Manifest / Rerun Manifest（既有格式，不變）。
+- Photoshop 端接收工作並批次處理，沿用 `remove-background.jsx` 既有去背核心邏輯（Quick Action / Select Subject fallback）。
+- 輸出既有格式的 processed assets。
+- 回報 Progress、Completion、Partial Failure / Failure Result（Run Report / Status Contract 機制尚未 Freeze）。
+
+Photoshop Automation **不負責**：Control Center Processing Mode UI、Control Center 自動 Import Processed Result、自動開啟 Review Workspace、AI Workflow 的整體使用者流程——這些屬於 B. AI Workflow。
+
+邊界（Future，Photoshop Automation）：
+
+- 不修改 Review Workspace UI、Navigator、Dynamic Inspector、Decision Area、Completion Screen、Crop / Eraser、Canvas、Thumbnail、Batch、`layoutStates`、Approved Asset Resolver、Project State schema、Review Decision Model。
+- 不修改本文件既有 Manifest schema、Photoshop Adapter Boundary、Processed Folder Matching 契約。
+- Watcher、Heartbeat、固定 Runtime Job Folder、啟動腳本等仍是 Proposal 選項，尚未 Freeze，不得寫成已確定實作。
+- 任何觸及「控制台不新增 native bridge、local helper 或 protocol handler」既有邊界的擴充方案，需在 Proposal 中明確提出並取得 Jamie 核准。
+
+### B. AI Workflow（Draft / Paused pending Photoshop Automation）
+
+依賴 A. Photoshop Automation 先完成。目前狀態為 Draft，暫停 Proposal Revision / Audit，待 Photoshop Automation 完成後才恢復。AI Workflow 是 Control Center 與既有模組之間的 Workflow Orchestration，不是 Photoshop 端能力本身。
 
 目標方向：
 
-- 控制台在使用者匯入 CSV 與選擇素材資料夾後，自動在背景觸發 Photoshop Adapter，取代目前「手動匯出 Manifest → 手動執行 Photoshop Runner」的步驟。
-- 新增 Background Automation 協調層，負責偵測 Photoshop 處理進度與完成，並自動執行目前的「Import Processed Folder」動作，取代使用者手動操作。
-- 控制台只顯示一般使用者能理解的背景處理狀態（例如「素材處理中（18/63）」「素材處理完成」「等待審閱」），不暴露 Photoshop / Manifest / Processed Folder 等技術詞彙。
-- Rerun 流程比照辦理：使用者點擊「重新去背素材（N）」後，Background Automation 自動重跑 Photoshop、自動偵測完成、自動 Import，並自動帶使用者回到「待重新去背」第二輪 Review Workspace。
+- 使用既有 `buildPhotoshopJobManifest` / `buildPhotoshopRerunManifest` 建立 Manifest，取代目前「手動匯出 Manifest」步驟；透過 Photoshop Automation 已確立的 Contract 送出工作，取代目前「手動執行 Photoshop Runner」步驟。
+- 執行 Photoshop Ready Check 的 Control Center 端流程：未通過時顯示「請先開啟 Photoshop」與「重新檢查」；通過後進入 Processing Mode。
+- 顯示 Processing Mode 並鎖定 Control Center 操作（不可修改文字、不可切換工單、不可下載、不可開始新的工作）；顯示一般使用者能理解的狀態，例如「素材處理中（18/63）」「素材處理完成」，不暴露 Photoshop / Manifest / Processed Folder 等技術詞彙（Ready Check 未通過提示除外）。
+- 讀取 Photoshop Automation 回報的狀態，自動掃描處理結果，沿用既有 `importProcessedAssets()` 執行 Matching / Import，取代使用者手動操作「匯入處理結果」。
+- 自動開啟既有 Review Workspace，取代使用者手動點擊「開啟素材審核」。
+- Rerun 流程比照辦理：使用者點擊「重新去背素材（N）」後，AI Workflow 再次執行相同的 Processing Mode（不重新啟動 Photoshop）、自動偵測完成、自動 Import，並自動帶使用者回到「待重新去背」第二輪 Review Workspace。
 
-邊界（Future）：
+AI Workflow **不負責**：實作 Photoshop 去背核心、修改 Manifest schema、修改 Photoshop Adapter Boundary（這些屬於 A. Photoshop Automation）。
+
+邊界（Future，AI Workflow）：
 
 - Photoshop Adapter 本身的職責與 Boundary（只讀 manifest、只輸出 processed assets）不變。
-- Background Automation 不得直接寫 Canvas、`layoutStates` 或 Project State schema，僅能呼叫既有 Asset Pipeline / Photoshop Adapter / Review Workspace 介面。
+- AI Workflow 的 Control Center Orchestration 不得直接寫 Canvas、`layoutStates` 或 Project State schema，僅能呼叫既有 Asset Pipeline / Photoshop Adapter / Review Workspace 介面。
 - Review Workspace UI（Navigator / Dynamic Inspector / Decision Area / Completion Screen）不因自動化而重新設計。
+- 在 Photoshop Automation 完成前，AI Workflow 不進入 Proposal Freeze 或 Implementation Proposal。
 - 在 AI Workflow Phase 完成 Coding、Browser Validation 與 Jamie Manual Validation 前，本節內容不得寫入 CHANGELOG 的 Completed 功能，也不得視為目前系統行為。
