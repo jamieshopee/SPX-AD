@@ -114,10 +114,10 @@ Completed：
 目前 Active Phase：
 
 ```text
-無（AI Workflow 與 Photoshop Automation 已完成 macOS Development Validation；等待 Windows Validation Environment 後才進入 Production Deployment）
+無（AI Workflow 與 Photoshop Automation 已完成 Final Sign-off；下一個開發 Phase 是 Render Context & Export Workflow）
 ```
 
-Photoshop Automation 與 AI Workflow 已完成 Coding、Unit Validation、Integration Validation 與 macOS Development Manual Validation（Photoshop 2025 實機驗證，Stage 1–4 共 18 項 PASS，詳見下方「AI Workflow / Photoshop Automation Validation Status」）。Windows 實機驗證狀態為 **Deferred（Waiting for Windows Validation Environment）**——不是 Completed，也不是 Blocked，只是尚未有真實 Windows + Photoshop 環境可供驗證。Production Launcher、PyInstaller 打包、雲端部署（Cloud Deployment）尚未開始（Not Started），不得描述為已完成。目前不宣稱支援所有 Photoshop 版本；已實機驗證版本僅 Photoshop 2025。
+Photoshop Automation 與 AI Workflow 已完成 Coding、Unit Validation、Integration Validation 與 macOS Development Manual Validation（Photoshop 2025 實機驗證，Stage 1–4 共 18 項 PASS，詳見下方「AI Workflow / Photoshop Automation Validation Status」），並已完成 Final Sign-off（功能 Commit、文件 Commit、Tag `v0.5.0`），正式列入 Locked Completed Phases。Windows 實機驗證狀態為 **Deferred（Waiting for Windows Validation Environment）**——這是一個獨立的 Deferred Validation Item，不是下一個開發 Phase，不是 Blocked，也不會阻擋其他開發 Phase 開始。Production Launcher、PyInstaller 打包、雲端部署（Cloud Deployment）尚未開始（Not Started），不是目前下一個 Phase，不得描述為「Windows Validation 完成後即進入 Production Deployment」。目前不宣稱支援所有 Photoshop 版本；已實機驗證版本僅 Photoshop 2025。下一個開發 Phase 依 Roadmap 為 **Render Context & Export Workflow**，其後為 **QR Code**（見下方「Next Planned Phase Order」）。
 
 ## AI Workflow / Photoshop Automation Validation Status
 
@@ -468,7 +468,9 @@ Completed：
 
 Current：
 
-- 無 Active Coding Phase。等待 Windows Validation Environment，才能完成 Photoshop Automation／AI Workflow 的 Windows 實機驗證；之後才進入 Production Deployment（Production Launcher、PyInstaller、Cloud Deployment）。
+- 無 Active Coding Phase。下一個開發 Phase 是 Render Context & Export Workflow。
+- Windows Validation 為獨立的 Deferred Validation Item（Waiting for Windows Validation Environment），不是下一個開發 Phase，不會阻擋 Render Context & Export Workflow 或其後的開發 Phase 開始。
+- Production Deployment（Production Launcher、PyInstaller、Cloud Deployment）尚未開始，也不是目前下一個 Phase；不得描述為「Windows Validation 完成後即進入 Production Deployment」。
 
 Photoshop Rerun Automation（Completed，人工匯出流程，仍保留作為既有備援入口）：
 
@@ -478,11 +480,15 @@ Photoshop Rerun Automation（Completed，人工匯出流程，仍保留作為既
 - 只有 `approved` 才進入 Approved Asset Resolver 與 Render Pipeline。
 - Latest Processed 覆蓋 Previous Processed；不保存 v1 / v2 / v3。
 
-Future：
+Future（開發 Phase 順序）：
 
-- Production Deployment（Production Launcher、PyInstaller 打包、Cloud Deployment；未開始）
-- Render Context & Export Workflow
+- Render Context & Export Workflow（下一個開發 Phase）
 - QR Code
+
+Deferred Validation Item（不佔開發 Phase 順序位置）：
+
+- Windows Validation（Waiting for Windows Validation Environment）
+- Production Deployment（Production Launcher、PyInstaller 打包、Cloud Deployment；未開始，非下一個 Phase，不得描述為緊接 Windows Validation 之後）
 
 Extension System 已從 Roadmap 移除（不在 Completed / Current / Future / Next Planned Phase Order 中）。目前沒有新增素材審閱工具的產品需求，Review Workspace 現有的核准、重新去背、裁切、橡皮擦已足夠目前使用。未來若出現明確產品需求，再由 Jamie 另外提出新的 Proposal，不預留 Phase 位置。
 
@@ -492,19 +498,20 @@ The following roadmap order has been decided by the product owner.
 
 1. Photoshop Automation（Completed — macOS Development Validated; Windows Validation Deferred）
 2. AI Workflow（Completed — macOS Development Validated; Windows Validation Deferred）
-3. Production Deployment（Not Started — waiting for Windows Validation Environment）
-4. Render Context & Export Workflow
-5. QR Code
+3. Render Context & Export Workflow（下一個開發 Phase）
+4. QR Code
+
+Windows Validation（Waiting for Windows Validation Environment）與 Production Deployment（Production Launcher、PyInstaller packaging、Cloud Deployment；Not Started）不佔上述開發 Phase 順序位置：Windows Validation 是獨立的 Deferred Validation Item，Production Deployment 尚未排入開發 Phase 順序，兩者都不是「下一個開發 Phase」，也不得描述為「Windows Validation 完成後即進入 Production Deployment」。
 
 Rules：
 
 - Follow this order by default.
 - Do not propose other roadmap phases unless explicitly requested by the product owner.
 - Review Workspace UI Upgrade is Completed and locked; do not reopen, redesign, or re-Proposal it.
-- Photoshop Automation and AI Workflow are Completed for macOS Development (Photoshop 2025, Stage 1–4 Manual Validation, 18/18 PASS). Windows Validation is Deferred (Waiting for Windows Validation Environment) — not Completed, not Blocked. Do not claim Windows support or "any Photoshop version" support until a real Windows + Photoshop environment has been validated.
+- Photoshop Automation and AI Workflow are Completed for macOS Development (Photoshop 2025, Stage 1–4 Manual Validation, 18/18 PASS). Windows Validation is Deferred (Waiting for Windows Validation Environment) — not Completed, not Blocked, and not positioned in the development phase order above. Do not claim Windows support or "any Photoshop version" support until a real Windows + Photoshop environment has been validated.
 - Locked Completed Phases must not be redesigned.
 - Photoshop Automation and AI Workflow must not redesign Review Workspace UI, Navigator, Dynamic Inspector, Decision Area, Completion Screen, Crop, Eraser, Canvas, Thumbnail, Batch, `layoutStates`, Approved Asset Resolver, Project State schema, or Review Decision Model.
-- Production Deployment (Production Launcher, PyInstaller packaging, Cloud Deployment) must not be started before Windows Validation is complete, and must not be described as in progress or completed.
+- Production Deployment (Production Launcher, PyInstaller packaging, Cloud Deployment) must not be started before Windows Validation is complete, must not be described as in progress or completed, and is not the next development phase.
 - Extension System is not part of the roadmap unless and until the product owner opens a new Proposal for it.
 
 Photoshop Automation 與 AI Workflow 已完成並列入 Locked Completed Phases（macOS Development Validated；Windows Validation Deferred）。Project Persistence、Control Center UI Upgrade 與 Review Workspace UI Upgrade 同樣已完成並列入 Locked Completed Phases。
