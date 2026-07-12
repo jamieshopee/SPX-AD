@@ -88,19 +88,18 @@
 - CSV
 - Photoshop Pipeline
 - Review Workspace
-- Review Workspace（Crop / Eraser）
-- Review Workspace UX Polish
-- Control Center UI Upgrade
-- Photoshop Rerun Automation
 - Approved Asset Resolver
-- Main Canvas / Thumbnail use processed asset
+- Main Canvas & Thumbnail use processed asset
 - Batch Approved Assets
 - Render Context
 - Master + Style
 - Project State
-- Project Persistence
 - Smart Layout Propagation
-- Review Workspace UI Upgrade
+- Review Workspace（Crop / Eraser）
+- Photoshop Rerun Automation
+- Review Workspace UX Polish
+- Project Persistence
+- UI Upgrade（Control Center UI Upgrade + Review Workspace UI Upgrade）
 - Photoshop Automation（macOS Development Validated；Windows Validation Deferred）
 - AI Workflow（macOS Development Validated；Windows Validation Deferred）
 
@@ -358,13 +357,14 @@ Control Center UI Upgrade 已完成並列入 Locked Completed Phase。後續不�
 
 ## Future Phase Order
 
-After Review Workspace UI Upgrade v0.4.5, Photoshop Automation and AI Workflow were completed (macOS Development Validated; Windows Validation Deferred). The planned phase order is now:
+After Review Workspace UI Upgrade v0.4.5, Photoshop Automation and AI Workflow were completed (macOS Development Validated; Windows Validation Deferred) and reached Final Sign-off (Tag v0.5.0). The planned phase order is now:
 
 1. Photoshop Automation（Completed）
 2. AI Workflow（Completed）
-3. Production Deployment（Not Started — waiting for Windows Validation Environment）
-4. Render Context & Export Workflow
-5. QR Code
+3. Render Context & Export Workflow（Current — Proposal, branch `feature/render-context-export-workflow`）
+4. QR Code（Next）
+
+Windows Validation (Waiting for Windows Validation Environment) and Production Deployment (Production Launcher, PyInstaller packaging, Cloud Deployment; Not Started) are NOT positioned in the phase order above: Windows Validation is an independent Deferred Validation Item, and Production Deployment has not been scheduled into the phase order. Neither is Current or Next, and Production Deployment must never be described as following immediately after Windows Validation.
 
 Rules：
 
@@ -374,9 +374,9 @@ Rules：
 - Completed phases must remain locked.
 - Completed Review Workspace phases remain locked, including Review Workspace UI Upgrade.
 - Photoshop Automation and AI Workflow are Completed for macOS Development (Photoshop 2025, Stage 1–4 Manual Validation, 18/18 PASS). Neither must be redesigned, re-Proposaled, or renamed except for Bug Fix, User Request, or an explicit Architecture change — the same Completed Phase rule as any other Locked Completed Phase.
-- Windows Validation is Deferred (Waiting for Windows Validation Environment) — not Completed, not Blocked. Do not claim Windows support or "any Photoshop version" support until a real Windows + Photoshop environment has been validated.
-- Production Deployment (Production Launcher, PyInstaller packaging, Cloud Deployment) must not be started before Windows Validation is complete, and must not be described as in progress or completed.
-- Extension System has been removed from the roadmap (not Completed, not Current, not Future, not in Next Planned Phase Order). There is currently no product need for new Review Workspace tooling beyond 核准 / 重新去背 / 裁切 / 橡皮擦. If a concrete need appears later, the product owner will open a new Proposal for it rather than reserving a phase slot now.
+- Windows Validation is Deferred (Waiting for Windows Validation Environment) — not Completed, not Blocked, not Current, and not positioned in the phase order above. Do not claim Windows support or "any Photoshop version" support until a real Windows + Photoshop environment has been validated.
+- Production Deployment (Production Launcher, PyInstaller packaging, Cloud Deployment) must not be started before Windows Validation is complete, must not be described as in progress or completed, and is not the current or next phase.
+- Extension System has been removed from the roadmap (not Completed, not Current, not Next, not in Next Planned Phase Order). There is currently no product need for new Review Workspace tooling beyond 核准 / 重新去背 / 裁切 / 橡皮擦. If a concrete need appears later, the product owner will open a new Proposal for it rather than reserving a phase slot now.
 
 ## Photoshop Automation Rules（Completed）
 

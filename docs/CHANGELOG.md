@@ -1,11 +1,12 @@
 # CHANGELOG
 
-Version: v0.4.5 + AI Workflow（macOS Development Validated；Windows Validation Deferred）  
+Version: v0.5.0（AI Workflow Completed；Render Context & Export Workflow Current — Proposal）  
 Last Updated: 2026-07-12  
 Scope: 專案版本紀錄與重要設計決策。此文件不是 Git commit log，而是維護者交接用版本紀錄。
 
 ## What's New
 
+- **Photoshop Automation 與 AI Workflow 完成 Final Sign-off（Tag `v0.5.0`）**，正式列入 Locked Completed Phases。目前 Active Phase 是 **Render Context & Export Workflow（Proposal 階段，branch `feature/render-context-export-workflow`）**，其後為 **QR Code**。Windows Validation 為獨立的 Deferred Validation Item（Waiting for Windows Validation Environment），不是 Current 或 Next 開發 Phase；Production Deployment 尚未開始，同樣不是 Current 或 Next。
 - **Photoshop Automation 與 AI Workflow 完成 Coding，通過 macOS Development Manual Validation（Photoshop 2025，Stage 1–4 共 18 項 PASS）**。Windows Validation 為 Deferred（Waiting for Windows Validation Environment），不宣稱已支援 Windows 或所有 Photoshop 版本。詳見下方新增章節。
 - Review Workspace UI Upgrade 完成：Navigator Information Architecture 簡化、Workspace Layout 與 Dynamic Inspector 改版、Decision Area 三顆按鈕同列、Completion Screen 與 Completion Recovery、Review Workspace 正式中文化。
 - Control Center UI Upgrade 完成：Header 簡化為一般使用者入口，素材審核整合狀態與入口，中央版位下拉只調整 display order。
@@ -547,3 +548,4 @@ Date: 2026-06-30
 - 2026-07-11：Extension System 已從目前 Roadmap 移除（不在 Completed / Current / Future / Next Planned Phase Order 中）。原因：目前沒有新增素材審閱工具的產品需求，Review Workspace 現有的核准、重新去背、裁切、橡皮擦已足夠目前使用。未來若有明確產品需求，將由 Jamie 另外重新提出 Proposal，不預留 Phase 位置。
 - 2026-07-11：確認唯一正確的 Photoshop 使用前提：使用者已安裝 Photoshop，並在使用控制台前自行開啟；系統不自動安裝、啟動或關閉 Photoshop；Photoshop 開啟後系統執行 Ready Check，通過後使用者不需要再操作 Photoshop。取代先前「使用者完全不需要知道 Photoshop 的存在」的用詞。
 - 2026-07-11：確認 Photoshop Automation 與 AI Workflow 責任不重疊：Photoshop Automation 只負責 Photoshop 端能力（Ready Contract、接收 Manifest、批次去背、Progress / Completion / Failure Contract）；AI Workflow 負責 Control Center 端 Orchestration（建立並送出 Manifest、Processing Mode、讀取狀態、自動 Import、自動開啟 Review Workspace）。
+- 2026-07-12：Photoshop Automation 與 AI Workflow 完成 Final Sign-off（功能 Commit、文件 Commit、Tag `v0.5.0`），正式列入 Locked Completed Phases。Active Phase 轉為 **Render Context & Export Workflow（Proposal 階段）**，branch 由 `feature/photoshop-automation` 切換為 `feature/render-context-export-workflow`；Roadmap 順序更新為 Photoshop Automation（Completed）→ AI Workflow（Completed）→ Render Context & Export Workflow（Current）→ QR Code（Next）。Windows Validation（Waiting for Windows Validation Environment）與 Production Deployment（Not Started）維持獨立於此順序之外，不是 Current 或 Next，不得描述為緊接彼此之後。
