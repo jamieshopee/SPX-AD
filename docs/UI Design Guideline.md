@@ -1,11 +1,12 @@
 # UI Design Guideline
 
-Version: 2026.07.11-review-ui  
-Last Updated: 2026-07-11  
+Version: 2026.07.12-ai-workflow  
+Last Updated: 2026-07-12  
 Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
 
+- AI Workflow 背景處理狀態 UI 完成（macOS Development Validated；Windows Validation Deferred）：Processing Notice、Recovery Banner 皆已實作，詳見下方「Control Center 背景處理狀態 UI」。
 - Review Workspace UI Upgrade：Navigator Information Architecture 簡化、Workspace Layout 與 Dynamic Inspector 改版、Decision Area 三顆按鈕同列、新增 Completion Screen / Completion Recovery、Review Workspace 正式中文化。
 - Control Center UI Upgrade：Header 簡化為一般使用者主入口，素材審核入口整合狀態與操作。
 - 控制台 UI 文件同步 Template + Style 架構。
@@ -15,7 +16,6 @@ Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 - 初始狀態、匯入 CSV、匯入暫存與重設工作區 UI 狀態需保持一致。
 - Review Workspace decision UI 三顆按鈕：核准、重新去背、撤回上一個決策。
 - 新增 Review Workspace 繁體中文 UI Terminology 對照表。
-- 新增 Future AI Workflow 背景處理狀態 UI 方向（尚未實作）。
 
 ## Table of Contents
 
@@ -311,13 +311,13 @@ Completion 判斷必須使用全域 Reviewable Assets，不得使用目前 Filte
 - Temporary Pan（Space）是 momentary action，放開 Space 後必須回到原工具。
 - Remove Drag Tool UX Principle：Pan 不應是 persistent tool；不顯示固定 Drag Tool 按鈕。
 
-`重新去背素材（N）` 屬於素材審核選單／Completion Screen 內的流程型 action：
+`重新去背素材（N）` 屬於素材審核選單／Completion Screen 內的流程型 action，目前有兩個共存的入口（AI Workflow Completed 後的現況，非本 UI Upgrade 當時的行為）：
 
-- `N=0` 時 disabled。
-- `N>0` 時可啟動既有重新去背流程。
+- `N=0` 時兩個入口皆 disabled。
+- **Review Workspace Completion Screen 內的入口（主要流程）**：點擊後串接 AI Workflow Orchestrator，自動重新執行一次 Ready Check、重新進入 Processing Mode（Photoshop 全程保持開啟，不重新啟動）、完成後自動 Import、自動回到素材審閱並將 Filter 切到「待重新去背」，只顯示本輪重新處理的素材子集，不 Auto Approve。
+- **Control Center 選單內的入口（人工備援）**：仍呼叫既有 `exportPhotoshopRerunManifest` callback，匯出 `photoshop-rerun-manifest.json` 供人工執行既有 Photoshop Runner，執行後需人工點擊「匯入處理結果」；這個入口保留作為獨立備援，AI Workflow 沒有取代或移除它。
 - 一般 UI 使用「重新去背素材」，不使用 Photoshop / Manifest 等技術術語。
-- 目前只呼叫既有 `exportPhotoshopRerunManifest` callback，底層仍沿用既有 Photoshop Rerun Automation，不修改 Rerun architecture。
-- 匯入處理結果後回到 Review Workspace，不刷新 Thumbnail / Batch。
+- 兩個入口共用同一套 basename + `.png` Naming Contract（見 `docs/Photoshop Asset Pipeline.md`），Processed 結果匯入後都回到 Review Workspace，都不會自動更新 Main Canvas / Thumbnail / Batch。
 - 若 Project State 已恢復 `approved` decision，Main Canvas 可透過既有 approved asset refresh flow 更新 approved processed asset source。
 - Main Canvas refresh 僅更新既有 DOM 的圖片來源，不重建 DOM、不重設 transform、不修改 `layoutState`。
 
@@ -342,16 +342,17 @@ Completion 判斷必須使用全域 Reviewable Assets，不得使用目前 Filte
 
 中文化只限 UI Label，internal values 必須繼續維持英文小寫原值，不得因中文化而改變資料格式或 API 契約。
 
-### Future：Control Center 背景處理狀態（Future / Not Implemented）
+### Control Center 背景處理狀態 UI（AI Workflow，Completed — macOS Development Validated；Windows Validation Deferred）
 
-以下為 AI Workflow Phase 的目標方向，尚未實作。此 UI 依賴 Photoshop Automation Phase（目前 Active Phase，Proposal 階段）先完成背景自動化能力；AI Workflow 目前為 Draft / Paused pending Photoshop Automation，此節內容在 Photoshop Automation 完成前不會被實作。以下屬於 Current Product Decisions，不代表 Proposal 已 Freeze。
+Photoshop Automation 已完成背景自動化能力，AI Workflow 已完成 Control Center 端的背景處理狀態 UI，並通過 macOS Development Manual Validation（Photoshop 2025）。以下為目前實際實作行為。
 
-正常狀態：
+正常狀態（Processing Notice，`position:fixed`，永遠顯示在最上層，不受 Review Workspace 等其他 UI 影響）：
 
 ```text
-素材處理中
-18 / 63
-完成後將自動開啟素材審閱
+素材處理中（18 / 63）
+請勿操作 Photoshop，
+系統將自動完成背景處理。
+完成後將自動帶入素材審閱。
 ```
 
 完成狀態：
@@ -363,19 +364,27 @@ Completion 判斷必須使用全域 Reviewable Assets，不得使用目前 Filte
 Ready Check 未通過提示（唯一允許直接顯示 Photoshop 名稱的前置條件訊息）：
 
 ```text
-請先開啟 Photoshop
-素材處理需要使用 Photoshop。
+Photoshop 已關閉。
+請重新開啟 Photoshop。
 開啟後按「重新檢查」即可繼續。
 ［重新檢查］
 ```
 
+Recovery Banner（可復原的失敗狀態，`position:fixed`，z-index 高於 Global Interaction Lock Overlay）：
+
+```text
+素材處理失敗。／部分素材處理失敗。／無法寫入處理結果。／無法開啟素材審閱。
+［重試］／［重新檢查］／［重新授權］／［重新開啟素材審閱］
+```
+
 說明：
 
-- 正常工作流程仍不暴露 Manifest、Runner、Processed Folder、Watcher、Heartbeat 等技術詞彙；Ready Check 失敗提示是唯一允許直接顯示「Photoshop」名稱的前置條件訊息。
-- Processing Mode 期間 Control Center 不可操作（不可修改文字、不可切換工單、不可下載、不可開始新的工作）。
-- 「素材處理完成」停留約 0.5～1 秒為完成轉場動畫，不是處理完成的判定依據；完成後直接自動開啟素材審閱，不存在獨立的「等待審閱」中繼狀態。
-- AI Workflow 只負責讓背景處理狀態（含 Ready Check 提示）自動化並顯示在 Control Center，不得重新設計 Review Workspace UI Upgrade 的 Locked 規格（Navigator、Dynamic Inspector、Decision Area、Completion Screen 皆維持既有設計）。
+- 正常工作流程仍不暴露 Manifest、Runtime、Processed Folder、executionId 等技術詞彙；Ready Check 失敗與復原提示是唯一允許直接顯示「Photoshop」名稱或明確錯誤語言的訊息，且僅限上述核可文案。
+- Processing Mode 期間 Control Center 不可操作（不可修改文字、不可切換工單、不可下載、不可開始新的工作）；可復原的失敗狀態下，Lock 依然維持，只開放對應的 Recovery Banner 動作按鈕。
+- 「素材處理完成」停留約 0.8 秒為完成轉場動畫，不是處理完成的判定依據；完成後直接自動開啟素材審閱並自動選取第一筆素材，不存在獨立的「等待審閱」中繼狀態。
+- AI Workflow 已完成背景處理狀態（含 Ready Check 提示與 Recovery Banner）自動化，未重新設計 Review Workspace UI Upgrade 的 Locked 規格（Navigator、Dynamic Inspector、Decision Area、Completion Screen 皆維持既有設計）；僅修正一個既有 UX Bug（完成畫面判斷改為依目前 Filter 是否還有素材，見 CHANGELOG）。
 - Photoshop Automation 與 AI Workflow 責任不重疊：本節描述的 Control Center UI 屬於 AI Workflow；Photoshop 端的 Ready Contract、批次處理、狀態回報屬於 Photoshop Automation，不在本節範圍內。
+- Windows Validation 為 Deferred（Waiting for Windows Validation Environment），本節 UI 尚未在 Windows 上實機驗證。
 
 ## Project Persistence UX
 

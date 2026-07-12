@@ -1,9 +1,14 @@
-# Photoshop Adapter MVP
+# Photoshop Adapter (remove-background.jsx)
 
-Version: 2026.07.05-2B2  
-Scope: Phase 2B-2 Remove Background Prototype. This adapter reads `photoshop-job-manifest.json`, opens original assets in Photoshop, removes backgrounds for product / person / singleProduct assets, saves processed PNG files using `item.output.filename`, and writes `photoshop-run-report.json`.
+Version: 2026.07.12-naming-contract-fix  
+Scope: this is the JSX + AppleScript core that removes backgrounds for product / person / singleProduct assets, saves processed PNG files using `item.output.filename`, and writes `photoshop-run-report.json`. It reads a Manifest with the same shape as `photoshop-job-manifest.json`.
 
-This prototype keeps the manifest-to-processed-assets contract unchanged.
+This same JSX (`remove-background.jsx`) is shared by two callers today:
+
+- **AI Workflow (Completed, primary flow)**: `tools/photoshop-automation/`'s SPX AD Runtime invokes this JSX automatically (via `macos_adapter.py` on macOS, `windows_adapter.py` on Windows) as part of Ready Check → Processing Mode → Auto Import. See `docs/AI-HANDOFF.md`, `docs/Architecture.md`, and `docs/Photoshop Asset Pipeline.md` for the full automated flow.
+- **人工備援流程（Manual fallback）**: the `匯出處理檔` / `匯入處理結果` Control Center menu items plus the manual runner described below in this document. This is kept as an independent fallback entry point, not the primary way users interact with Photoshop Automation.
+
+Both callers use the exact same Manifest contract and the exact same Naming Contract (see below) — there is only one processed-filename rule project-wide.
 
 ## State Boundary
 
@@ -27,9 +32,11 @@ It must not read or write:
 - Thumbnail
 - Batch render state
 
-## User Flow
+## User Flow（人工備援流程 — Manual fallback only）
 
-1. In the control panel, click `匯出 Photoshop Manifest`.
+This section describes the manual fallback path only. The primary, everyday path is the AI Workflow automatic flow (Ready Check → Processing Mode → Auto Import → Auto Open Review); it calls this same JSX without any of the manual steps below.
+
+1. In the control panel, click `匯出處理檔`.
 2. Keep the downloaded `photoshop-job-manifest.json`.
 3. Double click:
 
@@ -41,7 +48,7 @@ tools/photoshop/run-photoshop-manifest.command
 5. Select the original asset folder.
 6. Select the processed output folder.
 7. Wait for Photoshop to finish.
-8. In the control panel, click `匯入 Processed Folder` and select the processed output folder.
+8. In the control panel, click `匯入處理結果` and select the processed output folder.
 
 ## Background Removal
 
@@ -53,7 +60,7 @@ Background removal runs only for:
 
 Logo assets are not background-removed. They are opened and saved as processed PNG copies so the output contract remains consistent.
 
-The JSX core is shared by macOS and future Windows runners. The AppleScript file is only the macOS runner.
+The JSX core is shared by macOS and Windows runners (via `tools/photoshop-automation/macos_adapter.py` / `windows_adapter.py`). The AppleScript file (`run-photoshop-manifest.applescript`) is only the macOS runner; Windows invokes this JSX via `win32com.client.DoJavaScript`, not AppleScript.
 
 Primary target:
 
@@ -69,7 +76,7 @@ Removal strategy:
 2. If that fails, try Select Subject via `autoCutout`, then create a reveal-selection layer mask.
 3. If both fail, mark that item as `error` in `photoshop-run-report.json` and continue with the next item.
 
-## Output Filename Contract
+## Output Filename Contract（Naming Contract — Locked by Jamie）
 
 The Photoshop script saves files using:
 
@@ -77,18 +84,23 @@ The Photoshop script saves files using:
 item.output.filename
 ```
 
-The current manifest creates filenames like:
+The Manifest always sets `output.filename` to the **original asset basename + `.png`** — the one, global processed-image naming rule used everywhere in this project (AI Workflow, this manual fallback, Project Persistence / `project.zip`, Review Workspace Save):
 
 ```text
-{assetKey}__processed.png
+商品A.jpg  -> 商品A.png
+商品A.webp -> 商品A.png
+LOGO_01.jpg -> LOGO_01.png
 ```
 
-This matches the control panel processed import rule:
+`assetKey` (e.g. `JOB001__product__slot0__A001_主品`) is only ever used as an internal State Identity / metadata key / Manifest `assetKeys[]` entry — it never appears inside a processed image's actual filename. The control panel's processed-import matching (both AI Workflow's Auto Import and the manual `匯入處理結果` flow) matches a processed file back to the correct asset(s) by comparing the processed file's basename to the original asset's basename, not by parsing an assetKey out of the filename:
 
 ```text
-JOB001__product__slot0__A001_主品__processed.png
-  -> JOB001__product__slot0__A001_主品
+商品A.png  -> matched against every asset whose original file is 商品A.jpg / 商品A.webp / ...
 ```
+
+If `output.filename` is missing from a Manifest item (should not happen with the current Manifest Builder, but handled defensively), `getOutputFilename()` falls back to `item.source.filename`'s basename + `.png` — never to `assetKey + "__processed.png"` or any jobId/role/slot-based name.
+
+Same original basename with a different extension (e.g. `商品A.jpg` and `商品A.webp` both present) will both resolve to `商品A.png` and can overwrite each other — this is a known, accepted limitation of the basename+.png rule (Locked by Jamie), not a bug.
 
 ## Run Report
 
@@ -117,7 +129,7 @@ Example:
       "assetKey": "JOB001__product__slot0__A001_主品",
       "status": "success",
       "sourceFilename": "A001_主品.png",
-      "outputFilename": "JOB001__product__slot0__A001_主品__processed.png",
+      "outputFilename": "A001_主品.png",
       "background": {
         "attempted": true,
         "removed": true,
@@ -129,9 +141,11 @@ Example:
 }
 ```
 
-## MVP Limitation
+`assetKey` in the run report is metadata only (identifies which internal record this item corresponds to); `outputFilename` is always the basename+.png value actually written to disk.
 
-- No review / approve flow.
-- No crop / trim / normalize.
-- No Canvas integration.
-- Windows runner is not implemented yet. The shared JSX is designed to be reused by a future `.bat` / PowerShell runner.
+## Current Status
+
+- Review / approve happens in Review Workspace (Control Center), not here.
+- No crop / trim / normalize in this script.
+- No direct Canvas integration — this script only produces processed PNG files and a run report.
+- Windows is implemented via `tools/photoshop-automation/windows_adapter.py` (pywin32 `DoJavaScript`), which invokes this exact same `remove-background.jsx` — not a separate `.bat` / PowerShell runner. Windows has completed Coding but Windows real-machine validation is Deferred (Waiting for Windows Validation Environment); macOS has completed real-machine validation (Photoshop 2025).

@@ -71,6 +71,8 @@ Preview / Thumbnail / PNG Export
 
 啟動檔會開啟本機 HTTP server，避免直接用 file 開啟時遇到瀏覽器資源限制。
 
+若要使用 AI Workflow 自動去背功能（Completed，macOS Development Validated；Windows Validation Deferred），需先自行開啟 Photoshop，並雙擊 `tools/photoshop-automation/start-spx-ad-runtime.command` 啟動本機 SPX AD Runtime（Development Tool，僅供開發／驗證使用），才能讓控制台的 Ready Check 通過。詳見 `docs/AI-HANDOFF.md`、`docs/Architecture.md` 與 `tools/photoshop-automation/README.md`。Production Launcher（一般使用者不需操作 Runtime）尚未開始（Not Started）。
+
 ## 資料夾結構
 
 ```text
