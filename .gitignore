@@ -1,3 +1,4 @@
 .DS_Store
 .chrome-profiles/
 chrome-profiles/
+__pycache__/

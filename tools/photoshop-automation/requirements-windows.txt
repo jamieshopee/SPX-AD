@@ -1,0 +1,21 @@
+# Windows-only dependency for windows_adapter.py (Coding Phase 7／7).
+#
+# pywin32 provides win32com.client, used exclusively by windows_adapter.py
+# to connect to an already-running Photoshop.exe via COM Automation
+# (win32com.client.GetActiveObject) and to invoke the existing, unmodified
+# tools/photoshop/remove-background.jsx via app.DoJavaScript(). No other
+# file in this project imports pywin32, and windows_adapter.py itself is
+# only ever imported by platform_adapter.py when platform.system() ==
+# "Windows" -- macOS and any other OS never need this dependency at all.
+#
+# This file intentionally only lists the one Windows-only dependency; it is
+# not a general project requirements.txt. SPX AD Runtime itself
+# (spx_ad_runtime.py) uses Python stdlib only on every platform.
+#
+# License note: pywin32 is distributed under a mix of PSF-derived and
+# BSD-style permissive terms, which are compatible with this project's use
+# here. This note is an implementation reference only, not a formal legal/
+# license review -- that confirmation is a separate, pending step before any
+# actual production release and is not claimed as complete by this file.
+
+pywin32>=306

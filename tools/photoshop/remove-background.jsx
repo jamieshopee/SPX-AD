@@ -183,8 +183,18 @@ function getSourceFilename(item) {
 
 function getOutputFilename(item) {
   if (item && item.output && item.output.filename) return item.output.filename;
-  if (item && item.assetKey) return item.assetKey + '__processed.png';
+  // Naming Contract Consistency Fix（Locked by Jamie）：Manifest 缺少
+  // output.filename 時，fallback 必須沿用同一套「原始 basename ＋ .png」
+  // 規則，改用 item.source.filename 取得原始 basename，不得再組出
+  // assetKey + "__processed.png"（assetKey 只是內部 State Identity，
+  // 不得進入 processed 圖片實體檔名）。
+  var sourceFilename = getSourceFilename(item);
+  if (sourceFilename) return basenameOf(sourceFilename) + '.png';
   return '';
+}
+
+function basenameOf(filename) {
+  return String(filename || '').replace(/\.[^.]+$/, '');
 }
 
 function saveDocumentAsPng(doc, outputFile) {

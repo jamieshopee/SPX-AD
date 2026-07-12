@@ -575,8 +575,21 @@
     return !!assets.length && assets.every(isAssetReviewed);
   }
 
+  // Stage 3 Root Cause Fix（Rerun Review Navigation）：完成畫面的判斷必須
+  // 依「目前 Filter」而不是「全域」——'needs_rerun' 模式下，只要清單
+  // （currentAssets）還有任何素材，那些素材本來就是因為還沒被核准／處理掉
+  // 才會留在這個 Filter 裡，代表還有東西要審，不能拿「全域是否每一筆都已
+  // 經不是 pending／processed」來判斷（那會把其他批次已經核准的素材也算
+  // 進去，導致明明這個 Filter 還有素材，卻被誤判為完成）。'all' 模式維持
+  // 既有邏輯不變（是否每一筆目前可見的素材都已經被審閱過）。
+  function isCurrentFilterComplete() {
+    if (!currentAssets.length) return true;
+    if (currentReviewMode === 'needs_rerun') return false;
+    return currentAssets.every(isAssetReviewed);
+  }
+
   function updateCompleteMessage() {
-    completeMessage = isGlobalReviewComplete() ? '✓ 全部素材已完成審閱' : '';
+    completeMessage = isCurrentFilterComplete() ? '✓ 全部素材已完成審閱' : '';
   }
 
   function decide(assetKey, decision) {
@@ -588,11 +601,12 @@
     if (result && result.state) currentOptions.pipelineState = result.state;
     if (result?.ok && snapshot) lastDecisionSnapshot = snapshot;
     refreshAssets();
-    if (isGlobalReviewComplete()) {
-      updateCompleteMessage();
-      render();
-      return;
-    }
+    // Stage 3 Root Cause Fix：先前這裡會先用全域判斷提前 return、直接跳過
+    // 「目前 Filter 還有沒有下一筆」的既有邏輯——這正是「核准第一筆待重新
+    // 去背素材後，中央又跳回完成畫面」的成因。移除這個提前判斷，一律先嘗
+    // 試在目前 Filter 裡找下一筆；找不到（清單已經空了，或剛好是最後一
+    // 筆）才會走到下面既有的 else 分支，由已修正為「依目前 Filter」判斷的
+    // updateCompleteMessage() 決定是否顯示完成畫面。
     var nextAsset = null;
     if (beforeIndex >= 0 && beforeIndex < beforeAssets.length - 1) {
       var nextKey = beforeAssets[beforeIndex + 1]?.assetKey;
@@ -733,6 +747,11 @@
     inspectorState = 'collapsed';
     refreshAssets();
     if (!requestedAssetKey) pickSmartEntry();
+    // 開啟當下的完成畫面判斷，交給已修正為「依目前 Filter」判斷的
+    // updateCompleteMessage()（見 isCurrentFilterComplete()）——若目前
+    // Filter 有素材，一律直接顯示第一筆素材；只有目前 Filter 真的沒有素
+    // 材時才顯示完成畫面。與 decide()／undoLastDecision() 共用同一套、已
+    // 修正的判斷依據，不是各自獨立的邏輯。
     updateCompleteMessage();
 
     root = el('div', 'asset-review-modal asset-review-modal-workspace');

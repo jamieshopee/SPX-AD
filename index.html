@@ -86,6 +86,63 @@
       </div>
     </header>
 
+    <!-- ── AI Workflow — Ready Check 提示（Coding Phase 1／7）──
+         Runtime-only，預設 hidden；不屬於 Control Center UI Upgrade 的
+         Locked header/entry 結構，是獨立於 topbar 之外的附加提示列。 -->
+    <div id="ai-workflow-ready-check-banner" hidden
+      style="padding:10px 16px;background:#3a2200;color:#ffd9a0;font-size:13px;text-align:center;border-bottom:1px solid #5a3800;">
+      <span>請先開啟 Photoshop</span>
+      <button id="ai-workflow-ready-check-retry-btn" type="button"
+        style="margin-left:12px;padding:4px 12px;border-radius:6px;border:1px solid #ffd9a0;background:transparent;color:#ffd9a0;font-size:13px;cursor:pointer;">
+        重新檢查
+      </button>
+    </div>
+
+    <!-- ── AI Workflow — Processing Mode 提示（Coding Phase 2／7 建立，
+         Phase 3／7 加上 Progress N/M）── Runtime-only；Execute Accepted
+         後顯示，文字由 Processing Mode Controller 依 Status Polling 回傳的
+         current／total 更新；Completed／PartialFailure／Failure 之後本
+         Phase 仍不關閉（解除鎖定屬於 Phase 4 範圍）。
+         Stage 3 Root Cause Fix（Rerun Processing Notice Regression）：改為
+         position:fixed + 與既有 Lock Overlay／Recovery Banner 同一量級的
+         z-index——Rerun 觸發時 Review Workspace（position:fixed 全螢幕
+         Modal）仍持續開著，先前這裡是一般 position:static 的區塊元素，一
+         定會被疊在下面，導致 Rerun 時看起來「只剩下進度文字」。First
+         Run／Rerun 共用同一個元素、同一套 enter()／updateProgress()／
+         showCompleted() 邏輯完全不變，這裡只調整既有元素的定位方式，不是
+         第二套 Banner。 -->
+    <div id="ai-workflow-processing-banner" hidden
+      style="position:fixed;top:0;left:0;right:0;z-index:99999;padding:10px 16px;background:#0a2540;color:#8fd3ff;font-size:13px;text-align:center;border-bottom:1px solid #123a5e;">
+      <span id="ai-workflow-processing-banner-text">素材處理中</span>
+      <div id="ai-workflow-processing-banner-notice" style="margin-top:4px;font-size:12px;color:#6fa9d6;line-height:1.5;">
+        請勿操作 Photoshop，系統將自動完成背景處理。完成後將自動帶入素材審閱。
+      </div>
+    </div>
+
+    <!-- ── AI Workflow — Global Interaction Lock Overlay（Coding Phase 2／7）
+         全畫面透明遮罩，Processing Mode 期間擋下對其下所有既有 UI（含動態
+         注入的外掛內容）的滑鼠／觸控互動；不修改任何既有元素本身。 -->
+    <div id="ai-workflow-processing-lock-overlay" hidden
+      style="position:fixed;inset:0;z-index:99998;background:transparent;cursor:not-allowed;"
+      aria-hidden="true"></div>
+
+    <!-- ── AI Workflow — Recovery Banner（Coding Phase 6／7：Error /
+         Recovery Hardening）── 可復原的失敗狀態下顯示；position:fixed 且
+         z-index 高於上面的 Lock Overlay（99998），因此即使 Lock 仍持續維
+         持，這個 Banner 本身與其唯一的動作按鈕依然可以點擊——除了這個按鈕
+         之外，使用者不能操作任何其他既有 UI（不能修改文字、切換工單、下
+         載、匯入 CSV、選素材資料夾或開始新 Workflow）。內容（訊息／按鈕文
+         字／按下按鈕要做什麼）完全由 js/ai-workflow-recovery.js 決定，本
+         元素本身不含任何情境專屬文字。 -->
+    <div id="ai-workflow-recovery-banner" hidden
+      style="position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:99999;max-width:420px;padding:14px 18px;border-radius:10px;background:#2a0f0f;color:#ffd0d0;font-size:13px;text-align:center;border:1px solid #6e2020;box-shadow:0 8px 24px rgba(0,0,0,.4);">
+      <div id="ai-workflow-recovery-message" style="margin-bottom:10px;line-height:1.5;"></div>
+      <button id="ai-workflow-recovery-action-btn" type="button"
+        style="padding:6px 18px;border-radius:6px;border:1px solid #ffd0d0;background:transparent;color:#ffd0d0;font-size:13px;cursor:pointer;">
+        重試
+      </button>
+    </div>
+
     <!-- ── 工作區三欄 ── -->
     <div class="workspace">
 
@@ -245,7 +302,15 @@
   <script src="js/asset-edit-session.js?v=20260708-review-editor-a"></script>
   <script src="js/asset-review-editor.js?v=20260710-review-ui-step2-a"></script>
   <script src="js/asset-review-workspace.js?v=20260710-review-ui-step4-a"></script>
-  <script defer src="src/app.js?v=20260711-rerun-label-fix-a"></script>
+  <script src="js/ai-workflow-ready-check.js?v=20260711-ai-workflow-phase1-a"></script>
+  <script src="js/ai-workflow-manifest-build.js?v=20260711-ai-workflow-phase2-a"></script>
+  <script src="js/ai-workflow-execution.js?v=20260711-ai-workflow-phase2-a"></script>
+  <script src="js/ai-workflow-processing-mode.js?v=20260711-ai-workflow-phase6-a"></script>
+  <script src="js/ai-workflow-status-polling.js?v=20260711-ai-workflow-phase6-a"></script>
+  <script src="js/ai-workflow-auto-import.js?v=20260711-ai-workflow-phase6-a"></script>
+  <script src="js/ai-workflow-orchestrator.js?v=20260711-ai-workflow-phase6-a"></script>
+  <script src="js/ai-workflow-recovery.js?v=20260711-ai-workflow-phase6-a"></script>
+  <script defer src="src/app.js?v=20260711-ai-workflow-phase6-a"></script>
   <script src="js/template-controls.js?v=20260701h"></script>
   <script src="js/logo-editor-plugin.js?v=20260629"></script>
   <script src="js/editor-plugin.js?v=20260629"></script>

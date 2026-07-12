@@ -92,6 +92,12 @@ let jobIdSeq    = 1;
 let assetIndex      = {};
 let assetFolderName = '';
 let assetSourceMode = '';
+// AI Workflow Phase 3 Correction：保留使用者第一次選擇的素材資料夾
+// FileSystemDirectoryHandle（先前版本用完即棄），供 Auto Import 之後對它
+// 呼叫 requestPermission({mode:'readwrite'}) 寫回真正的 Processed/——不要求
+// 使用者第二次選擇資料夾，也不寫入 Project State（純 Runtime-only 記憶體
+// 變數，重新整理頁面即消失）。
+let assetFolderHandle = null;
 let assetPipelineState = null;
 let processedAssetIndex = {};
 let reviewWorkspaceRerunAssetKeys = [];
@@ -1029,6 +1035,37 @@ function ensureWorkspaceReadyForJob() {
 }
 
 // ══════════════════════════════════════════════════════
+//  AI Workflow — 觸發判斷（Coding Phase 1／7 建立，Phase 2／7 擴充）
+//  （Ready Check Controller／Manifest Build Orchestrator／Execution
+//    Orchestrator／Processing Mode Controller 的實作都在各自的
+//    js/ai-workflow-*.js；本函式只判斷既有的「CSV 已匯入 + 素材資料夾
+//    已選擇」條件是否成立，實際協調流程交給 Workflow State Machine
+//    （js/ai-workflow-orchestrator.js）處理，不在 src/app.js 內展開）
+//
+//  第三個參數傳入既有、未修改的 lookupAsset()（見下方，本檔案第 10 節）
+//  ——它已經依 filename.trim().toLowerCase() 從既有 assetIndex 取得
+//  FileSystemFileHandle，與 Manifest items[].source.filename ／
+//  originalAsset.lookupKey（js/asset-pipeline-state.js 的
+//  String(filename||'').trim().toLowerCase()）用的是同一套正規化規則。
+//  這裡沒有新增素材索引、沒有複製既有查詢邏輯，只是把既有函式的參照多傳
+//  一份給 Manifest Build Orchestrator 的 collectAssetPayloads() 使用。
+// ══════════════════════════════════════════════════════
+function maybeRunAiWorkflowReadyCheck() {
+  const hasJobs = jobs.length > 0;
+  const hasAssetFolder = !!assetFolderName && Object.keys(assetIndex).length > 0;
+  if (hasJobs && hasAssetFolder) {
+    window.BNAIWorkflowOrchestrator?.start?.(
+      () => assetPipelineState || refreshAssetPipelineState(),
+      () => assetFolderName,
+      lookupAsset,
+      getAssetFolderHandle,
+      autoOpenReviewWorkspaceForAiWorkflow,
+      onAiWorkflowProcessedAssetsWritten
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════
 //  10. 素材資料夾
 // ══════════════════════════════════════════════════════
 async function pickAssetFolder() {
@@ -1037,9 +1074,21 @@ async function pickAssetFolder() {
     return;
   }
   try {
-    const handle = await window.showDirectoryPicker({ mode: 'read' });
+    // Stage 2 Root Cause Fix（Write Failure）：改為在使用者這次點擊選資料夾
+    // 的當下（真實 user gesture 內）就直接要求 readwrite 權限，而不是只要
+    // 'read'。原因：Chrome 的 File System Access API 對「把既有權限從 read
+    // 升級成 readwrite」的 requestPermission() 呼叫，要求必須在使用者手勢
+    // 內觸發，否則會直接被拒絕／丟出例外——但 Auto Import 是由 Status
+    // Polling 自動觸發，執行到
+    // js/ai-workflow-auto-import.js 呼叫 requestPermission({mode:'readwrite'})
+    // 的當下完全沒有使用者手勢，導致每次都失敗，才顯示「無法寫入處理結
+    // 果」。這裡在選資料夾當下（確定有手勢）就直接要 readwrite，之後 Auto
+    // Import 內同一個 requestPermission() 呼叫只是確認既有授權（通常立即
+    // resolve 'granted'，不需要新的手勢），不影響既有唯讀操作。
+    const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
     assetIndex = {};
     assetFolderName = handle.name;
+    assetFolderHandle = handle;
     assetSourceMode = 'folder';
     for await (const [name, fh] of handle.entries()) {
       if (fh.kind === 'file' && /\.(png|jpg|jpeg|svg|gif|webp)$/i.test(name)) {
@@ -1049,6 +1098,7 @@ async function pickAssetFolder() {
     const count = Object.keys(assetIndex).length;
     if (!count) {
       assetFolderName = '';
+      assetFolderHandle = null;
       assetSourceMode = '';
     }
     setTopbarBadge(
@@ -1071,10 +1121,12 @@ async function pickAssetFolder() {
       }
     }
     enqueueAllThumbnails(activeJobId);
+    maybeRunAiWorkflowReadyCheck();
   } catch (e) {
     if (e.name === 'AbortError') {
       assetIndex = {};
       assetFolderName = '';
+      assetFolderHandle = null;
       assetSourceMode = '';
       assetPipelineState = null;
       processedAssetIndex = {};
@@ -1092,6 +1144,29 @@ async function pickAssetFolder() {
 function lookupAsset(filename) {
   if (!filename) return null;
   return assetIndex[filename.trim().toLowerCase()] || null;
+}
+
+// AI Workflow Phase 3 Correction：最小 getter，供 Auto Import 取得使用者
+// 第一次選擇的素材資料夾 Handle，用來寫回真正的 Processed/。不新增
+// setter——assetFolderHandle 只由 pickAssetFolder() 自己設定／清除。
+function getAssetFolderHandle() {
+  return assetFolderHandle;
+}
+
+// Stage 2 Root Cause Fix（macOS Development E2E Validation，Review 破圖）：
+// AI Workflow 的 Auto Import 成功把 Processed PNG 寫進真正的資料夾之後，
+// Orchestrator 會把「這次呼叫實際寫入的 FileSystemFileHandle」透過這個
+// callback 轉交回來——這裡把它們填入既有的 processedAssetIndex（手動
+// pickProcessedFolder() 流程本來就會填的同一個 Runtime-only 變數，
+// resolveReviewProcessedImage() 讀取圖片內容用的既有快取），使用完全相同
+// 的 key 慣例（檔名小寫），因此不需要、也沒有修改 resolveReviewProcessedImage
+// ／processedAssetEntryToDataUrl／handleToDataUrl 這幾個既有函式本身。
+function onAiWorkflowProcessedAssetsWritten(entries) {
+  (entries || []).forEach(entry => {
+    if (!entry || !entry.filename || !entry.fileHandle) return;
+    const lookupKey = String(entry.filename).trim().toLowerCase();
+    processedAssetIndex[lookupKey] = entry.fileHandle;
+  });
 }
 
 function updateNeedsRerunButton() {
@@ -1459,7 +1534,7 @@ function openAssetReviewWorkspace(options = {}) {
     resolveProcessedImage: resolveReviewProcessedImage,
     onSaveProcessedAsset: saveReviewProcessedRuntimeAsset,
     onRestoreDecision: restoreReviewDecisionSnapshot,
-    onRunRerun: exportPhotoshopRerunManifest,
+    onRunRerun: runAiWorkflowRerun,
     onDecision(assetKey, decision) {
       const result = window.BNAssetPipelineState.setAssetReviewDecision(assetPipelineState, assetKey, decision);
       assetPipelineState = result.state;
@@ -1476,6 +1551,66 @@ function openAssetReviewWorkspace(options = {}) {
       return result;
     },
   });
+}
+
+// AI Workflow Coding Phase 4：Auto Open Review Workspace。
+// 沿用既有、唯一的 openAssetReviewWorkspace() 入口，不建立第二套顯示邏輯、
+// 不直接操作 Review Workspace 內部 DOM。openAssetReviewWorkspace() 本身
+// （以及它呼叫的 window.BNAssetReviewWorkspace.open()）都沒有回傳成功／
+// 失敗，且本輪不修改這兩者——因此這裡用它自己已經在檢查的同一組既有條件
+// （BNAssetReviewWorkspace.open 是否已載入／assetPipelineState 是否就緒／
+// 是否有可審核素材）做唯讀前置判斷，藉此在不改動既有函式的情況下，誠實
+// 回報這次呼叫是否真的會開啟，供 Workflow State Machine 判斷是否可以解除
+// Global Interaction Lock。第一輪自動開啟固定使用既有「全部素材」檢視
+// （initialReviewMode:'all'），不做 Needs Rerun 第二輪 Filter 切換
+// （Phase 5 範圍）。
+// Phase 5：泛化為可接受 reviewMode（'all' | 'needs_rerun'），供 Rerun 完成
+// 後固定以既有「待重新去背」Mode 重新開啟同一個 Review Workspace 入口
+// 使用——沿用機制不變，只是多一個參數決定要開哪個既有 Mode，仍然完全不
+// 修改 openAssetReviewWorkspace() 或 js/asset-review-workspace.js 本身。
+// reviewMode !== 'needs_rerun' 時（First Run）主動清空
+// reviewWorkspaceRerunAssetKeys，避免殘留上一輪 Rerun 的子集快照，誤將
+// 「全部素材」畫面限制成只顯示舊的 rerun 子集。
+function autoOpenReviewWorkspaceForAiWorkflow(reviewMode) {
+  if (!window.BNAssetReviewWorkspace?.open) return false;
+  if (!assetPipelineState) refreshAssetPipelineState();
+  if (!assetPipelineState) return false;
+  const summary = window.BNAssetPipelineState?.getReviewSummary?.(assetPipelineState);
+  if (!summary || !summary.reviewable) return false;
+  if (reviewMode !== 'needs_rerun') reviewWorkspaceRerunAssetKeys = [];
+  openAssetReviewWorkspace({ initialReviewMode: reviewMode || 'all' });
+  return true;
+}
+
+// Phase 5：Review Workspace Completion Screen 的「重新去背素材（N）」實際
+// 呼叫的 callback（見下方 openAssetReviewWorkspace() 的 onRunRerun）。沿用
+// 既有 pickProcessedFolder() 手動流程已經在用的同一套「Rerun 前先快照
+// Needs Rerun assetKeys，Auto Import 之後才設定
+// reviewWorkspaceRerunAssetKeys」時序，讓既有的
+// activeRerunReviewAssetKeys()／openAssetReviewWorkspace() 機制原封不動地
+// 把第二輪畫面限制在本輪 Rerun 子集（Product Rule 12），不重新設計篩選
+// 邏輯。呼叫 AI Workflow Orchestrator 的 startRerun()，與 First Run 共用
+// 同一套 Ready Check／Execute／Status／Auto Import 資料流（Product Rule
+// 1），不再呼叫 exportPhotoshopRerunManifest()（不再匯出檔案，Product
+// Rule 5）；沿用同一個已保留的 FileSystemDirectoryHandle（Product Rule
+// 6／7，getAssetFolderHandle 不變）。
+function runAiWorkflowRerun() {
+  if (!assetPipelineState) refreshAssetPipelineState();
+  if (!assetPipelineState) return;
+  const rerunAssetKeysBeforeImport = window.BNAssetPipelineState?.getNeedsRerunAssets?.(assetPipelineState)
+    ?.map(asset => asset.assetKey)
+    ?.filter(Boolean) || [];
+  if (!rerunAssetKeysBeforeImport.length) return;
+  window.BNAIWorkflowOrchestrator?.startRerun?.(
+    () => assetPipelineState || refreshAssetPipelineState(),
+    lookupAsset,
+    getAssetFolderHandle,
+    (reviewMode) => {
+      reviewWorkspaceRerunAssetKeys = rerunAssetKeysBeforeImport.slice();
+      return autoOpenReviewWorkspaceForAiWorkflow(reviewMode);
+    },
+    onAiWorkflowProcessedAssetsWritten
+  );
 }
 
 // ══════════════════════════════════════════════════════
@@ -2308,6 +2443,7 @@ async function importFile(file) {
       console.log('[CC][thumb] CSV quick thumbnails ready', newJobs.map(job => job.jobId || job.id).join(','));
       enqueueAllThumbnails(firstNew.id);
     }
+    maybeRunAiWorkflowReadyCheck();
   } catch (e) {
     setStatus('匯入失敗：' + e.message, 'error');
     console.error(e);
@@ -3908,6 +4044,36 @@ el.processedFolderBtn?.addEventListener('click', pickProcessedFolder);
 el.reviewAssetsBtn?.addEventListener('click', openAssetReviewWorkspace);
 [el.manifestBtn, el.rerunManifestBtn, el.processedFolderBtn, el.reviewAssetsBtn].forEach(button => {
   button?.addEventListener('click', () => setAssetReviewMenuOpen(false));
+});
+
+// ── AI Workflow — Phase 6：Error / Recovery Hardening 串接 ──
+// 每次 Orchestrator 的 Workflow State 改變時，重新查詢
+// js/ai-workflow-recovery.js 的統一 Recovery State Model，決定是否顯示
+// Recovery Banner；本函式本身不判斷任何一個 phase 的意義，只是把
+// presentation 結果轉交給 Processing Mode Controller 顯示／隱藏，並把按下
+// 按鈕的動作原封不動轉交給 Orchestrator 唯一的 retry(kind) 入口。
+function renderAiWorkflowRecoveryUI() {
+  const presentation = window.BNAIWorkflowRecovery?.getPresentation?.();
+  if (!presentation) {
+    window.BNAIWorkflowProcessingMode?.hideRecovery?.();
+    return;
+  }
+  window.BNAIWorkflowProcessingMode?.showRecovery?.(presentation.message, presentation.actionLabel, () => {
+    window.BNAIWorkflowRecovery?.retry?.();
+  });
+}
+window.BNAIWorkflowOrchestrator?.onPhaseChange?.(renderAiWorkflowRecoveryUI);
+
+// Phase 6（情境 L：Page Refresh／Navigation）：本 Phase 不修改 Project
+// State schema，Runtime-only 的 Workflow State 在重新整理頁面後必然遺失
+// （Known Limitation，見驗證報告）。最小安全行為：Global Interaction Lock
+// 期間（素材處理／Auto Import／開啟 Review Workspace 進行中）攔截意外的
+// 頁面關閉／重新整理，避免使用者誤操作而不自知目前有 Execution 正在進行。
+window.addEventListener('beforeunload', event => {
+  if (window.BNAIWorkflowProcessingMode?.isActive?.()) {
+    event.preventDefault();
+    event.returnValue = '';
+  }
 });
 
 // 拖曳 CSV 到工單面板

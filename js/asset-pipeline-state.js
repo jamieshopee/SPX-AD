@@ -143,9 +143,38 @@
     };
   }
 
-  function extractAssetKeyFromProcessedFilename(filename) {
-    var base = filenameBase(filename);
-    return base.replace(/__processed$/i, '');
+  // Naming Contract Consistency Fix（Locked by Jamie）：
+  // 全域唯一命名規則是「原始素材 basename ＋ .png」（例如 商品A.jpg /
+  // 商品A.webp 都對應 商品A.png），assetKey 只作為內部 State Identity，
+  // 不會出現在 processed 圖片實體檔名裡，因此不可能、也不應該再從
+  // processed filename 反解 assetKey。舊的 extractAssetKeyFromProcessedFilename()
+  // （把檔名去掉 __processed 尾綴後直接當 assetKey 查表）已與現行 Manifest
+  // Contract 不相容而移除；人工「匯入處理結果」流程改為以 processed 檔名的
+  // basename，對照每筆 record 的 originalAsset 基本檔名（basename）查找，
+  // 同一個原始素材被多個 assetKey 引用時，一份 processed PNG 會回填全部
+  // 相關 assetKey（與 importProcessedAssetsByManifestItems() 對 assetKeys[]
+  // 的回填規則一致）。
+
+  function normalizeBasenameKey(filename) {
+    return filenameBase(filename).trim().toLowerCase();
+  }
+
+  // 依每筆 record 的 originalAsset.filename（找不到時 fallback
+  // originalFilename）basename，建立 basename → assetKey[] 索引，供人工
+  // 「匯入處理結果」比對 processed 檔名使用。只依 basename，不含副檔名，
+  // 因為原始素材可能是 .jpg／.webp，processed 一律是 .png。
+  function buildOriginalBasenameIndex(assets) {
+    var index = {};
+    Object.keys(assets || {}).forEach(function (assetKey) {
+      var record = assets[assetKey];
+      if (!record) return;
+      var originalFilename = (record.originalAsset && record.originalAsset.filename) || record.originalFilename || '';
+      var key = normalizeBasenameKey(originalFilename);
+      if (!key) return;
+      if (!index[key]) index[key] = [];
+      if (index[key].indexOf(assetKey) < 0) index[key].push(assetKey);
+    });
+    return index;
   }
 
   function importProcessedAssets(pipelineState, files, options) {
@@ -156,37 +185,118 @@
     var matched = 0;
     var unmatched = [];
     var importedAt = new Date().toISOString();
+    var basenameIndex = buildOriginalBasenameIndex(state.assets);
 
     (files || []).forEach(function (file) {
       var filename = file && (file.name || file.filename) || '';
       if (!filename) return;
-      var assetKey = extractAssetKeyFromProcessedFilename(filename);
-      var record = state.assets[assetKey];
-      if (!record) {
+      var basenameKey = normalizeBasenameKey(filename);
+      var assetKeys = basenameIndex[basenameKey] || [];
+      if (!assetKeys.length) {
         unmatched.push({
           filename: filename,
-          assetKey: assetKey,
-          reason: 'assetKey not found'
+          assetKey: '',
+          reason: 'original asset basename not found'
         });
         return;
       }
-      var existingDecision = normalizeDecision(record.review && record.review.decision || '');
-      var existingStatus = normalizeStatus(record.status || 'pending');
-      record.processedAsset = {
-        filename: filename,
-        lookupKey: String(filename).trim().toLowerCase(),
-        sourceFolderName: sourceFolderName,
-        exists: true,
-        importedAt: importedAt
-      };
-      if (existingDecision) {
-        record.status = existingDecision;
-      } else if (existingStatus === 'approved' || existingStatus === 'needs_rerun') {
-        record.status = existingStatus;
-      } else {
-        record.status = 'processed';
-      }
-      matched++;
+
+      assetKeys.forEach(function (assetKey) {
+        var record = state.assets[assetKey];
+        if (!record) {
+          unmatched.push({
+            filename: filename,
+            assetKey: assetKey,
+            reason: 'assetKey not found'
+          });
+          return;
+        }
+        var existingDecision = normalizeDecision(record.review && record.review.decision || '');
+        var existingStatus = normalizeStatus(record.status || 'pending');
+        record.processedAsset = {
+          filename: filename,
+          lookupKey: String(filename).trim().toLowerCase(),
+          sourceFolderName: sourceFolderName,
+          exists: true,
+          importedAt: importedAt
+        };
+        if (existingDecision) {
+          record.status = existingDecision;
+        } else if (existingStatus === 'approved' || existingStatus === 'needs_rerun') {
+          record.status = existingStatus;
+        } else {
+          record.status = 'processed';
+        }
+        matched++;
+      });
+    });
+
+    state.processedImportedAt = importedAt;
+    state.unmatchedProcessedAssets = unmatched;
+    return {
+      state: state,
+      matched: matched,
+      unmatched: unmatched.length,
+      unmatchedProcessedAssets: unmatched
+    };
+  }
+
+  // AI Workflow Phase 3 Correction — Naming／Matching Contract（Locked）：
+  // 自動化流程的 Processed 檔名是「原始 basename ＋ .png」（見
+  // js/asset-pipeline-manifest.js）。AI Workflow 的 Auto Import 直接使用
+  // Manifest item 本身已經帶著的 assetKeys[]（同一個原始檔案對應的全部
+  // assetKey）逐一回填多筆 record——這是與 importProcessedAssets()（人工
+  // 「匯入處理結果」流程使用，見上方 Naming Contract Consistency Fix）
+  // 平行、各自獨立的函式，兩者現在共用同一套 basename＋.png 命名規則，
+  // 差別只在於比對依據（Manifest 的 assetKeys[] vs. originalAsset basename
+  // 索引），沒有第二套架構。
+  //
+  // manifestItems：Manifest 的 items 陣列（每個 item 至少要有
+  // output.filename 與 assetKeys，或至少 assetKey 其中之一）。
+  function importProcessedAssetsByManifestItems(pipelineState, manifestItems, options) {
+    options = options || {};
+    var state = pipelineState || { assets: {} };
+    state.assets = state.assets || {};
+    var sourceFolderName = options.sourceFolderName || '';
+    var matched = 0;
+    var unmatched = [];
+    var importedAt = new Date().toISOString();
+
+    (manifestItems || []).forEach(function (item) {
+      var filename = item && item.output && item.output.filename;
+      var assetKeys = (item && Array.isArray(item.assetKeys) && item.assetKeys.length)
+        ? item.assetKeys
+        : (item && item.assetKey ? [item.assetKey] : []);
+      if (!filename || !assetKeys.length) return;
+
+      assetKeys.forEach(function (assetKey) {
+        var record = state.assets[assetKey];
+        if (!record) {
+          unmatched.push({
+            filename: filename,
+            assetKey: assetKey,
+            reason: 'assetKey not found'
+          });
+          return;
+        }
+        var existingDecision = normalizeDecision(record.review && record.review.decision || '');
+        var existingStatus = normalizeStatus(record.status || 'pending');
+        record.processedAsset = {
+          filename: filename,
+          lookupKey: String(filename).trim().toLowerCase(),
+          sourceFolderName: sourceFolderName,
+          exists: true,
+          importedAt: importedAt
+        };
+        if (existingDecision) {
+          record.status = existingDecision;
+        } else if (existingStatus === 'approved' || existingStatus === 'needs_rerun') {
+          record.status = existingStatus;
+        } else {
+          record.status = 'processed';
+        }
+        matched++;
+      });
     });
 
     state.processedImportedAt = importedAt;
@@ -406,6 +516,39 @@
     };
   }
 
+  // AI Workflow Phase 2 Correction — Naming／Matching Contract（Locked）：
+  // 原始 basename＋.png 命名，同一個 originalAsset.lookupKey 被多個
+  // assetKey 引用時，只建立一個 Manifest item、只上傳一次、只處理一次。
+  // 本函式是新增的純函式（不修改任何既有函式），依 lookupKey 把一組
+  // asset record 分組，回傳陣列，每組包含：
+  //   { lookupKey, filename, assetKeys: [...], records: [...] }
+  // assetKey 仍是每筆 record 自己的 State Identity，完全不受影響——本函式
+  // 只是為了讓 Manifest Builder 知道「這些 assetKey 該共用同一個 Manifest
+  // item／同一次處理結果」，不改變 assetKey 本身的產生方式或用途。
+  function groupAssetRecordsByLookupKey(records) {
+    var groups = {};
+    var order = [];
+    (records || []).forEach(function (record) {
+      if (!record) return;
+      var originalAsset = record.originalAsset || {};
+      var lookupKey = originalAsset.lookupKey
+        || String(record.originalFilename || '').trim().toLowerCase();
+      if (!lookupKey) return;
+      if (!groups[lookupKey]) {
+        groups[lookupKey] = {
+          lookupKey: lookupKey,
+          filename: originalAsset.filename || record.originalFilename || '',
+          assetKeys: [],
+          records: []
+        };
+        order.push(lookupKey);
+      }
+      groups[lookupKey].assetKeys.push(record.assetKey);
+      groups[lookupKey].records.push(record);
+    });
+    return order.map(function (key) { return groups[key]; });
+  }
+
   function importAssetPipelineMetadata(metadata) {
     if (!metadata || metadata.schema !== 'spx-ad-asset-pipeline-state') return null;
     var sourceRecords = metadata.records || metadata.assets || {};
@@ -429,14 +572,15 @@
   global.BNAssetPipelineState = {
     buildAssetPipelineState: buildAssetPipelineState,
     makeAssetKey: makeAssetKey,
-    extractAssetKeyFromProcessedFilename: extractAssetKeyFromProcessedFilename,
     importProcessedAssets: importProcessedAssets,
+    importProcessedAssetsByManifestItems: importProcessedAssetsByManifestItems,
     setAssetReviewDecision: setAssetReviewDecision,
     getReviewableAssets: getReviewableAssets,
     getReviewSummary: getReviewSummary,
     getNeedsRerunAssets: getNeedsRerunAssets,
     getNeedsRerunSummary: getNeedsRerunSummary,
     exportAssetPipelineMetadataForJobs: exportAssetPipelineMetadataForJobs,
-    importAssetPipelineMetadata: importAssetPipelineMetadata
+    importAssetPipelineMetadata: importAssetPipelineMetadata,
+    groupAssetRecordsByLookupKey: groupAssetRecordsByLookupKey
   };
 })(window);
