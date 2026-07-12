@@ -3338,17 +3338,35 @@ async function batchRender() {
 }
 
 async function renderSingleJob(job) {
-  const renderTemplate = getTemplateForJob(job);
+  // Download Complete Project 專用最小修正（方向 A，Locked by Jamie）：
+  // 產品規格——一次生成器工作流程只有一種尺寸，批次內所有工單都必須使用
+  // 使用者最後在控制台選擇的 activePlacement／activeTemplate 來 render，
+  // 不分是不是「目前作用中」的工單。selectPlacement() / selectTemplate()
+  // 只更新全域 activePlacement / activeTemplate，從未寫回 job.placementId /
+  // job.template / job.templateId（本次不修改這兩個函式，也不修改真正的
+  // job 物件本身）。只建立一個淺層複製物件供本次查找使用。
+  const jobForPlacementLookup = {
+    ...job,
+    placementId: activePlacement?.id || job?.placementId,
+    template: activeTemplate?.id || job?.template,
+    templateId: activeTemplate?.id || job?.templateId,
+  };
+  const renderTemplate = getTemplateForJob(jobForPlacementLookup);
   const templatePath = ensureTemplatePath(renderTemplate);
   if (!templatePath) throw new Error('無 templatePath');
   const previousPlacement = activePlacement;
   const previousTemplate = activeTemplate;
   const previousSuppressLayoutStateWrites = suppressLayoutStateWrites;
-  const renderPlacement = registry?.placements?.find(p => p.id === job?.placementId) || activePlacement;
+  const renderPlacement = registry?.placements?.find(p => p.id === jobForPlacementLookup?.placementId) || activePlacement;
   activePlacement = renderPlacement;
   activeTemplate = renderTemplate;
   suppressLayoutStateWrites = true;
-  const layoutKey = stableLayoutStateKeyForJob(job);
+  // layoutKey 必須用與 jobForPlacementLookup 相同（已校正的 activePlacement／
+  // activeTemplate）計算，否則會跟使用者實際編輯、透過 syncActiveLayoutState()
+  // （同樣以 activePlacement 為準）存檔時使用的 key 對不上，導致位置／大小／
+  // 前後順序讀到錯誤或空白的 layoutState。job.layoutStates 這份「資料本體」
+  // 仍然來自真正的 job 物件，只有 key 字串校正。
+  const layoutKey = stableLayoutStateKeyForJob(jobForPlacementLookup);
   const savedLayoutState = getJobLayoutState(job, layoutKey);
   setMainFrameLayoutTarget(job, layoutKey);
   batchTraceState('BATCH_TRACE_2_STATE', 'renderSingleJob-start-savedLayoutState', job, layoutKey, savedLayoutState);
