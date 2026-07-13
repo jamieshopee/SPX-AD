@@ -325,6 +325,95 @@ def section_1_runtime_core():
           bool(status_pf) and status_pf["lastResult"]["state"] == "PartialFailure" and status_pf["lastResult"]["reason"],
           detail=str(status_pf))
 
+    # Bug Fix（去背失敗獨立分類）：Partial Failure 時，已成功的那幾張現在
+    # 應該可以個別取回；真正失敗的那一張仍然誠實回報不可用，不會因為整批
+    # 不是 Completed 就把已成功的一起擋住。這裡用真實的 items[] 明細（比對
+    # 依據是 sourceFilename，與正式 remove-background.jsx 寫出的 Run Report
+    # 形狀一致）＋實際寫入 output_folder 的假輸出檔案（FakeAdapter 本身完全
+    # 不寫檔案，不足以驗證這個新行為），而不是像上面那組沿用既有、items
+    # 留空、也不寫檔的簡化假件。
+
+    class PartialFailureFilenameAdapter(object):
+        """只為了這個新測項而寫：對 fail_index 以外的每個 item 都實際寫出
+        output.filename（模擬真的成功並產生檔案），fail_index 那筆完全不寫
+        檔（模擬真的失敗，Photoshop 沒有產生輸出），report.items[] 如實反映
+        兩種結果。"""
+
+        def __init__(self, fail_index):
+            self.fail_index = fail_index
+
+        def is_ready(self):
+            return True
+
+        def is_alive(self):
+            return True
+
+        def execute(self, manifest_path, original_folder, output_folder):
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                manifest = json.load(f)
+            items = manifest.get("items", [])
+            report_items = []
+            success_count = 0
+            error_count = 0
+            for i, item in enumerate(items):
+                source_filename = item["source"]["filename"]
+                output_filename = item["output"]["filename"]
+                if i == self.fail_index:
+                    report_items.append({
+                        "assetKey": item.get("assetKey", ""),
+                        "status": "error",
+                        "sourceFilename": source_filename,
+                        "outputFilename": output_filename,
+                        "error": "remove background failed: no subject detected",
+                    })
+                    error_count += 1
+                    continue
+                source_path = os.path.join(original_folder, source_filename)
+                with open(source_path, "rb") as f:
+                    content = f.read()
+                with open(os.path.join(output_folder, output_filename), "wb") as f:
+                    f.write(content)
+                report_items.append({
+                    "assetKey": item.get("assetKey", ""),
+                    "status": "success",
+                    "sourceFilename": source_filename,
+                    "outputFilename": output_filename,
+                })
+                success_count += 1
+            report = {
+                "schema": "spx-ad-photoshop-run-report",
+                "version": 1,
+                "summary": {"total": len(items), "success": success_count, "error": error_count},
+                "items": report_items,
+            }
+            return {"ok": True, "error": None, "report": report}
+
+    pf2_manifest = build_fake_manifest(item_count=4)
+    adapter_pf2 = PartialFailureFilenameAdapter(fail_index=2)
+    core_pf2 = RuntimeCore(adapter_pf2, progress_poll_interval=0.05, health_poll_interval=0.2)
+    accept_pf2 = core_pf2.create_execution(pf2_manifest)
+    pf2_contents = upload_all_assets(core_pf2, accept_pf2["executionId"], pf2_manifest)
+    status_pf2 = wait_for_idle_with_result(core_pf2, accept_pf2["executionId"])
+    item_results_pf2 = (status_pf2 or {}).get("lastResult", {}).get("itemResults", [])
+    expected_status_by_asset_id = {"0": "success", "1": "success", "2": "error", "3": "success"}
+    actual_status_by_asset_id = {entry.get("assetId"): entry.get("status") for entry in item_results_pf2}
+    check("Status Contract: PartialFailure lastResult.itemResults matches per-item success/error",
+          actual_status_by_asset_id == expected_status_by_asset_id,
+          detail=str(item_results_pf2))
+
+    for asset_id in ("0", "1", "3"):
+        result_pf2 = core_pf2.get_result(accept_pf2["executionId"], asset_id)
+        check("get_result({0}) under PartialFailure: succeeded item is retrievable (ok=True)".format(asset_id),
+              result_pf2.get("ok") is True and result_pf2.get("content") == pf2_contents[asset_id],
+              detail=str(result_pf2)[:200])
+
+    failed_result_pf2 = core_pf2.get_result(accept_pf2["executionId"], "2")
+    check("get_result(2) under PartialFailure: failed item stays unavailable (ok=False, 404)",
+          failed_result_pf2.get("ok") is False
+          and failed_result_pf2.get("status") == 404
+          and failed_result_pf2.get("executionState") == "PartialFailure",
+          detail=str(failed_result_pf2))
+
     # Failure path: adapter itself fails (ok=False), simulating e.g.
     # AppleScript invocation failure or Photoshop closing mid-run.
     fail_manifest = build_fake_manifest(item_count=2)

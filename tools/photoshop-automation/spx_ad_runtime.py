@@ -222,6 +222,59 @@ def _validate_manifest(manifest):
     return None
 
 
+def _build_item_results(record, report):
+    """Bug Fix（去背失敗獨立分類）：把 JSX Run Report 的 items[]（比對依據
+    是 sourceFilename，Adapter/Manifest 邊界本來就是以檔名為主，不是
+    assetId）對回這個 Runtime 自己的 assetId（record["asset_id_to_filename"]
+    的 key）。回傳值只給 _resolve_outcome() 組進 lastResult，不改變既有
+    Status Contract 的 state／reason／progress 形狀。
+
+    Fallback（找不到這個 assetId 對應的 items[] 項目時，例如簡化過的
+    Adapter/測試假件沒有填 items[] 明細，只有 summary）：如果 summary 顯示
+    整批 error 數為 0（全部成功），沒有理由比 summary 本身更悲觀地判它失
+    敗，視為 success；除此之外（summary 本身就有錯誤、但這一筆的明細對不
+    上）一律誠實回報 error，不猜測、不假裝成功。"""
+    filename_to_asset_id = {}
+    for asset_id, filename in (record.get("asset_id_to_filename") or {}).items():
+        filename_to_asset_id[filename] = asset_id
+
+    status_by_asset_id = {}
+    items = report.get("items") if isinstance(report, dict) else None
+    for item in items or []:
+        source_filename = item.get("sourceFilename")
+        asset_id = filename_to_asset_id.get(source_filename)
+        if asset_id is None:
+            continue
+        status_by_asset_id[asset_id] = "success" if item.get("status") == "success" else "error"
+
+    summary = (report.get("summary") or {}) if isinstance(report, dict) else {}
+    summary_all_success = isinstance(report, dict) and summary.get("error", 0) == 0
+
+    results = []
+    for asset_id in (record.get("asset_id_to_filename") or {}).keys():
+        if asset_id in status_by_asset_id:
+            status = status_by_asset_id[asset_id]
+        elif summary_all_success:
+            status = "success"
+        else:
+            status = "error"
+        results.append({"assetId": asset_id, "status": status})
+    return results
+
+
+def _item_status_for_asset(last_result, asset_id):
+    """Bug Fix（去背失敗獨立分類）：從 lastResult.itemResults 找這一個
+    assetId 自己的成功/失敗。找不到對應項目時（例如舊版 Runtime 留下、沒有
+    這個欄位的 lastResult）保守 fallback：state 是 Completed 時視為
+    success（維持修改前「整批 Completed 時任何一張都能取回」的既有行為，
+    不造成回歸），其餘一律視為 error（不確定就不放行）。"""
+    item_results = last_result.get("itemResults") or []
+    for entry in item_results:
+        if entry.get("assetId") == asset_id:
+            return entry.get("status")
+    return "success" if last_result.get("state") == "Completed" else "error"
+
+
 def _count_processed_files(output_folder):
     """Best-effort progress signal: count files already written into the
     Workspace's internal processed/ directory. Does not read or depend on
@@ -458,7 +511,7 @@ class RuntimeCore(object):
             progress_thread.join(timeout=5)
             health_thread.join(timeout=5)
 
-        outcome = self._resolve_outcome(result, health_flag["lost"])
+        outcome = self._resolve_outcome(record, result, health_flag["lost"])
 
         # Workspace cleanup policy: temporary input only (manifest.json,
         # original/); the internal processed/ copy is left alone here until
@@ -490,7 +543,7 @@ class RuntimeCore(object):
                 health_flag["lost"] = True
             stop_event.wait(self._health_poll_interval)
 
-    def _resolve_outcome(self, result, photoshop_lost):
+    def _resolve_outcome(self, record, result, photoshop_lost):
         finished_at = _now_iso()
 
         if photoshop_lost and not result.get("ok"):
@@ -498,6 +551,7 @@ class RuntimeCore(object):
                 "state": "Failure",
                 "reason": REASON_PHOTOSHOP_CLOSED,
                 "finishedAt": finished_at,
+                "itemResults": [],
             }
 
         if not result.get("ok"):
@@ -505,6 +559,7 @@ class RuntimeCore(object):
                 "state": "Failure",
                 "reason": result.get("error") or REASON_UNKNOWN_ERROR,
                 "finishedAt": finished_at,
+                "itemResults": [],
             }
 
         report = result.get("report")
@@ -515,29 +570,43 @@ class RuntimeCore(object):
                     "state": "Failure",
                     "reason": REASON_PHOTOSHOP_CLOSED,
                     "finishedAt": finished_at,
+                    "itemResults": [],
                 }
             return {
                 "state": "Failure",
                 "reason": REASON_UNKNOWN_ERROR,
                 "finishedAt": finished_at,
+                "itemResults": [],
             }
 
         summary = report.get("summary") or {}
         success_count = summary.get("success", 0)
         error_count = summary.get("error", 0)
 
+        # Bug Fix（去背失敗獨立分類）：逐張成功/失敗明細，additive 欄位，不
+        # 改變既有 state／reason／finishedAt 的形狀。忽略這個欄位的既有呼叫
+        # 方不受影響。
+        item_results = _build_item_results(record, report)
+
         if error_count == 0:
-            return {"state": "Completed", "reason": None, "finishedAt": finished_at}
+            return {
+                "state": "Completed",
+                "reason": None,
+                "finishedAt": finished_at,
+                "itemResults": item_results,
+            }
         if success_count == 0:
             return {
                 "state": "Failure",
                 "reason": REASON_ALL_ITEMS_FAILED,
                 "finishedAt": finished_at,
+                "itemResults": item_results,
             }
         return {
             "state": "PartialFailure",
             "reason": REASON_SOME_ITEMS_FAILED,
             "finishedAt": finished_at,
+            "itemResults": item_results,
         }
 
     # ---- Status Contract (per execution) ----------------------------------
@@ -560,11 +629,13 @@ class RuntimeCore(object):
     def get_result(self, execution_id, asset_id):
         """GET /executions/{executionId}/results/{assetId}. Returns
         {"ok": True, "status": 200, "content": bytes} on success, or
-        {"ok": False, "status": int, "reason": str, ...} otherwise. Only
-        implements the normal Completed path -- Partial Failure / Failure
-        per-item detail is out of scope for this Coding pass and is
-        reported as a plain, honest "not available" error rather than
-        guessed at."""
+        {"ok": False, "status": int, "reason": str, ...} otherwise.
+
+        Bug Fix（去背失敗獨立分類）：原本規定「整批必須等於 Completed 才能
+        取回任何一張」，導致 PartialFailure 時連已經成功的圖也一起被擋住。
+        放寬為：整批狀態是 Completed 或 PartialFailure，且「這一張」自己在
+        itemResults 裡是 success，才能取回；這一張自己失敗、或整批
+        Failure（全部失敗），一律誠實回報「不可用」，不猜測、不假裝。"""
         with self._lock:
             record = self._executions.get(execution_id)
             if not record:
@@ -586,7 +657,15 @@ class RuntimeCore(object):
             last_result = record.get("last_result")
             if not last_result:
                 return {"ok": False, "status": 409, "reason": REASON_NOT_READY}
-            if last_result.get("state") != "Completed":
+            if last_result.get("state") not in ("Completed", "PartialFailure"):
+                return {
+                    "ok": False,
+                    "status": 404,
+                    "reason": REASON_RESULT_NOT_FOUND,
+                    "executionState": last_result.get("state"),
+                    "executionReason": last_result.get("reason"),
+                }
+            if _item_status_for_asset(last_result, asset_id) != "success":
                 return {
                     "ok": False,
                     "status": 404,

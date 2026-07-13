@@ -4,6 +4,12 @@
   var root = null;
   var currentOptions = null;
   var currentAssets = [];
+  // 去背失敗獨立分類（Bug Fix）：currentAssets 用於 Navigator 顯示與選取，
+  // 'all' 模式下會包含「去背失敗」項目；currentCompletableAssets 只用於
+  // 「是否完成審閱」判斷，永遠不包含「去背失敗」項目，兩者刻意分開，避免
+  // 「去背失敗」（沒有決策按鈕、永遠不會有 approved/needs_rerun 決策）把
+  // Completion Screen 卡住。
+  var currentCompletableAssets = [];
   var allReviewAssets = [];
   var selectedAssetKey = '';
   var currentReviewMode = 'all';
@@ -19,7 +25,7 @@
   var toastTimer = null;
   var inspectorState = 'collapsed';
   var REVIEW_ROLES = { product: true, person: true, singleProduct: true };
-  var REVIEW_MODES = { all: true, needs_rerun: true };
+  var REVIEW_MODES = { all: true, needs_rerun: true, background_removal_failed: true };
 
   function text(value) {
     return value == null || value === '' ? '-' : String(value);
@@ -30,7 +36,8 @@
       pending: '待審閱',
       processed: '已處理',
       approved: '核准',
-      needs_rerun: '重新去背'
+      needs_rerun: '重新去背',
+      background_removal_failed: '去背失敗'
     };
     return labels[status] || text(status);
   }
@@ -40,7 +47,8 @@
       pending: '待審閱',
       processed: '已處理',
       approved: '核准',
-      needs_rerun: '重新去背'
+      needs_rerun: '重新去背',
+      background_removal_failed: '去背失敗'
     };
     return labels[status] || text(status);
   }
@@ -87,6 +95,24 @@
     return assets.filter(function (asset) { return (asset.status || 'pending') === 'needs_rerun'; });
   }
 
+  // 去背失敗獨立分類（Bug Fix）：與 getNeedsRerunAssets() 同樣是平行、獨立
+  // 的查詢，只供 Navigator 的「去背失敗」Filter 分頁與 Completion Screen
+  // 的數量提醒使用。刻意不透過 baseReviewAssets()／getReviewableAssets()，
+  // 避免跟「是否完成審閱」判斷共用同一份清單（見 currentCompletableAssets
+  // 的說明與 isCurrentFilterComplete()）。
+  function getBackgroundRemovalFailedAssets() {
+    var assets;
+    if (global.BNAssetPipelineState?.getBackgroundRemovalFailedAssets) {
+      assets = global.BNAssetPipelineState.getBackgroundRemovalFailedAssets(currentOptions.pipelineState) || [];
+    } else {
+      var records = currentOptions.pipelineState?.assets || {};
+      assets = Object.keys(records).map(function (key) { return records[key]; }).filter(function (asset) {
+        return !!asset && (asset.status || 'pending') === 'background_removal_failed';
+      });
+    }
+    return assets.filter(function (asset) { return !!REVIEW_ROLES[asset.role]; });
+  }
+
   function getGlobalReviewableAssets() {
     return allReviewAssets.length ? allReviewAssets : baseReviewAssets();
   }
@@ -129,7 +155,11 @@
     return allReviewAssets;
   }
 
+  // 只回傳「需要決策才算完成」的素材（既有 needs_rerun 篩選邏輯，完全不
+  // 變）。去背失敗獨立分類（Bug Fix）：本函式的輸出即 currentCompletableAssets
+  // 的來源，不得包含「去背失敗」項目。
   function filterAssetsForMode(assets) {
+    if (currentReviewMode === 'background_removal_failed') return [];
     if (currentReviewMode !== 'needs_rerun') return assets.slice();
     if (runtimeReviewAssetKeys) {
       return assets.filter(function (asset) {
@@ -140,7 +170,21 @@
   }
 
   function refreshAssets() {
-    currentAssets = filterAssetsForMode(baseReviewAssets());
+    // currentCompletableAssets：既有「是否完成審閱」判斷用的清單，行為與
+    // 修改前完全一致（'all' = 全部 reviewable；'needs_rerun' = 只篩
+    // needs_rerun）；'background_removal_failed' 模式下為空陣列，因為這個
+    // Filter 本來就不該有「決策才算完成」的概念。
+    currentCompletableAssets = filterAssetsForMode(baseReviewAssets());
+    // currentAssets：Navigator 實際顯示／可選取的清單。'all' 模式額外加上
+    // 「去背失敗」項目（讓使用者不用切 Filter 也看得到）；獨立的「去背失敗」
+    // Filter 只顯示這個分類；'needs_rerun' 模式不變，不包含去背失敗項目。
+    if (currentReviewMode === 'background_removal_failed') {
+      currentAssets = getBackgroundRemovalFailedAssets();
+    } else if (currentReviewMode === 'all') {
+      currentAssets = currentCompletableAssets.concat(getBackgroundRemovalFailedAssets());
+    } else {
+      currentAssets = currentCompletableAssets.slice();
+    }
     if (!selectedAssetKey && currentAssets[0]) selectedAssetKey = currentAssets[0].assetKey;
     if (selectedAssetKey && !currentAssets.some(function (asset) { return asset.assetKey === selectedAssetKey; })) {
       selectedAssetKey = currentAssets[0]?.assetKey || '';
@@ -155,6 +199,10 @@
     target.appendChild(el('span', 'asset-review-progress-main', currentAssets.length ? ((index + 1) + ' / ' + currentAssets.length) : '0 / 0'));
     target.appendChild(el('span', 'asset-review-progress-chip', '核准 ' + (summary.approved || 0)));
     target.appendChild(el('span', 'asset-review-progress-chip', '重新去背 ' + (summary.needs_rerun || 0)));
+    var failedCount = getBackgroundRemovalFailedAssets().length;
+    if (failedCount > 0) {
+      target.appendChild(el('span', 'asset-review-progress-chip', '去背失敗 ' + failedCount));
+    }
     if (completeMessage) target.appendChild(el('span', 'asset-review-complete-message', completeMessage));
   }
 
@@ -363,7 +411,9 @@
     if (!asset) {
       var emptyMessage = currentReviewMode === 'needs_rerun'
         ? '目前沒有待重新去背的素材'
-        : '請選擇素材';
+        : currentReviewMode === 'background_removal_failed'
+          ? '目前沒有去背失敗的素材'
+          : '請選擇素材';
       target.appendChild(el('div', 'asset-review-filter-empty', emptyMessage));
       return;
     }
@@ -458,17 +508,25 @@
     workspace.appendChild(settings);
     target.appendChild(workspace);
 
-    var actions = el('div', 'asset-review-actions asset-review-bottom-actions');
-    actions.appendChild(button('asset-review-action approve', '核准', function () {
-      requestDecision(asset.assetKey, 'approved');
-    }));
-    actions.appendChild(button('asset-review-action rerun', '重新去背', function () {
-      requestDecision(asset.assetKey, 'needs_rerun');
-    }));
-    undoDecisionButton = button('asset-review-action undo-decision is-disabled', '撤回上一個決策', requestUndoLastDecision);
-    undoDecisionButton.disabled = true;
-    actions.appendChild(undoDecisionButton);
-    target.appendChild(actions);
+    // 去背失敗獨立分類（Bug Fix）：這類素材不提供核准／重新去背／撤回決策
+    // 按鈕（重跑對這張圖沒有幫助），改顯示提示文字，告知使用者回控制台手動
+    // 置換圖片。
+    if ((asset.status || 'pending') === 'background_removal_failed') {
+      undoDecisionButton = null;
+      target.appendChild(el('div', 'asset-review-failed-hint', '此素材去背失敗，請回控制台手動更換圖片。'));
+    } else {
+      var actions = el('div', 'asset-review-actions asset-review-bottom-actions');
+      actions.appendChild(button('asset-review-action approve', '核准', function () {
+        requestDecision(asset.assetKey, 'approved');
+      }));
+      actions.appendChild(button('asset-review-action rerun', '重新去背', function () {
+        requestDecision(asset.assetKey, 'needs_rerun');
+      }));
+      undoDecisionButton = button('asset-review-action undo-decision is-disabled', '撤回上一個決策', requestUndoLastDecision);
+      undoDecisionButton.disabled = true;
+      actions.appendChild(undoDecisionButton);
+      target.appendChild(actions);
+    }
 
     var seq = ++loadSeq;
     Promise.all([
@@ -532,11 +590,18 @@
     target.innerHTML = '';
 
     var needsRerunCount = getNeedsRerunAssets().length;
+    // 去背失敗獨立分類（Bug Fix）：只顯示數量提醒，不提供任何決策/重跑按
+    // 鈕，也完全不影響上面的「全部素材已完成審閱」判斷本身（isCurrentFilterComplete()
+    // 從頭到尾都不查這個分類）。
+    var failedCount = getBackgroundRemovalFailedAssets().length;
     var screen = el('section', 'asset-review-completion');
     screen.appendChild(el('div', 'asset-review-completion-mark', '✓'));
     screen.appendChild(el('h2', 'asset-review-completion-title', '全部素材已完成審閱'));
     if (needsRerunCount > 0) {
       screen.appendChild(el('p', 'asset-review-completion-copy', needsRerunCount + ' 個素材待重新去背'));
+    }
+    if (failedCount > 0) {
+      screen.appendChild(el('p', 'asset-review-completion-copy asset-review-completion-copy-failed', failedCount + ' 個素材去背失敗，請回控制台手動更換圖片'));
     }
 
     var actions = el('div', 'asset-review-completion-actions');
@@ -582,10 +647,16 @@
   // 經不是 pending／processed」來判斷（那會把其他批次已經核准的素材也算
   // 進去，導致明明這個 Filter 還有素材，卻被誤判為完成）。'all' 模式維持
   // 既有邏輯不變（是否每一筆目前可見的素材都已經被審閱過）。
+  // 去背失敗獨立分類（Bug Fix）：改讀 currentCompletableAssets，不是
+  // currentAssets——currentAssets 在 'all' 模式下會包含「去背失敗」項目
+  // （純顯示用），但這類項目永遠不會有 approved/needs_rerun 決策，若拿來
+  // 判斷完成度會永久卡住 Completion Screen。currentCompletableAssets 從
+  // 頭到尾都不包含這個分類，語意與修改前的 currentAssets 完全一致。
   function isCurrentFilterComplete() {
-    if (!currentAssets.length) return true;
+    if (currentReviewMode === 'background_removal_failed') return false;
+    if (!currentCompletableAssets.length) return true;
     if (currentReviewMode === 'needs_rerun') return false;
-    return currentAssets.every(isAssetReviewed);
+    return currentCompletableAssets.every(isAssetReviewed);
   }
 
   function updateCompleteMessage() {
@@ -609,9 +680,22 @@
     // updateCompleteMessage() 決定是否顯示完成畫面。
     var nextAsset = null;
     if (beforeIndex >= 0 && beforeIndex < beforeAssets.length - 1) {
-      var nextKey = beforeAssets[beforeIndex + 1]?.assetKey;
-      nextAsset = currentAssets.find(function (item) { return item.assetKey === nextKey; })
-        || currentAssets[Math.min(beforeIndex, currentAssets.length - 1)];
+      // 去背失敗獨立分類（Bug Fix）：往後找「下一筆」時跳過「去背失敗」項
+      // 目——它沒有決策按鈕，不該被當成審閱流程的下一步；如果不跳過，使用
+      // 者核准/標記完最後一筆真正可決策的素材後，會被導去背失敗素材，導
+      // 致 else 分支（也就是 updateCompleteMessage()）永遠不會執行，完成
+      // 畫面因此永遠不出現。
+      var nextKey = null;
+      for (var i = beforeIndex + 1; i < beforeAssets.length; i++) {
+        if (beforeAssets[i] && beforeAssets[i].status !== 'background_removal_failed') {
+          nextKey = beforeAssets[i].assetKey;
+          break;
+        }
+      }
+      if (nextKey) {
+        nextAsset = currentAssets.find(function (item) { return item.assetKey === nextKey; })
+          || currentAssets[Math.min(beforeIndex, currentAssets.length - 1)];
+      }
     }
     if (nextAsset) {
       selectedAssetKey = nextAsset.assetKey;
@@ -647,6 +731,7 @@
     root = null;
     currentOptions = null;
     currentAssets = [];
+    currentCompletableAssets = [];
     allReviewAssets = [];
     selectedAssetKey = '';
     currentReviewMode = 'all';
@@ -777,8 +862,11 @@
     allButton.setAttribute('data-review-mode', 'all');
     var rerunButton = button('asset-review-mode-btn', '待重新去背', function () { setReviewMode('needs_rerun'); });
     rerunButton.setAttribute('data-review-mode', 'needs_rerun');
+    var failedButton = button('asset-review-mode-btn', '去背失敗', function () { setReviewMode('background_removal_failed'); });
+    failedButton.setAttribute('data-review-mode', 'background_removal_failed');
     modeWrap.appendChild(allButton);
     modeWrap.appendChild(rerunButton);
+    modeWrap.appendChild(failedButton);
     navigatorHeader.appendChild(summary);
     navigatorHeader.appendChild(modeWrap);
     var list = el('div', 'asset-review-list');

@@ -44,7 +44,15 @@
 //                          重新呼叫一次既有 Matching 函式，不重新取回、更
 //                          不重跑 Photoshop。
 // 其餘沿用既有：readyCheckFailed／executeRejected／manifestConflict／
-// assetUploadFailed／partialFailureDetected／failed／reviewOpenFailed。
+// assetUploadFailed／failed／reviewOpenFailed。
+//
+// 去背失敗獨立分類（Bug Fix，本輪）：原本的 partialFailureDetected phase
+// （PartialFailure 一律導向「部分素材處理失敗」＋整批重試）已移除。Runtime
+// 只在「至少一張成功」時才回報 PartialFailure（success_count === 0 一律是
+// Failure／all_items_failed），因此 PartialFailure 現在一律跟 Completed 一
+// 樣繼續走 Auto Import，個別失敗的素材另外標成「去背失敗」（見
+// js/ai-workflow-auto-import.js、js/asset-pipeline-state.js），不再是一種
+// 需要整批 Recovery 的失敗分支。
 //
 // Global Interaction Lock 規則（Phase 6 落實）：
 //   - Lock 只在 Execute Accepted 之後（phase 進入 processing）才 enter()，
@@ -101,7 +109,6 @@
       resultUnavailable: 'ResultUnavailable',
       matchingFailed: 'MatchingFailed',
       autoImportSucceeded: 'AutoImportSucceeded',
-      partialFailureDetected: 'PartialFailureDetected',
       failed: 'Failed',
       openingReview: 'OpeningReview',
       reviewOpenFailed: 'ReviewOpenFailed',
@@ -122,7 +129,6 @@
       resultUnavailable: 'RerunResultUnavailable',
       matchingFailed: 'RerunMatchingFailed',
       autoImportSucceeded: 'RerunAutoImportSucceeded',
-      partialFailureDetected: 'RerunPartialFailureDetected',
       failed: 'RerunFailed',
       openingReview: 'OpeningRerunReview',
       reviewOpenFailed: 'RerunReviewOpenFailed',
@@ -207,6 +213,7 @@
       deliveredCount: 0,
       failureReason: null,
       permissionDenied: false,
+      itemResults: null,
     };
 
     setPhase(phaseFor('awaitingReadyCheck', 'first'));
@@ -238,6 +245,7 @@
       deliveredCount: 0,
       failureReason: null,
       permissionDenied: false,
+      itemResults: null,
     };
 
     setPhase(phaseFor('awaitingReadyCheck', 'rerun'));
@@ -334,16 +342,22 @@
 
     if (global.BNAIWorkflowStatusPolling) global.BNAIWorkflowStatusPolling.stop();
 
-    if (status.lastResult.state === 'Completed') {
+    // 去背失敗獨立分類（Bug Fix）：Runtime 只在「至少有一張成功」時才回報
+    // PartialFailure（success_count === 0 時一律是 Failure／
+    // all_items_failed，見 spx_ad_runtime.py 的 _resolve_outcome()）。因此
+    // PartialFailure 一律跟 Completed 一樣繼續走 Auto Import，只是多帶
+    // itemResults 讓 Auto Import 分流出哪幾張是 Photoshop 自己確定失敗
+    // （另外標成「去背失敗」，見 js/ai-workflow-auto-import.js），不再顯示
+    // 「部分素材處理失敗」＋整批重試的 Recovery Banner。
+    if (status.lastResult.state === 'Completed' || status.lastResult.state === 'PartialFailure') {
+      a.itemResults = Array.isArray(status.lastResult.itemResults) ? status.lastResult.itemResults : null;
       setPhase(phaseFor('autoImporting', a.runMode));
       runAutoImportStage(0);
-    } else if (status.lastResult.state === 'PartialFailure') {
-      a.failureReason = status.lastResult.reason || null;
-      setPhase(phaseFor('partialFailureDetected', a.runMode));
     } else {
-      // Failure（含 Photoshop 執行途中關閉——reason 會是
-      // 'photoshop_closed'，交給 js/ai-workflow-recovery.js 對應到既有
-      // 「Photoshop 已關閉」文案，本檔案不重複判斷／不重複顯示文字）。
+      // Failure（含整批全部失敗 all_items_failed、Photoshop 執行途中關閉
+      // photoshop_closed 等——後者 reason 會是 'photoshop_closed'，交給
+      // js/ai-workflow-recovery.js 對應到既有「Photoshop 已關閉」文案，本
+      // 檔案不重複判斷／不重複顯示文字）。
       a.failureReason = status.lastResult.reason || null;
       setPhase(phaseFor('failed', a.runMode));
     }
@@ -372,8 +386,15 @@
       setPhase(phaseFor('resultFetchFailed', a.runMode));
       return;
     }
+    // 去背失敗獨立分類（Bug Fix）：把 handleStatusUpdate() 存在 lastAttempt
+    // 上的 itemResults 轉交給 Auto Import，讓它知道哪幾張要跳過下載、另外
+    // 標成「去背失敗」。Retry（見 retryResultFetch()）沿用同一個
+    // lastAttempt，itemResults 不需要重新查詢。
     global.BNAIWorkflowAutoImport
-      .runAutoImport(a.pipelineState, a.manifest, a.executionId, a.getAssetFolderHandle, { resumeFromIndex: resumeFromIndex || 0 })
+      .runAutoImport(a.pipelineState, a.manifest, a.executionId, a.getAssetFolderHandle, {
+        resumeFromIndex: resumeFromIndex || 0,
+        itemResults: a.itemResults || null,
+      })
       .then(function (matchResult) {
         a.deliveredCount = a.manifest.items.length;
         // Stage 2 Root Cause Fix（Review 破圖）：把本次呼叫實際寫入的

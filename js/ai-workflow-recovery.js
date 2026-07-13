@@ -35,7 +35,10 @@
 
   var MSG_READY_CHECK = 'Photoshop 已關閉。請重新開啟 Photoshop。開啟後按「重新檢查」即可繼續。';
   var MSG_GENERIC_FAILED = '素材處理失敗。';
-  var MSG_PARTIAL_FAILED = '部分素材處理失敗。';
+  // 去背失敗獨立分類（Bug Fix）：MSG_PARTIAL_FAILED（「部分素材處理失
+  // 敗」）與其對應的 PartialFailureDetected phase 一併移除——Runtime 只在
+  // 至少一張成功時才回報 PartialFailure，現在一律直接走 Auto Import，不
+  // 再顯示這則整批 Recovery 文案（見 js/ai-workflow-orchestrator.js）。
   var MSG_WRITE_FAILED = '無法寫入處理結果。';
   var MSG_REVIEW_OPEN_FAILED = '無法開啟素材審閱。';
 
@@ -65,9 +68,6 @@
 
       case 'AssetUploadFailed':
         return { message: MSG_GENERIC_FAILED, actionLabel: LABEL_RETRY, actionKind: 'upload' };
-
-      case 'PartialFailureDetected':
-        return { message: MSG_PARTIAL_FAILED, actionLabel: LABEL_RETRY, actionKind: 'fullBatch' };
 
       case 'Failed':
         if (context.failureReason === 'photoshop_closed') {

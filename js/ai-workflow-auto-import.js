@@ -106,7 +106,14 @@
   // 處理。任一 item 失敗就整個流程 reject，並在錯誤物件上夾帶
   // deliveredCount（本次＋先前已成功的總數，供下一次 Retry 使用）、
   // gone（Runtime 回 410）、permissionDenied（寫入權限被拒絕）。
-  function fetchAndWriteAllResults(executionId, manifestItems, getAssetFolderHandle, resumeFromIndex) {
+  //
+  // 去背失敗獨立分類（Bug Fix，本輪新增）：skipIndexSet（純加法、可選參
+  // 數，預設 null／不跳過任何項目，既有呼叫方完全不受影響）——true 代表
+  // Runtime 那邊 Photoshop 本身就確定沒有產生這張的結果（不是下載/寫入失
+  // 敗），完全不呼叫 fetchResult，也不計入這次「失敗就中斷」的既有重試邏
+  // 輯，只是單純跳過那個 index。這是唯一新增的分支，其餘既有的下載/重試/
+  // resumeFromIndex 行為完全不變。
+  function fetchAndWriteAllResults(executionId, manifestItems, getAssetFolderHandle, resumeFromIndex, skipIndexSet) {
     var startIndex = resumeFromIndex > 0 ? resumeFromIndex : 0;
     var directoryHandle = typeof getAssetFolderHandle === 'function' ? getAssetFolderHandle() : null;
     if (!directoryHandle) {
@@ -126,6 +133,7 @@
 
     manifestItems.forEach(function (item, index) {
       if (index < startIndex) return; // 前一次嘗試已成功取回＋寫入，不重做
+      if (skipIndexSet && skipIndexSet[index]) return; // 去背失敗獨立分類：Photoshop 本身就沒有這張的結果，不嘗試下載
       chain = chain.then(function () {
         return global.BNAIWorkflowExecution.fetchResult(executionId, String(index)).then(function (result) {
           if (!result || !result.ok) {
@@ -168,6 +176,15 @@
   // Matching 呼叫本身若拋出例外，會被獨立標記為 stage:'matching'（與
   // fetch_write 失敗區分），因為 Processed 檔案這時已經全部正確寫入磁碟，
   // 不需要、也不應該重新取回任何內容。
+  // 去背失敗獨立分類（Bug Fix）：從 Manifest item 取出 assetKeys[]（同一原
+  // 始檔案可能對應多個 assetKey，寫法與既有 Matching 函式的一對多回填規則
+  // 一致，見 js/asset-pipeline-state.js）。
+  function assetKeysOfManifestItem(item) {
+    if (item && Array.isArray(item.assetKeys) && item.assetKeys.length) return item.assetKeys;
+    if (item && item.assetKey) return [item.assetKey];
+    return [];
+  }
+
   function runAutoImport(pipelineState, manifest, executionId, getAssetFolderHandle, options) {
     options = options || {};
     var resumeFromIndex = options.resumeFromIndex > 0 ? options.resumeFromIndex : 0;
@@ -179,13 +196,38 @@
       return Promise.reject(new Error('importProcessedAssetsByManifestItems not available'));
     }
 
-    return fetchAndWriteAllResults(executionId, manifest.items, getAssetFolderHandle, resumeFromIndex).then(
+    // 去背失敗獨立分類（Bug Fix）：options.itemResults 是 Orchestrator 從
+    // Status Contract 的 lastResult.itemResults 轉交下來的逐張成功/失敗
+    // （見 spx_ad_runtime.py 與 ai-workflow-orchestrator.js）。status
+    // === 'error' 的 index，代表 Photoshop 本身就沒有產生這張的結果，完全
+    // 不嘗試下載，也不會被當成「下載/寫入失敗」處理。不傳這個選項時（例如
+    // 舊呼叫方、或整批 Completed 沒有任何失敗），行為與修改前完全相同。
+    var itemResults = Array.isArray(options.itemResults) ? options.itemResults : null;
+    var failedIndexSet = null;
+    if (itemResults && itemResults.length) {
+      failedIndexSet = {};
+      itemResults.forEach(function (entry) {
+        if (!entry || entry.status !== 'error') return;
+        var idx = parseInt(entry.assetId, 10);
+        if (!isNaN(idx)) failedIndexSet[idx] = true;
+      });
+      if (!Object.keys(failedIndexSet).length) failedIndexSet = null;
+    }
+
+    // 只有真的成功取回＋寫入的項目，才能交給 Matching 函式（它會直接假設
+    // manifest item 對應的檔案已經寫好，見 importProcessedAssetsByManifestItems()），
+    // 否則會誤把「Photoshop 確定失敗、根本沒有下載」的項目也標成已處理。
+    var succeededManifestItems = failedIndexSet
+      ? manifest.items.filter(function (_item, index) { return !failedIndexSet[index]; })
+      : manifest.items;
+
+    return fetchAndWriteAllResults(executionId, manifest.items, getAssetFolderHandle, resumeFromIndex, failedIndexSet).then(
       function (writeResult) {
         var matchResult;
         try {
           matchResult = global.BNAssetPipelineState.importProcessedAssetsByManifestItems(
             pipelineState,
-            manifest.items,
+            succeededManifestItems,
             { sourceFolderName: manifest.sourceFolderName || '' }
           );
         } catch (matchErr) {
@@ -197,6 +239,28 @@
           wrapped.writtenEntries = writeResult && writeResult.writtenEntries;
           throw wrapped;
         }
+
+        // 去背失敗獨立分類（Bug Fix）：把 Photoshop 確定失敗的素材標成
+        // background_removal_failed；markBackgroundRemovalFailed() 內部會
+        // 檢查每筆 record 是否已經有 processedAsset——已經成功過、這次
+        // Rerun 又失敗的，不會被動到，維持既有處理結果（見 Proposal 第 5
+        // 節第 5 點）。用 matchResult.state（而不是原本可能是 null 的
+        // pipelineState 參數）確保標記寫進同一個物件參照。
+        if (failedIndexSet && global.BNAssetPipelineState.markBackgroundRemovalFailed) {
+          var failedAssetKeys = [];
+          manifest.items.forEach(function (item, index) {
+            if (!failedIndexSet[index]) return;
+            failedAssetKeys = failedAssetKeys.concat(assetKeysOfManifestItem(item));
+          });
+          if (failedAssetKeys.length) {
+            var markResult = global.BNAssetPipelineState.markBackgroundRemovalFailed(
+              matchResult.state || pipelineState,
+              failedAssetKeys
+            );
+            if (markResult && markResult.state) matchResult.state = markResult.state;
+          }
+        }
+
         // Stage 2 Root Cause Fix：把本次呼叫實際寫入的 FileSystemFileHandle
         // 清單附在成功回傳值上，供 Orchestrator 轉交給 src/app.js 填入
         // processedAssetIndex（Review Workspace 實際讀取圖片內容的既有快

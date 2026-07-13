@@ -201,6 +201,13 @@
   background: rgba(255,159,10,.13);
 }
 
+/* 去背失敗獨立分類（Bug Fix）：與核准（綠）／重新去背（橘）區分開的紅色。 */
+.asset-review-status.status-background_removal_failed {
+  color: #ffb4ab;
+  border-color: rgba(255,69,58,.42);
+  background: rgba(255,69,58,.13);
+}
+
 .asset-review-dirty-dot {
   margin-left: auto;
   color: #ffd166;
@@ -340,6 +347,19 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-top: 14px;
+}
+
+/* 去背失敗獨立分類（Bug Fix）：取代核准／重新去背／撤回三顆按鈕的提示文字。 */
+.asset-review-failed-hint {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255,69,58,.32);
+  border-radius: var(--radius);
+  background: rgba(255,69,58,.08);
+  color: #ffb4ab;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .asset-review-action {
@@ -745,6 +765,11 @@
   color: var(--text-secondary);
   font-size: 14px;
   font-weight: 800;
+}
+
+/* 去背失敗獨立分類（Bug Fix）：只提醒數量，不提供任何動作按鈕。 */
+.asset-review-completion-copy-failed {
+  color: #ffb4ab;
 }
 
 .asset-review-completion-actions {

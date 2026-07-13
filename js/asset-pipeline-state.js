@@ -318,7 +318,10 @@
   function normalizeStatus(status) {
     var value = String(status || 'pending').trim();
     if (value === 'rejected') return 'needs_rerun';
-    return /^(pending|processed|approved|needs_rerun)$/.test(value) ? value : 'pending';
+    // 去背失敗獨立分類（Bug Fix）：background_removal_failed 是系統偵測到
+    // 的結果（不是使用者 review 決策，見 normalizeDecision()，刻意不加入該
+    // 白名單），只代表「這筆素材從未成功去背過」。
+    return /^(pending|processed|approved|needs_rerun|background_removal_failed)$/.test(value) ? value : 'pending';
   }
 
   function setAssetReviewDecision(pipelineState, assetKey, decision, options) {
@@ -492,6 +495,55 @@
     return { count: items.length, items: items };
   }
 
+  // 去背失敗獨立分類（Bug Fix）：與 getNeedsRerunAssets() 同樣是平行、獨立
+  // 的查詢，只供 Review Workspace 的「去背失敗」Filter 與 Completion Screen
+  // 數量提醒使用，不進入「是否完成審閱」的判斷（那份判斷完全不呼叫這兩個
+  // 函式）。
+  function getBackgroundRemovalFailedAssets(pipelineState) {
+    var assets = pipelineState && pipelineState.assets || {};
+    return Object.keys(assets).map(function (assetKey) {
+      return assets[assetKey];
+    }).filter(function (record) {
+      return !!(record && normalizeStatus(record.status) === 'background_removal_failed');
+    }).sort(function (a, b) {
+      var aJob = (a.jobIds && a.jobIds[0]) || '';
+      var bJob = (b.jobIds && b.jobIds[0]) || '';
+      if (aJob !== bJob) return String(aJob).localeCompare(String(bJob), 'zh-Hant');
+      if (a.role !== b.role) return String(a.role).localeCompare(String(b.role), 'en');
+      var aSlot = a.slot == null ? 99 : Number(a.slot);
+      var bSlot = b.slot == null ? 99 : Number(b.slot);
+      if (aSlot !== bSlot) return aSlot - bSlot;
+      return String(a.originalFilename || '').localeCompare(String(b.originalFilename || ''), 'zh-Hant');
+    });
+  }
+
+  function getBackgroundRemovalFailedSummary(pipelineState) {
+    var items = getBackgroundRemovalFailedAssets(pipelineState);
+    return { count: items.length, items: items };
+  }
+
+  // 去背失敗獨立分類（Bug Fix）：標記一組 assetKey（同一原始檔案可能對應
+  // 多個 assetKey，寫法比照 importProcessedAssetsByManifestItems() 對
+  // assetKeys[] 的一對多回填）為「去背失敗」。只在該筆素材從未成功過（沒
+  // 有既有 processedAsset）時才會真的標記；已經成功過、這次 Rerun 又失敗
+  // 的，維持原狀不動（呼叫方 js/ai-workflow-auto-import.js 也會做同樣的
+  // 判斷，這裡再檢查一次是防禦性寫法，不依賴呼叫方一定做對）。不寫入
+  // record.review（review.decision 只留給使用者真正的核准／重新去背決策）。
+  function markBackgroundRemovalFailed(pipelineState, assetKeys, options) {
+    options = options || {};
+    var state = pipelineState || { assets: {} };
+    state.assets = state.assets || {};
+    var marked = [];
+    (assetKeys || []).forEach(function (assetKey) {
+      var record = state.assets[assetKey];
+      if (!record) return;
+      if (record.processedAsset) return; // Rerun 失敗、曾經成功過：維持原狀
+      record.status = 'background_removal_failed';
+      marked.push(assetKey);
+    });
+    return { state: state, marked: marked };
+  }
+
   function exportAssetPipelineMetadataForJobs(pipelineState, jobs, options) {
     options = options || {};
     if (!pipelineState) return null;
@@ -579,6 +631,9 @@
     getReviewSummary: getReviewSummary,
     getNeedsRerunAssets: getNeedsRerunAssets,
     getNeedsRerunSummary: getNeedsRerunSummary,
+    getBackgroundRemovalFailedAssets: getBackgroundRemovalFailedAssets,
+    getBackgroundRemovalFailedSummary: getBackgroundRemovalFailedSummary,
+    markBackgroundRemovalFailed: markBackgroundRemovalFailed,
     exportAssetPipelineMetadataForJobs: exportAssetPipelineMetadataForJobs,
     importAssetPipelineMetadata: importAssetPipelineMetadata,
     groupAssetRecordsByLookupKey: groupAssetRecordsByLookupKey
