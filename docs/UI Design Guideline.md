@@ -1,11 +1,12 @@
 # UI Design Guideline
 
 Version: 2026.07.12-ai-workflow  
-Last Updated: 2026-07-12  
+Last Updated: 2026-07-13  
 Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
 
+- **去背失敗獨立分類（Bug Fix）**：Review Workspace 新增第三個 Filter 分頁「去背失敗」與 Navigator 標籤；去背失敗素材的 Decision Area 改顯示提示文字取代三顆按鈕；Completion Screen 新增去背失敗計數，但不影響完成判定；Recovery Banner 不再顯示「部分素材處理失敗」。詳見下方相關小節與 CHANGELOG。
 - AI Workflow 背景處理狀態 UI 完成（macOS Development Validated；Windows Validation Deferred）：Processing Notice、Recovery Banner 皆已實作，詳見下方「Control Center 背景處理狀態 UI」。
 - Review Workspace UI Upgrade：Navigator Information Architecture 簡化、Workspace Layout 與 Dynamic Inspector 改版、Decision Area 三顆按鈕同列、新增 Completion Screen / Completion Recovery、Review Workspace 正式中文化。
 - Control Center UI Upgrade：Header 簡化為一般使用者主入口，素材審核入口整合狀態與操作。
@@ -266,7 +267,7 @@ Decision actions 固定為：
 
 - Navigator 主要顯示：檔名、Review Status、Dirty Status。
 - 不顯示 Role、Job ID、Slot、Asset Key、Processed Filename、Mode 等素材技術 Metadata。
-- Review Summary 與 Filter 固定在 Navigator 上方；Filter 並排顯示「全部素材」與「待重新去背」兩個選項。
+- Review Summary 與 Filter 固定在 Navigator 上方；Filter 並排顯示「全部素材」「待重新去背」「去背失敗」三個選項（去背失敗獨立分類 Bug Fix 新增第三個選項，見下方 Completion Screen 與去背失敗小節）。
 
 ### Workspace Layout（Review Workspace UI Upgrade）
 
@@ -285,6 +286,7 @@ Decision actions 固定為：
 - 已移除可見的上一張、下一張、撤回上一個決策 Header 按鈕；底層 Navigator 點擊、Keyboard ← / →、Auto Next、非循環導航皆保留，只是不再是 Header 常駐按鈕。
 - 底部 Decision Area 三顆按鈕同列，由左至右：核准、重新去背、撤回上一個決策。
 - 樣式：核准為 Primary；重新去背為 Warning / Danger；撤回上一個決策為灰色 Outline、低視覺權重。
+- 去背失敗（`background_removal_failed`，去背失敗獨立分類 Bug Fix）素材不顯示上述三顆按鈕，改顯示提示文字「此素材去背失敗，請回控制台手動更換圖片。」；顯示原圖（無 processed image 可看）。
 
 ### Completion Screen（Review Workspace UI Upgrade）
 
@@ -292,8 +294,9 @@ Decision actions 固定為：
 
 - Needs Rerun = 0：顯示「全部素材已完成審閱」「返回控制台」「撤回上一個決策」。
 - Needs Rerun > 0：額外顯示「X 個素材待重新去背」與「重新去背素材（X）」。
+- 去背失敗 > 0（去背失敗獨立分類 Bug Fix）：額外顯示「X 個素材去背失敗，請回控制台手動更換圖片」，不提供對應的 action 按鈕。
 
-Completion 判斷必須使用全域 Reviewable Assets，不得使用目前 Filter collection；Needs Rerun 數量沿用 `BNAssetPipelineState.getNeedsRerunAssets()`。「待重新去背」Filter 為空、但全域仍有未審閱素材時，顯示「目前沒有待重新去背的素材」，不得誤顯示全域完成。
+Completion 判斷必須使用全域 Reviewable Assets，不得使用目前 Filter collection；Needs Rerun 數量沿用 `BNAssetPipelineState.getNeedsRerunAssets()`。「待重新去背」Filter 為空、但全域仍有未審閱素材時，顯示「目前沒有待重新去背的素材」，不得誤顯示全域完成。去背失敗素材完全不計入 Reviewable Assets 或完成判斷（永遠不會被視為「待完成」），也不計入「重新去背素材（N）」的 N；`重新去背素材（N）` 沿用 `BNAssetPipelineState.getNeedsRerunAssets()`，不受去背失敗影響。
 
 ### Completion Recovery（Review Workspace UI Upgrade）
 
@@ -328,6 +331,7 @@ Completion 判斷必須使用全域 Reviewable Assets，不得使用目前 Filte
 | Review Workspace | 素材審閱 | - |
 | All Assets | 全部素材 | `all` |
 | Needs Rerun Only | 待重新去背 | - |
+| Background Removal Failed | 去背失敗 | `background_removal_failed` |
 | Approved | 核准 | `approved` |
 | Needs Rerun | 重新去背 | `needs_rerun` |
 | Pending | 待審閱 | `pending` |
@@ -373,7 +377,7 @@ Photoshop 已關閉。
 Recovery Banner（可復原的失敗狀態，`position:fixed`，z-index 高於 Global Interaction Lock Overlay）：
 
 ```text
-素材處理失敗。／部分素材處理失敗。／無法寫入處理結果。／無法開啟素材審閱。
+素材處理失敗。／無法寫入處理結果。／無法開啟素材審閱。
 ［重試］／［重新檢查］／［重新授權］／［重新開啟素材審閱］
 ```
 
@@ -382,7 +386,8 @@ Recovery Banner（可復原的失敗狀態，`position:fixed`，z-index 高於 G
 - 正常工作流程仍不暴露 Manifest、Runtime、Processed Folder、executionId 等技術詞彙；Ready Check 失敗與復原提示是唯一允許直接顯示「Photoshop」名稱或明確錯誤語言的訊息，且僅限上述核可文案。
 - Processing Mode 期間 Control Center 不可操作（不可修改文字、不可切換工單、不可下載、不可開始新的工作）；可復原的失敗狀態下，Lock 依然維持，只開放對應的 Recovery Banner 動作按鈕。
 - 「素材處理完成」停留約 0.8 秒為完成轉場動畫，不是處理完成的判定依據；完成後直接自動開啟素材審閱並自動選取第一筆素材，不存在獨立的「等待審閱」中繼狀態。
-- AI Workflow 已完成背景處理狀態（含 Ready Check 提示與 Recovery Banner）自動化，未重新設計 Review Workspace UI Upgrade 的 Locked 規格（Navigator、Dynamic Inspector、Decision Area、Completion Screen 皆維持既有設計）；僅修正一個既有 UX Bug（完成畫面判斷改為依目前 Filter 是否還有素材，見 CHANGELOG）。
+- 部分素材去背失敗（PartialFailure，至少一張成功；去背失敗獨立分類 Bug Fix）不顯示 Recovery Banner、不使用「部分素材處理失敗」文案——直接進入素材審閱，Lock 正常解除；失敗素材改於素材審閱內以「去背失敗」呈現（見上方 Review Workspace 相關小節）。只有全部素材皆處理失敗（zero success）才會顯示上述「素材處理失敗。」Recovery Banner。
+- AI Workflow 已完成背景處理狀態（含 Ready Check 提示與 Recovery Banner）自動化，未重新設計 Review Workspace UI Upgrade 的 Locked 規格架構（Navigator、Dynamic Inspector、Decision Area、Completion Screen 的架構皆維持既有設計）；已修正兩個既有 UX Bug：完成畫面判斷改為依目前 Filter 是否還有素材、去背失敗獨立分類新增第三個 Filter 與 Decision Area／Completion Screen 內的新增顯示內容（皆為既有元件內的新增內容，非重新設計，見 CHANGELOG）。
 - Photoshop Automation 與 AI Workflow 責任不重疊：本節描述的 Control Center UI 屬於 AI Workflow；Photoshop 端的 Ready Contract、批次處理、狀態回報屬於 Photoshop Automation，不在本節範圍內。
 - Windows Validation 為 Deferred（Waiting for Windows Validation Environment），本節 UI 尚未在 Windows 上實機驗證。
 

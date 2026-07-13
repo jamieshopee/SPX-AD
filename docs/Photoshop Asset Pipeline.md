@@ -1,7 +1,7 @@
 # Photoshop Asset Pipeline
 
 Version: 2026.07.12-ai-workflow-completed  
-Last Updated: 2026-07-12  
+Last Updated: 2026-07-13  
 Scope: Photoshop Asset Pipeline 的操作流程、內部資料契約、Runtime Contract、State Boundary 與 Troubleshooting。此文件描述目前實際行為：Photoshop Automation 與 AI Workflow 已完成 Coding 並通過 macOS Development Manual Validation（Photoshop 2025，Stage 1–4 共 18 項 PASS）。Windows Validation 為 **Deferred（Waiting for Windows Validation Environment）**，不是 Completed，不宣稱已支援 Windows 或所有 Photoshop 版本。Production Launcher／PyInstaller／Cloud Deployment 尚未開始（Not Started）。
 
 ## Quick Workflow
@@ -56,10 +56,12 @@ Review Workspace（素材審閱）內可標記：
 
 - original image / processed image（Editor 畫面）
 - 檔名
-- Review Status（待審閱 / 已處理 / 核准 / 重新去背）
+- Review Status（待審閱 / 已處理 / 核准 / 重新去背 / 去背失敗）
 - Dirty Status（尚未儲存的修改）
-- Review Summary（進度、核准數、重新去背數）
-- Filter：全部素材 / 待重新去背
+- Review Summary（進度、核准數、重新去背數、去背失敗數）
+- Filter：全部素材 / 待重新去背 / 去背失敗
+
+去背失敗（`background_removal_failed`，去背失敗獨立分類 Bug Fix）僅適用於 Photoshop 從未成功處理過的素材：顯示原圖，不提供核准／重新去背／撤回按鈕，改顯示提示文字「此素材去背失敗，請回控制台手動更換圖片。」，需回到 Control Center 手動更換圖片後重新走一次流程；不計入「重新去背素材（N）」，也不影響「全部素材已完成審閱」的完成判定（詳見下方第 7 節與 Error / Recovery）。已成功過但 Rerun 又失敗的素材維持 `needs_rerun`，沿用上一次成功的處理結果，不算去背失敗。
 
 `assetKey`、`role`、`jobIds`、`slot`、`mode`、processed filename 等技術 Metadata 仍保留於內部資料結構（`assetPipelineState.assets[assetKey]`），供 Matching、Manifest、Resolver 等內部流程使用，但**不顯示**於使用者 UI（詳見 `docs/UI Design Guideline.md` 與 `docs/SPX-AD-版型規格與操作說明.md`）。
 
@@ -162,7 +164,7 @@ Runtime Workspace（暫存輸入／輸出）完全隱藏、自動建立與清理
 | `GET /ready` | `{"ready": true}` 或 `{"ready": false, "reason": "photoshop_closed"}`。 |
 | `POST /execute` | 僅 Manifest JSON（不含素材內容）→ `{"accepted": true, "executionId": "..."}` 或 `{"accepted": false, "reason": "busy" \| "manifest_invalid"}`。 |
 | `POST /executions/{executionId}/assets/{assetId}` | 逐一上傳素材原始 binary（不使用 base64）；全部到齊後 Runtime 才觸發 Platform Adapter。 |
-| `GET /status/{executionId}` | `{state, progress, lastResult}`；`lastResult.state` 為 `Completed` / `PartialFailure` / `Failure`，`Failure` 附帶 `reason`（例如 `photoshop_closed`）。 |
+| `GET /status/{executionId}` | `{state, progress, lastResult}`；`lastResult.state` 為 `Completed` / `PartialFailure` / `Failure`，`Failure` 附帶 `reason`（例如 `photoshop_closed`）。`lastResult.itemResults` 為逐筆 assetId 的 `success` / `error`（去背失敗獨立分類 Bug Fix 新增），取自 `photoshop-run-report.json` 的 `items[]`；只在 `Completed` / `PartialFailure` 且該筆為 `success` 時才允許取回結果。 |
 | `GET /executions/{executionId}/results/{assetId}` | 該筆 Processed PNG 的原始 `image/png` binary；尚未完成回 409，執行失敗回 404，已被清理回 410。 |
 
 ## Manifest Contract（Locked）
@@ -240,12 +242,13 @@ Auto Import 成功後，AI Workflow 顯示「素材處理完成」（約 0.8 秒
 | 情境 | 使用者可見文案 | Retry 行為 |
 |---|---|---|
 | Ready Check 失敗／Photoshop 處理中關閉 | Photoshop 已關閉。請重新開啟 Photoshop。開啟後按「重新檢查」即可繼續。 | 重新檢查＝整批重新開始（含重新執行 Ready Check），不會重複觸發已完成的 Execution。 |
-| Execute 被拒絕／Manifest 衝突／部分失敗 | 素材處理失敗。／部分素材處理失敗。 | 重試＝整批重新開始。 |
+| Execute 被拒絕／Manifest 衝突／全部素材皆處理失敗（zero success） | 素材處理失敗。 | 重試＝整批重新開始。 |
 | 素材上傳失敗 | 素材處理失敗。 | 重試＝沿用同一個 executionId，只補傳尚未成功的素材。 |
 | Status Polling 暫時失敗／executionId 遺失 | 素材處理失敗。 | 前者可恢復輪詢；後者（Runtime 端執行已不存在）僅能整批重新開始。 |
 | 寫入 Processed 失敗（含 readwrite 權限被拒絕） | 無法寫入處理結果。（權限被拒絕時顯示「重新授權」） | 沿用同一個 executionId，只重新取回／寫入尚未成功的項目；已被 Runtime 清理則誠實顯示需整批重新開始。 |
 | Auto Import／Matching 失敗（Processed 已寫入） | 素材處理失敗。 | 只重新呼叫 Matching，不重新取回、不重跑 Photoshop。 |
 | Review Workspace 開啟失敗 | 無法開啟素材審閱。 | 重新開啟素材審閱＝只重新呼叫既有開啟入口，不重跑 Photoshop、不重新 Auto Import。 |
+| 部分素材去背失敗（PartialFailure，至少一張成功；去背失敗獨立分類 Bug Fix） | 不顯示整批 Recovery Banner，直接進入素材審閱；完成畫面顯示「X 個素材去背失敗，請回控制台手動更換圖片」。 | 不提供整批 Retry；使用者需回控制台手動更換圖片後自行重新走一次流程。 |
 
 Global Interaction Lock 在所有復原情境期間持續維持，只開放對應的復原按鈕；復原成功並進入 Review 後才解除。Retry 一律不會重複觸發 Photoshop，也不會遺漏已成功寫入的部分。
 
