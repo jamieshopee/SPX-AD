@@ -843,10 +843,21 @@
       async function applyWithOrder(orderedItems,skipRatio){
       if(!orderedItems.length)return;
       updateTemplateModeLabel('three_products');
-      /* 清除舊商品 */
-      var oldIds=window._bnProducts.map(function(p){return p.id;});
-      oldIds.forEach(function(id){broadcast({type:'bn-product-remove',id:id});});
-      window._bnProducts=[];
+      /* 三品覆蓋 Bug Fix（v2）：只清除這次清單裡有對應到的格子，其他既有商品的
+         DOM box／id 完全不動，比照既有「移除」按鈕只針對單一商品操作的做法
+         （見 renderProdList 內 rmBtn 的 click handler，約 944-951 行）。 */
+      var replacedPositions = {};
+      orderedItems.forEach(function(item){
+        var pos = item.position !== undefined ? item.position : null;
+        if(pos !== null) replacedPositions[pos] = true;
+      });
+      var oldIdsToRemove = window._bnProducts
+        .filter(function(p){ return replacedPositions[p.position !== undefined ? p.position : 0]; })
+        .map(function(p){ return p.id; });
+      oldIdsToRemove.forEach(function(id){broadcast({type:'bn-product-remove',id:id});});
+      window._bnProducts = window._bnProducts.filter(function(p){
+        return !replacedPositions[p.position !== undefined ? p.position : 0];
+      });
 
       /* 檢查 template 是否啟用 autoShadow */
       var tpl = window.__BN_TEMPLATE__;
@@ -875,11 +886,14 @@
           }
         }
         var id='p'+Date.now()+'_'+i;
-        var sizeScale=sizeRatios?sizeRatios[i]||0.72:1;
         /* position: 0=主品(中), 1=左配, 2=右配 */
         var pos = item.position !== undefined ? item.position : i;
+        /* 三品覆蓋 Bug Fix（v2）：sizeScale／zOrder 改用這一格實際的位置編號 pos，
+           不再用迴圈索引 i——只處理被替換的格子時，i 不再等於 pos，用 i 對應
+           會套錯大小比例。 */
+        var sizeScale=sizeRatios?sizeRatios[pos]||0.72:1;
         var baselineRatio = item.baselineRatio || 1;
-        var prod = {id:id,src:src,ratio:item.ratio||1,baselineRatio:baselineRatio,name:item.name,sizeScale:sizeScale,position:pos,zOrder:i,_slot:item._slot!==undefined?item._slot:null};
+        var prod = {id:id,src:src,ratio:item.ratio||1,baselineRatio:baselineRatio,name:item.name,sizeScale:sizeScale,position:pos,zOrder:pos,_slot:item._slot!==undefined?item._slot:null};
         if(item.baseSrc) prod.baseSrc = item.baseSrc;
         if(item.meta) prod.meta = JSON.parse(JSON.stringify(item.meta));
         window._bnProducts.push(prod);
