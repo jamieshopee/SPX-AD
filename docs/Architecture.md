@@ -6,6 +6,7 @@ Scope: 最新系統架構、Render Flow、Template / Style / Project State / Ass
 
 ## What's New
 
+- **三商品前後順序（z-order）與角色身份（position）解耦（Bug Fix，Commit `ff1d97b`）**：`position`（角色身份：主品／左配品／右配品）與 `zOrder`（視覺堆疊順序）過去被前後順序（▲／▼）按鈕當作同一件事處理，點擊會連帶互換 `position`，造成 Canvas、layoutState、右側商品清單、single-state 之間身份錯亂。修正後兩者互相獨立：`position` 永遠代表角色身份；`zOrder` 只控制堆疊順序，右側商品清單依 `zOrder`（Layer 順序）顯示、角色標籤仍依 `position` 顯示；`zOrder` 正確保存於 single-state 並於重新匯入後立即還原，不需使用者先手動操作一次 ▲／▼ 才會更新。未修改 Project State schema、未新增欄位。詳見下方「Product Identity」章節與 `docs/CHANGELOG.md`。
 - **QR Code — Completed（Final Sign-off，功能 Commit `79de045`、Tag `v0.5.2`）**：每個 Job 依 CSV 的 `QRcode` 欄位網址自動產生 QR Code，使用者可於控制台右側欄修改網址。四個尺寸皆新增 `qrZone`（Locked Visual Baseline 固定座標）與 `layerOrder.qrCode = 48`（固定位於既有 `info` 圖層之上）。`job.qrCodeUrl` 為字串欄位，直接隨 Project State 保存還原。已正式列入 Locked Completed Phases。目前 Active Phase 回到 **None（Waiting for next Proposal）**；Next Planned Phase Order 四項已全數完成。詳見下方「QR Code Architecture」章節與 `docs/CHANGELOG.md`。
 - **Render Context & Export Workflow — Completed（Final Sign-off，Tag `v0.5.1`）**：下載完整專案（Batch Render）的 `renderSingleJob()` 改為一律使用控制台目前選擇的 `activePlacement`／`activeTemplate` 作為批次內所有工單共用的輸出 placement／template，不再讀取各工單自己保存、可能已過期的 `job.placementId`／`job.template`。每筆工單的 Style 仍使用該工單自己的 `styleId`，不受此次修正影響（`activePlacement`／`activeTemplate` 不包含 Style）。原因：`selectPlacement()` 只更新全域 `activePlacement`，未同步寫回 `job.placementId`；而產品規格為「一次生成器工作流程只有一種輸出尺寸，批次內所有工單共用使用者最後在控制台選擇的輸出 placement／template」。同步修正 `layoutKey` 計算，改用 `activePlacement`／`activeTemplate` 計算，使其與 `syncActiveLayoutState()` 存檔時使用的 key 一致，避免位置／大小／前後順序讀到錯誤或空白的 layoutState（該 layoutState 仍讀自每筆 job 自己的 `layoutStates` map）。僅修改 `renderSingleJob()`；未修改 `selectPlacement`／`selectTemplate`／`getTemplateForJob`／Main Canvas／Thumbnail／Project State schema／`layoutStates` schema／單張下載。本輪僅實際驗證 `selectPlacement()` 的行為，`selectTemplate()` 是否同步寫回 `job.template`／`job.templateId` 尚未驗證，本文件不對此做斷言。功能 Commit `2ac6546`、Tag `v0.5.1`；已正式列入 Locked Completed Phases。目前 Active Phase 為 **None（Waiting for next Proposal）**；Next Planned Phase Order 第 4 項 QR Code 已完成（見下方「QR Code Architecture」）。詳見下方 State Boundary 表格 Batch Render 列與 `docs/CHANGELOG.md`。
 - **去背失敗獨立分類（Bug Fix，Commit `289ac76`）**：解決「批次去背只要有素材失敗，整個流程就卡住」的問題。Runtime 的 `lastResult` 新增逐筆 `itemResults`（success／error），PartialFailure（至少一張成功）不再顯示整批 Recovery Banner，改為直接把成功的素材帶入素材審閱；從未成功過的素材標記新狀態 `background_removal_failed`（去背失敗），於素材審閱顯示原圖與提示文字，不提供核准／重新去背／撤回按鈕，也不計入「重新去背素材（N）」與完成畫面的完成判定；已成功過但 Rerun 又失敗的素材維持原本 `needs_rerun`，沿用上一次成功的處理結果，不新增額外狀態。整批全部失敗（zero success）行為不變。詳見下方 Error / Recovery 表格與 `docs/proposals/Background-Removal-Failure-Classification-Proposal.md`、`docs/CHANGELOG.md`。
@@ -654,7 +655,7 @@ capture / thumbnail / export
 說明：
 
 - DOM 重建後 id 可能改變。
-- 使用者調整前後順序後，position 不再代表商品身份。
+- `position` 永遠代表商品角色身份（主品／左配品／右配品），不受前後順序（`zOrder`／堆疊順序）調整影響；`zOrder` 只控制視覺堆疊順序（誰蓋住誰），與 `position` 為互相獨立、不互相覆寫的欄位（Bug Fix，Commit `ff1d97b`，見 `docs/CHANGELOG.md`）。
 - filename 為 Batch Restore 的穩定身份。
 - Batch Render、Restore、Project State Restore 不可只依 position 或 array index 對應商品。
 

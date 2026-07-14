@@ -6,6 +6,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 
 ## What's New
 
+- **三商品前後順序與角色身份解耦（Bug Fix，Commit `ff1d97b`）**：調整前後順序不再改變商品角色身份（主品／左配品／右配品固定不變），只改變視覺堆疊順序；前後順序會隨其他調整正確保存與還原。詳見下方「三商品」章節。
 - **QR Code（Completed，功能 Commit `79de045`、Tag `v0.5.2`）**：每個 Job 依 CSV 的 `QRcode` 欄位網址自動產生 QR Code，可於控制台右側欄手動修改；四個尺寸皆有 Locked Visual Baseline 固定座標，位置與大小不可調整。詳見下方「QRCode」章節。
 - **去背失敗獨立分類（Bug Fix）**：素材審閱新增「去背失敗」Filter 與 Navigator 標籤，去背失敗素材改顯示提示文字並需回控制台手動更換圖片；Completion Screen 新增計數但不影響完成判定。詳見下方「素材審核 / 素材審閱」與「AI Workflow 使用者流程」，以及 CHANGELOG。
 - AI Workflow 使用者流程完成（macOS Development Validated；Windows Validation Deferred）：素材審核／素材審閱流程新增自動化 Ready Check、Processing Mode、自動 Import、自動開啟審閱與 Rerun，詳見下方「素材審核 / 素材審閱」與「AI Workflow 使用者流程」。
@@ -194,7 +195,9 @@ CSV 欄位：
 - position 1：左配品
 - position 2：右配品
 
-視覺排列由 `layout-runtime.js` 依 Template 控制。使用者可拖曳、縮放、旋轉，也可以恢復預設位置。恢復預設位置會清除 user transform，重新套用 Template 初始排版。
+視覺排列由 `layout-runtime.js` 依 Template 控制。使用者可拖曳、縮放、旋轉，也可以調整前後順序（▲／▼，誰蓋住誰），也可以恢復預設位置。恢復預設位置會清除 user transform，重新套用 Template 初始排版。
+
+調整前後順序不會改變商品的角色身份（主品／左配品／右配品固定不變），只改變視覺堆疊順序；右側商品清單依前後順序顯示，角色標籤仍依實際角色顯示。前後順序會隨其他調整一起保存於工單，下載單張暫存或完整專案後重新匯入時會正確還原（Bug Fix，Commit `ff1d97b`）。
 
 ## 1人＋1品
 
