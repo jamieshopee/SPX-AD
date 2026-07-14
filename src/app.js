@@ -3589,7 +3589,12 @@ function cloneJobForExport(job) {
   if (job.id !== activeJobId) return copy;
 
   const key = safeZipSegment(job.jobId || job.outputFilename || 'job');
-  if (!copy.logoFilenames.length && window._bnLogos?.length) {
+  // Bug Fix B（匯出抓不到手動置換，2026-07-14 補回）：原本只有在
+  // productFilenames「本來是空的」才會回填即時畫布內容，CSV 匯入的工單
+  // 本來就有檔名，永遠不會回填，導致手動置換的圖片下載時還是舊圖。這裡
+  // 改成只要是目前作用中的工單（上面 job.id !== activeJobId 已經擋掉
+  // 非作用中工單），一律以即時畫布狀態為準，跟畫面上看到的一致。
+  if (window._bnLogos?.length) {
     copy.logoFilenames = window._bnLogos.map((logo, index) => {
       const ext = extFromMime(dataUrlMime(logo.src, 'image/png'));
       const name = `${key}_LOGO_${String(index + 1).padStart(2, '0')}.${ext}`;
@@ -3598,7 +3603,7 @@ function cloneJobForExport(job) {
     });
   }
 
-  if (!copy.productFilenames.length && window._bnProducts?.length) {
+  if (window._bnProducts?.length) {
     const labels = ['主品', '左配品', '右配品'];
     copy.productFilenames = window._bnProducts
       .slice()
@@ -3610,9 +3615,8 @@ function cloneJobForExport(job) {
         copy._embeddedAssets[name] = { dataUrl: product.src, category: 'products', type: dataUrlMime(product.src, 'image/png') };
         return name;
       });
-  }
-
-  if (!copy.productFilenames.length && (window._bnPerson || window._bnSingleProd)) {
+  } else if (window._bnPerson || window._bnSingleProd) {
+    copy.productFilenames = [];
     if (window._bnPerson?.src) {
       const ext = extFromMime(dataUrlMime(window._bnPerson.src, 'image/png'));
       const name = `${key}_PERSON_人.${ext}`;
