@@ -64,6 +64,9 @@ const el = {
     subheadline: document.querySelector('#count-subheadline'),
     disclaimer:  document.querySelector('#count-disclaimer'),
   },
+  qrCodeUrlInput:  document.querySelector('#field-qrcode-url'),
+  qrCodeCheckLink: document.querySelector('#qrcode-check-link'),
+  qrCodeStatus:    document.querySelector('#qrcode-status'),
 };
 
 // ══════════════════════════════════════════════════════
@@ -813,6 +816,7 @@ function fillFields(data) {
     input.value = data[key] ?? '';
   });
   updateCounters();
+  refreshQrCodeUiForJob(data);
 }
 function currentRecord() {
   return Object.fromEntries(
@@ -822,6 +826,91 @@ function currentRecord() {
 
 function recordHasText(record) {
   return Boolean(record && (record.headline || record.subheadline || record.disclaimer));
+}
+
+// ══════════════════════════════════════════════════════
+//  6.5 QRCode 欄位操作（docs/proposals/QR-Code-Product-Proposal.md）
+//  獨立於「套用文字到模板」按鈕之外，更新時機只有：貼上／Enter／失焦。
+// ══════════════════════════════════════════════════════
+function qrCodeStatusText(kind) {
+  switch (kind) {
+    case 'updated':   return '✓ QR Code 已更新';
+    case 'unchanged': return '目前網址未變更';
+    case 'removed':   return '✓ QR Code 已移除';
+    case 'invalid':   return '⚠ 請輸入有效的網址（例如：https://example.com）';
+    default:          return '';
+  }
+}
+
+function setQrCodeStatus(kind) {
+  if (el.qrCodeStatus) el.qrCodeStatus.textContent = qrCodeStatusText(kind);
+}
+
+function updateQrCodeCheckLink(normalizedUrl) {
+  if (!el.qrCodeCheckLink) return;
+  if (normalizedUrl) {
+    el.qrCodeCheckLink.href = normalizedUrl;
+    el.qrCodeCheckLink.removeAttribute('aria-disabled');
+    el.qrCodeCheckLink.style.pointerEvents = '';
+  } else {
+    el.qrCodeCheckLink.href = '#';
+    el.qrCodeCheckLink.setAttribute('aria-disabled', 'true');
+    el.qrCodeCheckLink.style.pointerEvents = 'none';
+  }
+}
+
+// 切換工單／CSV 匯入完成時的「靜默」刷新：合法網址不顯示狀態文字，
+// 空值或非法網址顯示提示，但這不算使用者操作，不會出現「已更新」文案。
+function refreshQrCodeUiForJob(data) {
+  const raw = data?.qrCodeUrl ?? '';
+  if (el.qrCodeUrlInput) el.qrCodeUrlInput.value = raw;
+  const normalized = window.BNQrCodeUrl?.normalize(raw);
+  updateQrCodeCheckLink(normalized || null);
+  setQrCodeStatus(normalized ? 'silent' : 'invalid');
+}
+
+// 使用者主動編輯後提交（貼上／Enter／失焦皆呼叫此函式）。
+function commitQrCodeUrl(rawValue) {
+  const job = activeJob();
+  if (!job) return;
+  const previousNormalized = window.BNQrCodeUrl?.normalize(job.qrCodeUrl || '');
+  const isEmpty = window.BNQrCodeUrl?.isEmpty(rawValue) ?? true;
+
+  if (isEmpty) {
+    if (previousNormalized) {
+      job.qrCodeUrl = '';
+      if (el.qrCodeUrlInput) el.qrCodeUrlInput.value = '';
+      updateQrCodeCheckLink(null);
+      applyQrCodeToCanvas(job);
+      setQrCodeStatus('removed');
+      scheduleActiveJobThumbnailUpdate();
+    } else {
+      updateQrCodeCheckLink(null);
+      setQrCodeStatus('invalid');
+    }
+    return;
+  }
+
+  const normalized = window.BNQrCodeUrl?.normalize(rawValue);
+  if (!normalized) {
+    updateQrCodeCheckLink(null);
+    setQrCodeStatus('invalid');
+    return;
+  }
+
+  if (normalized === previousNormalized) {
+    if (el.qrCodeUrlInput) el.qrCodeUrlInput.value = normalized;
+    updateQrCodeCheckLink(normalized);
+    setQrCodeStatus('unchanged');
+    return;
+  }
+
+  job.qrCodeUrl = normalized;
+  if (el.qrCodeUrlInput) el.qrCodeUrlInput.value = normalized;
+  updateQrCodeCheckLink(normalized);
+  applyQrCodeToCanvas(job);
+  setQrCodeStatus('updated');
+  scheduleActiveJobThumbnailUpdate();
 }
 
 function validateRecord(record) {
@@ -1118,6 +1207,7 @@ async function pickAssetFolder() {
       if (job) {
         await applyLogosToCanvas(job.logoFilenames || []);
         await applyProductsToCanvas(job.productFilenames || []);
+        await applyQrCodeToCanvas(job);
       }
     }
     enqueueAllThumbnails(activeJobId);
@@ -2204,6 +2294,10 @@ function createJob(data = {}) {
     headline:         data.headline    || '',
     subheadline:      data.subheadline || '',
     disclaimer:       data.disclaimer  || '',
+    // 合法網址一律存「補完 https:// 後」的版本（docs/proposals/QR-Code-Product-Proposal.md
+    // 「網址驗證」：輸入框、Project State、QRCode、檢查網址連結四處皆用補完後網址）；
+    // 空值／非法網址維持原始字串，讓使用者能看到並修正。
+    qrCodeUrl:        (window.BNQrCodeUrl?.normalize(data.qrCodeUrl || '')) || (data.qrCodeUrl || ''),
     logoFilenames:    data.logoFilenames    || [],
     productFilenames: data.productFilenames || [],
     outputFilename:   data.outputFilename   || '',
@@ -2302,6 +2396,8 @@ async function selectJob(id, options = {}) {
       if (loadSeq !== canvasLoadSeq) return;
       await applyProductsToCanvas(job.productFilenames || []);
       if (loadSeq !== canvasLoadSeq) return;
+      await applyQrCodeToCanvas(job);
+      if (loadSeq !== canvasLoadSeq) return;
       await waitForFrameImages(el.frame.contentWindow, 3000);
       await sleep(180);
       if (loadSeq !== canvasLoadSeq) return;
@@ -2350,6 +2446,11 @@ function findHeaderRow(rows) {
         if (c.includes('主視覺素材'))                colMap.products   = ci;
         if (c.includes('Logo') && c.includes('檔案'))colMap.logos      = ci;
         if (c.includes('輸出檔名'))                  colMap.output     = ci;
+        // 真實入稿表同一列裡還有「QRcode統一導shop...」「QRcode雲端(SPX填寫)」等
+        // 其他 SPX 內部欄位，開頭都含「QRcode」；這裡清乾淨後的第一行內容必須
+        // 「剛好等於」QRcode，才是使用者實際填寫網址的那一欄，避免被後面同樣
+        // 含「QRcode」字樣、但屬於 SPX 內部流程、通常是空的欄位覆蓋掉。
+        if (/^qrcode$/i.test(c))                      colMap.qrCodeUrl  = ci;
       });
       return { rowIndex: i, colMap };
     }
@@ -2377,9 +2478,10 @@ function parseJobsFromRows(rows, headerInfo) {
     const outputFn     = String(row[colMap.output]      ?? '').trim() || `${jobId}.png`;
     const logoFilenames    = colMap.logos    != null ? splitMultiline(row[colMap.logos])    : [];
     const productFilenames = colMap.products != null ? splitMultiline(row[colMap.products]) : [];
+    const qrCodeUrl        = colMap.qrCodeUrl != null ? String(row[colMap.qrCodeUrl] ?? '').trim() : '';
 
     result.push({ jobId, template: 'template', templateId: 'template', styleId, headline, subheadline, disclaimer,
-      outputFilename: outputFn, logoFilenames, productFilenames });
+      outputFilename: outputFn, logoFilenames, productFilenames, qrCodeUrl });
   }
   return result;
 }
@@ -2481,6 +2583,32 @@ async function applyLogosToCanvas(logoFilenames) {
   el.frame.contentWindow.postMessage(payload.message, '*');
   console.log('[CC] bn-logos 送出', payload.logos.length, '個');
   scheduleActiveJobThumbnailUpdate(900);
+}
+
+// ══════════════════════════════════════════════════════
+//  16.5 QRCode → bn-qrcode-set／bn-qrcode-clear（直接送 canvas iframe）
+//  docs/proposals/QR-Code-Product-Proposal.md：網址驅動、即時產生，
+//  固定版位（由 template.json 的 qrZone 決定），不接受動態位置/大小。
+// ══════════════════════════════════════════════════════
+async function applyQrCodeToCanvas(job) {
+  if (!el.frame?.contentWindow) return;
+  const normalized = window.BNQrCodeUrl?.normalize(job?.qrCodeUrl);
+  if (!normalized) {
+    el.frame.contentWindow.postMessage({ type: 'bn-qrcode-clear' }, '*');
+    return;
+  }
+  try {
+    const src = await new Promise((resolve, reject) => {
+      window.QRCode.toDataURL(normalized, {
+        errorCorrectionLevel: 'M',
+        color: { dark: '#000000ff', light: '#ffffffff' },
+      }, (err, url) => (err ? reject(err) : resolve(url)));
+    });
+    el.frame.contentWindow.postMessage({ type: 'bn-qrcode-set', src }, '*');
+  } catch (error) {
+    console.error('[CC] QRCode 產生失敗:', error);
+    el.frame.contentWindow.postMessage({ type: 'bn-qrcode-clear' }, '*');
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -3187,6 +3315,8 @@ async function selectTemplate(id, options = {}) {
         if (loadSeq !== canvasLoadSeq) return;
         await applyProductsToCanvas(job.productFilenames || []);
         if (loadSeq !== canvasLoadSeq) return;
+        await applyQrCodeToCanvas(job);
+        if (loadSeq !== canvasLoadSeq) return;
         await waitForFrameImages(el.frame.contentWindow, 3000);
         await sleep(180);
         if (loadSeq !== canvasLoadSeq) return;
@@ -3400,6 +3530,12 @@ async function renderSingleJob(job) {
       await sleep(900);
       if (loadSeq !== canvasLoadSeq) throw new Error('render interrupted');
     }
+
+    // 3.5 QRCode（docs/proposals/QR-Code-Product-Proposal.md：Export 與主標/副標/小字相同，
+    // 合法網址才顯示，空值或非法網址不顯示，只影響這個 job，不影響其他 job）
+    await applyQrCodeToCanvas(job);
+    if (loadSeq !== canvasLoadSeq) throw new Error('render interrupted');
+
     traceFrameLayout('renderSingleJob:after-product-payload-before-layout-apply-dom', el.frame.contentWindow, job, layoutKey);
     traceFrameProductDom('renderSingleJob:after-product-payload-before-layout-apply-dom', el.frame.contentWindow, job, layoutKey);
     batchTraceDom('BATCH_TRACE_4_DOM', 'after-product-payload-before-layout-apply-dom', el.frame.contentWindow, job, layoutKey);
@@ -3563,6 +3699,7 @@ function serializeJobBase(job) {
     headline:         job.headline || '',
     subheadline:      job.subheadline || '',
     disclaimer:       job.disclaimer || '',
+    qrCodeUrl:        job.qrCodeUrl || '',
     outputFilename:   job.outputFilename || '',
     layoutState:      getJobLayoutState(job),
     layoutStates:     exportableLayoutStatesForJob(job),
@@ -3882,6 +4019,7 @@ async function importState(file) {
         headline: saved.headline || '',
         subheadline: saved.subheadline || '',
         disclaimer: saved.disclaimer || '',
+        qrCodeUrl: saved.qrCodeUrl || '',
         outputFilename: saved.outputFilename || '',
         logoFilenames: (saved.logoAssetIds || []).map(id => assetsById.get(id)?.name || id),
         productFilenames: (saved.productAssetIds || []).map(id => assetsById.get(id)?.name || id),
@@ -4026,6 +4164,22 @@ Object.values(el.fields).forEach(input => {
 
 // 套用文字
 el.applyRecord.addEventListener('click', () => sendRecord(currentRecord()));
+
+// QRCode（貼上／Enter／失焦皆驗證；獨立於「套用文字到模板」按鈕之外）
+if (el.qrCodeUrlInput) {
+  el.qrCodeUrlInput.addEventListener('paste', () => {
+    setTimeout(() => commitQrCodeUrl(el.qrCodeUrlInput.value), 0);
+  });
+  el.qrCodeUrlInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); commitQrCodeUrl(el.qrCodeUrlInput.value); }
+  });
+  el.qrCodeUrlInput.addEventListener('blur', () => commitQrCodeUrl(el.qrCodeUrlInput.value));
+}
+if (el.qrCodeCheckLink) {
+  el.qrCodeCheckLink.addEventListener('click', e => {
+    if (el.qrCodeCheckLink.getAttribute('aria-disabled') === 'true') e.preventDefault();
+  });
+}
 
 // 新增工單
 el.addJobBtn.addEventListener('click', () => {

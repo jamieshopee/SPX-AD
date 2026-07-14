@@ -79,6 +79,13 @@
     applyStyle(info, template.canvas.infoStyle || {});
     canvas.appendChild(info);
 
+    var qrcode = document.createElement('img');
+    qrcode.id = 'bn-qrcode';
+    qrcode.alt = '';
+    applyStyle(qrcode, (template.qrZone || {}).style || {});
+    qrcode.style.display = 'none';
+    canvas.appendChild(qrcode);
+
     ['person', 'singleProduct'].forEach(function (key) {
       var config = template.productZones[key];
       var zone = document.createElement('div');
@@ -414,7 +421,7 @@
       applyAssets(template);
       return loadScript('js/box-transform-utils.js?v=20260701t');
     }).then(function () {
-      return loadScript('js/layout-runtime.js?v=20260705-product-filename-restore-a');
+      return loadScript('js/layout-runtime.js?v=20260714-qrcode-a');
     }).catch(function (error) {
       console.warn('[Canvas] 初始化失敗。', error);
     });

@@ -223,6 +223,18 @@
       }
     }
   },
+  "qrZone": {
+    "className": "QRCode範圍",
+    "style": {
+      "position": "absolute",
+      "left": "46px",
+      "top": "1667px",
+      "width": "165px",
+      "height": "165px",
+      "zIndex": "48",
+      "pointerEvents": "none"
+    }
+  },
   "layerOrder": {
     "background": 1,
     "smallText": 13,
@@ -232,7 +244,8 @@
     "singleProduct": 21,
     "person": 22,
     "products": 23,
-    "info": 47
+    "info": 47,
+    "qrCode": 48
   },
   "output": {
     "format": "png",

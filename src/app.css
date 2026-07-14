@@ -550,6 +550,11 @@ body {
 .char-count { font-size: 10px; color: var(--text-tertiary); margin-left: auto; }
 .char-count.over { color: var(--error); font-weight: 700; }
 
+/* QRCode：docs/proposals/QR-Code-Product-Proposal.md */
+.qrcode-check-link { display: inline-block; font-size: 11px; color: var(--accent); margin-bottom: 5px; }
+.qrcode-check-link[aria-disabled="true"] { color: var(--text-tertiary); text-decoration: none; }
+.qrcode-status { min-height: 14px; font-size: 11px; color: var(--text-secondary); }
+
 /* 素材清單（CSV 匯入後顯示） */
 .asset-file-list {
   display: flex; flex-direction: column; gap: 3px;

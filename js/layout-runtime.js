@@ -430,6 +430,18 @@
       return;
     }
 
+    /* QRCode：固定版位，不接受動態位置/大小覆蓋（docs/proposals/QR-Code-Product-Proposal.md） */
+    if(e.data.type==='bn-qrcode-set'){
+      var qrImg = document.getElementById('bn-qrcode');
+      if(qrImg && e.data.src){ qrImg.src = e.data.src; qrImg.style.display = 'block'; }
+      return;
+    }
+    if(e.data.type==='bn-qrcode-clear'){
+      var qrImgClear = document.getElementById('bn-qrcode');
+      if(qrImgClear){ qrImgClear.style.display = 'none'; qrImgClear.removeAttribute('src'); }
+      return;
+    }
+
     /* 商品新增 */
     if (e.data.type === 'bn-product-add') {
       var pzone = getProductZone(); if(!pzone) return;

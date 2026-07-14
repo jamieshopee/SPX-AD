@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SPX BN生成器</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="src/app.css?v=20260701r">
+  <link rel="stylesheet" href="src/app.css?v=20260714-qrcode-a">
   <link rel="stylesheet" href="src/asset-review.css?v=20260710-review-ui-step4-a">
   <script src="js/banwords-engine-hbn.js?v=20260628"></script>
   <script src="js/banwords-data.js?v=20260628"></script>
@@ -220,6 +220,16 @@
           <button id="apply-record" class="btn-primary" type="button">套用文字到模板</button>
         </section>
 
+        <!-- QRCode：docs/proposals/QR-Code-Product-Proposal.md -->
+        <section class="ctrl-section" id="qrcode-section">
+          <label class="ctrl-label">
+            <span class="ctrl-label-text">QRCode</span>
+            <input id="field-qrcode-url" type="text" placeholder="https://example.com">
+          </label>
+          <a id="qrcode-check-link" href="#" target="_blank" rel="noopener" class="qrcode-check-link" aria-disabled="true" style="pointer-events:none;">檢查網址連結</a>
+          <div id="qrcode-status" class="qrcode-status" aria-live="polite"></div>
+        </section>
+
         <!-- Logo、商品圖、1人+1品 由 bn-editor-plugin.js 動態注入 -->
         <div id="sidebar-scroll" style="display:flex;flex-direction:column;"></div>
 
@@ -292,6 +302,8 @@
   <script src="js/bn-image-utils.js?v=20260701d"></script>
   <script src="js/product-slot-utils.js?v=20260701e"></script>
   <script src="js/asset-classifier.js?v=20260704a"></script>
+  <script src="tools/qrcode-demo/qrcode.js?v=20260714a"></script>
+  <script src="js/qrcode-url-utils.js?v=20260714a"></script>
   <script src="js/asset-processing.js?v=20260704a"></script>
   <script src="js/asset-render-payload.js?v=20260705-product-filename-a"></script>
   <script src="js/smart-layout-propagation.js?v=20260707-smart-layout-a"></script>
@@ -310,7 +322,7 @@
   <script src="js/ai-workflow-auto-import.js?v=20260711-ai-workflow-phase6-a"></script>
   <script src="js/ai-workflow-orchestrator.js?v=20260711-ai-workflow-phase6-a"></script>
   <script src="js/ai-workflow-recovery.js?v=20260711-ai-workflow-phase6-a"></script>
-  <script defer src="src/app.js?v=20260711-ai-workflow-phase6-a"></script>
+  <script defer src="src/app.js?v=20260714-qrcode-a"></script>
   <script src="js/template-controls.js?v=20260701h"></script>
   <script src="js/logo-editor-plugin.js?v=20260629"></script>
   <script src="js/editor-plugin.js?v=20260629"></script>
