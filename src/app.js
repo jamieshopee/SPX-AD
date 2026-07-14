@@ -4338,6 +4338,7 @@ window.addEventListener('message', event => {
     const targetJobId = pendingLayoutStateRequest?.jobId || layoutStateTarget?.jobId || activeJobId;
     if (targetJobId === activeJobId) {
       const productsById = new Map((event.data.state.products || []).map(p => [p.id, p]));
+      const zOrderCandidates = [];
       window._bnProducts.forEach(product => {
         const state = productsById.get(product.id);
         if (!state) return;
@@ -4359,7 +4360,22 @@ window.addEventListener('message', event => {
         if (!product.layout.userAdjusted) {
           delete product.layouts;
         }
+        const zIndexNum = Number(state.zIndex);
+        if (Number.isFinite(zIndexNum)) zOrderCandidates.push({ product, zIndexNum });
       });
+      // Bug Fix（zOrder 暫存保存／還原）：Canvas 端已透過 layoutState 還原
+      // 每個商品的 z-index（見 layout-runtime.js applyLayoutState()），但
+      // window._bnProducts[].zOrder（右側清單排序、▲/▼ 依據的數字欄位）
+      // 從未跟著同步。這裡依這批已還原的 z-index 重新推導 zOrder（z-index
+      // 越高排越前面），同步完成，不需要使用者先操作一次 ▲/▼ 才會更新。
+      // 不改動 layoutStates schema、不改動 layout-runtime.js。
+      if (zOrderCandidates.length) {
+        zOrderCandidates.sort((a, b) => b.zIndexNum - a.zIndexNum);
+        zOrderCandidates.forEach((entry, rank) => { entry.product.zOrder = rank; });
+        // 資料更新後同步重繪右側清單，避免清單畫面停留在舊排序，
+        // 需要使用者先操作一次（例如按 ▲/▼）才會刷新。
+        if (typeof window._bnRenderProdList === 'function') window._bnRenderProdList();
+      }
     }
   }
   if (type === 'bn-layout-state' && window._bnSingleProd && event.data?.state?.singleProduct) {

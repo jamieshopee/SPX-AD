@@ -923,11 +923,13 @@
       sorted.forEach(function(p, i){
         if(p.zOrder === undefined) p.zOrder = i;
       });
-      /* z-index 排序：zOrder 小的在上面（蓋住其他） */
+      /* z-index 排序：zOrder 小的在上面（蓋住其他）。清單顯示順序依此排序
+         （UX 決定：清單跟著 Layer／堆疊順序走，最上層排最上面），每一列的
+         角色標籤仍固定依 .position 顯示，不受排序影響（角色身份與堆疊順序
+         互相獨立，Bug Fix：z-order／角色身份解耦） */
       var zSorted = window._bnProducts.slice().sort(function(a,b){
         return (a.zOrder||0) - (b.zOrder||0);
       });
-      /* 工具列顯示用 zSorted（前面的蓋住後面的） */
       zSorted.forEach(function(p){
         var row=document.createElement('div');row.className='bn-prod-item';
         row.style.flexWrap='wrap';row.style.gap='4px';
@@ -965,44 +967,43 @@
           renderProdList();updateTemplateModeLabel(window._bnProducts.length ? undefined : null);broadcast({type:'bn-product-remove',id:p.id});markStateDirty();
         });
 
-        /* 上移/下移：調整 position 值 */
+        /* 上移/下移：只調整 zOrder（視覺堆疊／誰蓋住誰），不得調整 position
+           （商品角色身份：主品／左配品／右配品）。Bug Fix：z-order 與角色身份解耦，
+           兩者過去被誤綁在一起互換，導致調整前後順序會連帶改掉商品角色與
+           layoutProducts() 依角色重算的預設大小/位置。 */
         var moveWrap=document.createElement('div');moveWrap.className='bn-prod-move';
 
         var upBtn=document.createElement('button');upBtn.textContent='▲';upBtn.title='往前';
         var downBtn=document.createElement('button');downBtn.textContent='▼';downBtn.title='往後';
 
-        /* 依目前 sorted 裡的順序決定能否移動 */
-        var sortedIdx = zSorted.indexOf(p);
-        upBtn.disabled   = sortedIdx === 0;
-        downBtn.disabled = sortedIdx === zSorted.length - 1;
+        /* 依目前 zOrder 順序（z 軸鄰居）決定能否移動，與清單顯示順序（position）無關 */
+        var zIdx = zSorted.indexOf(p);
+        upBtn.disabled   = zIdx === 0;
+        downBtn.disabled = zIdx === zSorted.length - 1;
         upBtn.style.opacity   = upBtn.disabled   ? '0.3' : '1';
         downBtn.style.opacity = downBtn.disabled ? '0.3' : '1';
 
-        upBtn.addEventListener('click',(function(pid, si){ return function(){
-          /* 往上 = z-index 升高（蓋在前面）+ 空間位置前移 */
+        upBtn.addEventListener('click',(function(pid, zi){ return function(){
+          /* 往上 = z-index 升高（蓋在前面），純視覺堆疊調整，不動角色身份、不觸發重新排版 */
           var a = window._bnProducts.find(function(x){return x.id===pid;});
-          var b = zSorted[si-1];
+          var b = zSorted[zi-1];
           if(!a||!b) return;
           var tmp = a.zOrder; a.zOrder = b.zOrder; b.zOrder = tmp;
-          var tmpPos = a.position; a.position = b.position; b.position = tmpPos;
           renderProdList();
           broadcastZOrder();
-          broadcastPositions();
           markStateDirty();
-        };})(p.id, sortedIdx));
+        };})(p.id, zIdx));
 
-        downBtn.addEventListener('click',(function(pid, si){ return function(){
-          /* 往下 = z-index 降低（被蓋在後面）+ 空間位置後移 */
+        downBtn.addEventListener('click',(function(pid, zi){ return function(){
+          /* 往下 = z-index 降低（被蓋在後面），純視覺堆疊調整，不動角色身份、不觸發重新排版 */
           var a = window._bnProducts.find(function(x){return x.id===pid;});
-          var b = zSorted[si+1];
+          var b = zSorted[zi+1];
           if(!a||!b) return;
           var tmp = a.zOrder; a.zOrder = b.zOrder; b.zOrder = tmp;
-          var tmpPos = a.position; a.position = b.position; b.position = tmpPos;
           renderProdList();
           broadcastZOrder();
-          broadcastPositions();
           markStateDirty();
-        };})(p.id, sortedIdx));
+        };})(p.id, zIdx));
 
         moveWrap.appendChild(upBtn);
         moveWrap.appendChild(downBtn);
