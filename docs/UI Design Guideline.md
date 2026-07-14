@@ -1,11 +1,12 @@
 # UI Design Guideline
 
 Version: 2026.07.12-ai-workflow  
-Last Updated: 2026-07-13  
+Last Updated: 2026-07-14  
 Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
 
+- **QR Code（Completed，功能 Commit `79de045`，尚未建立 Git Tag）**：控制台右側欄新增 QRCode 區塊，固定順序為主標／副標／小字之後、Logo 之前；包含標題、網址輸入框、檢查網址連結、狀態訊息（固定保留於輸入框下方，有狀態時顯示文字、無狀態時保持空白）；不提供縮圖、位置／尺寸資訊、拖曳、縮放、旋轉或樣式設定。詳見下方 Right Panel 小節與 CHANGELOG。
 - **去背失敗獨立分類（Bug Fix）**：Review Workspace 新增第三個 Filter 分頁「去背失敗」與 Navigator 標籤；去背失敗素材的 Decision Area 改顯示提示文字取代三顆按鈕；Completion Screen 新增去背失敗計數，但不影響完成判定；Recovery Banner 不再顯示「部分素材處理失敗」。詳見下方相關小節與 CHANGELOG。
 - AI Workflow 背景處理狀態 UI 完成（macOS Development Validated；Windows Validation Deferred）：Processing Notice、Recovery Banner 皆已實作，詳見下方「Control Center 背景處理狀態 UI」。
 - Review Workspace UI Upgrade：Navigator Information Architecture 簡化、Workspace Layout 與 Dynamic Inspector 改版、Decision Area 三顆按鈕同列、新增 Completion Screen / Completion Recovery、Review Workspace 正式中文化。
@@ -163,7 +164,27 @@ Toolbar 顯示：
 
 ## Right Panel
 
-文字欄位固定在上方。Logo、商品圖、1人＋1品使用 Accordion。
+文字欄位固定在上方，QRCode 區塊固定於文字欄位之後、Logo 之前。Logo、商品圖、1人＋1品使用 Accordion。
+
+### QRCode 區塊（Completed）
+
+固定順序：主標／副標／小字之後、Logo 之前；不是 Accordion，恆常展開，也不參與素材互鎖判斷。
+
+包含：
+
+- 標題「QRCode」。
+- 網址輸入框（placeholder：`https://example.com`）。
+- 檢查網址連結：合法網址時可點擊，使用預設瀏覽器開啟；空值或非法網址時停用（視覺降低對比，游標不可互動）。
+- 狀態訊息：固定保留於輸入框下方（版面固定佔位，不因有無文字而跳動）；有狀態時顯示文字，無狀態時保持空白；不使用 Toast，不自動消失。
+
+不提供：
+
+- QR Code 縮圖預覽。
+- 位置／尺寸／比例資訊。
+- 拖曳、縮放、旋轉。
+- 樣式設定（顏色、Error Correction Level 皆固定，不開放調整）。
+
+更新時機固定為貼上網址（自動套用）、Enter、失焦；不綁定「套用文字到模板」按鈕，兩者各自獨立觸發。
 
 Accordion 規則：
 

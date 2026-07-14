@@ -85,6 +85,7 @@ feature/render-context-export-workflow
 - Review Workspace UI Upgrade：Navigator 只顯示檔名、Review Status、Dirty Status；Review Summary 與 Filter（全部素材／待重新去背／去背失敗）移至 Navigator 上方；Workspace 預設 Navigator + Workspace，Inspector 預設收合，點選裁切或橡皮擦才展開 Dynamic Inspector，儲存或取消後收合；Header 僅保留素材審閱／關閉；底部 Decision Area 三顆按鈕同列（核准 / 重新去背 / 撤回上一個決策），去背失敗素材則以提示文字取代三顆按鈕；新增 Completion Screen 與 Completion Recovery；Review Workspace 正式 UI 中文化。詳見 CHANGELOG v0.4.5 與去背失敗獨立分類 Bug Fix（詳見 CHANGELOG）。
 - Photoshop Automation：完成 SPX AD Runtime（`tools/photoshop-automation/spx_ad_runtime.py`，Python stdlib-only）、Platform Adapter Architecture、macOS Adapter（AppleScript／osascript，以 bundle id `com.adobe.Photoshop` 判斷 Ready，不依賴易變動的 process 名稱）與 Windows Adapter（pywin32／`win32com.client`，已完成實作，尚未實機驗證，見下方 Validation Status）。Ready / Execution / Status / Results Contract 已定案並實作，Runtime Workspace 隱藏、自動管理、具備 Pending Execution Timeout 與 stale Workspace 清理。
 - AI Workflow：完成 Ready Check、Manifest Send + Processing Mode、Status Polling + Auto Import、Auto Open Review Workspace、Rerun Workflow、Error / Recovery Hardening。macOS Development End-to-End Manual Validation 全數 18 項 PASS（見下方 Validation Status）。Windows Validation 為 Deferred（Waiting for Windows Validation Environment），Production Launcher／PyInstaller／Cloud Deployment 尚未開始。
+- QR Code：完成 Coding、Browser Validation 與 Jamie Manual Validation，功能 Commit `79de045`（尚未建立 Git Tag）。每個 Job 依 CSV 的 `QRcode` 欄位網址自動產生 QR Code，並可於控制台右側欄手動修改；四個尺寸皆有 Locked Visual Baseline 固定座標，位置／大小不可調整。詳見下方「QR Code」章節與 `docs/Architecture.md`。
 
 ## Locked Completed Phases
 
@@ -110,6 +111,7 @@ Completed：
 - Photoshop Automation（Runtime／Platform Adapter／macOS Adapter；Windows Adapter 已實作，Windows 實機驗證 Deferred）
 - AI Workflow（Control Center Orchestration；macOS Development Manual Validation 18/18 PASS）
 - Render Context & Export Workflow（Batch Render 輸出 placement／template 統一改用控制台目前選擇的 `activePlacement`／`activeTemplate`，並修正對應 layoutKey 計算；功能 Commit `2ac6546`、Tag `v0.5.1`。注意命名：此 Phase 與 Phase 2D-2B-2 已完成的「Render Context」（Thumbnail 共用 Render Context 概念）是兩個不同、皆已完成的項目，不得混用。）
+- QR Code（每個 Job 依 CSV 的 `QRcode` 欄位網址自動產生 QR Code，可於控制台右側欄手動修改，四個尺寸皆有 Locked Visual Baseline 固定座標；功能 Commit `79de045`，尚未建立 Git Tag）
 
 目前 Active Phase：
 
@@ -117,7 +119,7 @@ Completed：
 None（Waiting for next Proposal）
 ```
 
-Photoshop Automation 與 AI Workflow 已完成 Coding、Unit Validation、Integration Validation 與 macOS Development Manual Validation（Photoshop 2025 實機驗證，Stage 1–4 共 18 項 PASS，詳見下方「AI Workflow / Photoshop Automation Validation Status」），並已完成 Final Sign-off（功能 Commit、文件 Commit、Tag `v0.5.0`），正式列入 Locked Completed Phases。Render Context & Export Workflow 已完成 Batch Render 輸出 placement／template 修正並完成 Final Sign-off（功能 Commit `2ac6546`、Tag `v0.5.1`），同樣正式列入 Locked Completed Phases。目前 Active Phase 為 **None（Waiting for next Proposal）**，Branch 仍為 `feature/render-context-export-workflow`（尚未切換至下一個 Phase 的 branch）；其後預計為 **QR Code**，目前為 Next、**Not Started**，尚未建立 Proposal，不得描述為已開始或 Active Phase（見下方「Next Planned Phase Order」）。Windows 實機驗證狀態為 **Deferred（Waiting for Windows Validation Environment）**——這是一個獨立的 Deferred Validation Item，不是 Active Phase，不是 Blocked，也不會阻擋下一個 Phase 開始。Production Launcher、PyInstaller 打包、雲端部署（Cloud Deployment）尚未開始（Not Started），不是目前 Phase，不得描述為「Windows Validation 完成後即進入 Production Deployment」。目前不宣稱支援所有 Photoshop 版本；已實機驗證版本僅 Photoshop 2025。
+Photoshop Automation 與 AI Workflow 已完成 Coding、Unit Validation、Integration Validation 與 macOS Development Manual Validation（Photoshop 2025 實機驗證，Stage 1–4 共 18 項 PASS，詳見下方「AI Workflow / Photoshop Automation Validation Status」），並已完成 Final Sign-off（功能 Commit、文件 Commit、Tag `v0.5.0`），正式列入 Locked Completed Phases。Render Context & Export Workflow 已完成 Batch Render 輸出 placement／template 修正並完成 Final Sign-off（功能 Commit `2ac6546`、Tag `v0.5.1`），同樣正式列入 Locked Completed Phases。QR Code 已完成 Coding、Browser Validation 與 Jamie Manual Validation（功能 Commit `79de045`，尚未建立 Git Tag），同樣正式列入 Locked Completed Phases。目前 Active Phase 為 **None（Waiting for next Proposal）**，Branch 仍為 `feature/render-context-export-workflow`（尚未切換至下一個 Phase 的 branch）；Next Planned Phase Order 四項（Photoshop Automation、AI Workflow、Render Context & Export Workflow、QR Code）已全數完成，下一個 Phase 待 Product Owner 另行提出 Proposal（見下方「Next Planned Phase Order」）。Windows 實機驗證狀態為 **Deferred（Waiting for Windows Validation Environment）**——這是一個獨立的 Deferred Validation Item，不是 Active Phase，不是 Blocked，也不會阻擋下一個 Phase 開始。Production Launcher、PyInstaller 打包、雲端部署（Cloud Deployment）尚未開始（Not Started），不是目前 Phase，不得描述為「Windows Validation 完成後即進入 Production Deployment」。目前不宣稱支援所有 Photoshop 版本；已實機驗證版本僅 Photoshop 2025。
 
 ## AI Workflow / Photoshop Automation Validation Status
 
@@ -475,6 +477,7 @@ Completed：
 - Photoshop Automation（macOS Development Validated；Windows Validation Deferred）
 - AI Workflow（macOS Development Validated；Windows Validation Deferred）
 - Render Context & Export Workflow（Batch Render 輸出 placement／template Bug Fix；Tag `v0.5.1`）
+- QR Code（CSV `QRcode` 欄位網址自動產生、控制台右側欄手動修改、四尺寸 Locked Visual Baseline；功能 Commit `79de045`，尚未建立 Git Tag）
 
 Current：
 
@@ -482,7 +485,7 @@ Current：
 
 Next：
 
-- QR Code（Not Started，尚未建立 Proposal）
+- 尚未決定。Next Planned Phase Order 四項已全數完成，待 Product Owner 另行提出 Proposal。
 
 Photoshop Rerun Automation（Completed，人工匯出流程，仍保留作為既有備援入口）：
 
@@ -512,9 +515,9 @@ The following roadmap order has been decided by the product owner.
 1. Photoshop Automation（Completed — macOS Development Validated; Windows Validation Deferred）
 2. AI Workflow（Completed — macOS Development Validated; Windows Validation Deferred）
 3. Render Context & Export Workflow（Completed — Batch Render placement/template Bug Fix, Tag `v0.5.1`）
-4. QR Code（Next — Not Started, no Proposal opened）
+4. QR Code（Completed — 功能 Commit `79de045`，尚未建立 Git Tag）
 
-目前 Active Phase 為 **None（Waiting for next Proposal）**。Windows Validation（Waiting for Windows Validation Environment）與 Production Deployment（Production Launcher、PyInstaller packaging、Cloud Deployment；Not Started）不佔上述開發 Phase 順序位置：Windows Validation 是獨立的 Deferred Validation Item，Production Deployment 尚未排入開發 Phase 順序，兩者都不是 Current 或 Next 開發 Phase，也不得描述為「Windows Validation 完成後即進入 Production Deployment」。
+以上 4 項已全數完成。目前 Active Phase 為 **None（Waiting for next Proposal）**，下一個 Phase 待 Product Owner 另行提出 Proposal，本清單暫無新項目。Windows Validation（Waiting for Windows Validation Environment）與 Production Deployment（Production Launcher、PyInstaller packaging、Cloud Deployment；Not Started）不佔上述開發 Phase 順序位置：Windows Validation 是獨立的 Deferred Validation Item，Production Deployment 尚未排入開發 Phase 順序，兩者都不是 Current 或 Next 開發 Phase，也不得描述為「Windows Validation 完成後即進入 Production Deployment」。
 
 Rules：
 
@@ -527,9 +530,9 @@ Rules：
 - Photoshop Automation and AI Workflow must not redesign Review Workspace UI, Navigator, Dynamic Inspector, Decision Area, Completion Screen, Crop, Eraser, Canvas, Thumbnail, Batch, `layoutStates`, Approved Asset Resolver, Project State schema, or Review Decision Model.
 - Production Deployment (Production Launcher, PyInstaller packaging, Cloud Deployment) must not be started before Windows Validation is complete, must not be described as in progress or completed, and is not Current or Next.
 - Extension System is not part of the roadmap unless and until the product owner opens a new Proposal for it.
-- QR Code is Next but Not Started: do not open a QR Code Proposal, do not describe it as Active Phase or in progress, until the product owner explicitly starts one.
+- QR Code is Completed and locked (functional Commit `79de045`, no Git Tag yet); do not reopen, redesign, or re-Proposal it except for Bug Fix, User Request, or an explicit Architecture change.
 
-Photoshop Automation、AI Workflow 與 Render Context & Export Workflow 已完成並列入 Locked Completed Phases（Photoshop Automation／AI Workflow：macOS Development Validated；Windows Validation Deferred。Render Context & Export Workflow：Tag `v0.5.1`）。Project Persistence、Control Center UI Upgrade 與 Review Workspace UI Upgrade 同樣已完成並列入 Locked Completed Phases。
+Photoshop Automation、AI Workflow、Render Context & Export Workflow 與 QR Code 已完成並列入 Locked Completed Phases（Photoshop Automation／AI Workflow：macOS Development Validated；Windows Validation Deferred。Render Context & Export Workflow：Tag `v0.5.1`。QR Code：功能 Commit `79de045`，尚未建立 Git Tag）。Project Persistence、Control Center UI Upgrade 與 Review Workspace UI Upgrade 同樣已完成並列入 Locked Completed Phases。
 
 注意命名：「Photoshop Automation」（已完成的 Photoshop 端 Runtime／Adapter 能力）與「Photoshop Rerun Automation」（已完成的 Needs Rerun Collection / Rerun Manifest 人工匯出能力）是兩個不同、皆已完成的 Phase，不得混用。另外，「Render Context」（Phase 2D-2B-2，Thumbnail 共用 Render Context 概念，已完成）與「Render Context & Export Workflow」（本節剛完成的 Phase，Batch Render 輸出 placement／template Bug Fix）也是兩個不同、皆已完成的 Phase，不得混用。
 
@@ -619,6 +622,22 @@ Photoshop Automation 與 AI Workflow 責任不重疊：
 - **AI Workflow** 負責 Control Center 端 Orchestration：使用既有 `buildPhotoshopJobManifest` / `buildPhotoshopRerunManifest` 建立 Manifest、透過 Photoshop Automation 的 Contract 送出工作、執行 Ready Check 的 Control Center 端流程、顯示 Processing Mode 並鎖定操作、讀取 Photoshop Automation 回報的狀態、沿用既有 Matching 函式自動 Import、自動開啟既有 Review Workspace、串接第一輪與 Rerun 第二輪審閱、提供 Error / Recovery。
 
 AI Workflow 未重新設計 Review Workspace UI、Navigator、Dynamic Inspector、Decision Area 或 Completion Screen 的架構；已修正兩個既有 UX Bug：(1) 開啟時／決策後的完成畫面判斷邏輯（見 CHANGELOG）；(2) 去背失敗獨立分類（Bug Fix）——新增「去背失敗」狀態值、Filter 分頁與 Navigator 標籤，Decision Area 對去背失敗素材改顯示提示文字，Completion Screen 新增去背失敗計數，皆為既有元件內的新增顯示內容，非重新設計（見 CHANGELOG）。原本人工匯出流程（`重新去背素材（N）` 選單項目呼叫 `exportPhotoshopRerunManifest`）仍保留作為既有備援入口，未被移除。
+
+## QR Code（Completed）
+
+QR Code 已完成 Coding、Browser Validation 與 Jamie Manual Validation（功能 Commit `79de045`，尚未建立 Git Tag）。
+
+核心行為：
+
+- 每個 Job 擁有一組 QR Code，由 CSV 的 `QRcode` 欄位網址自動產生；使用者可於控制台右側欄修改網址，系統依網址重新產生 QR Code。不使用使用者自行準備的 QR Code 圖片。
+- CSV 欄位比對：找到清理後（移除欄名換行後的第一行）**剛好等於** `QRcode`（不分大小寫）的欄位。真實入稿表同一列裡還有「QRcode統一導shop...」「QRcode雲端(SPX填寫)」等 SPX 內部後續流程欄位，同樣含 QRcode 字樣但通常是空的；比對邏輯必須精準排除這些欄位，不能用「只要含 QRcode 字樣」的寬鬆比對，否則會被覆蓋成空值。
+- 網址驗證：自動 trim、未含 Protocol 自動補上 `https://`、含空白字元一律視為非法；輸入框、Project State、QR Code 產生與檢查網址連結四處皆使用補完 Protocol 後的同一個值。
+- 控制台右側欄固定順序：主標／副標／小字之後、Logo 之前；不提供拖曳、縮放、旋轉或縮圖預覽，獨立於「套用文字到模板」按鈕之外。
+- Template 新增 `qrZone`（四個尺寸皆有 Locked Visual Baseline 固定座標，不可調整）與 `layerOrder.qrCode = 48`（固定位於既有 `info` 圖層之上）。
+- Library：`soldair/node-qrcode`，與 `tools/qrcode-demo/`（技術驗證 demo）共用同一份 vendored 檔案。固定 ECC Level `M`、黑碼白底。
+- `job.qrCodeUrl` 為字串欄位，直接隨 Project State 保存與還原，不透過 `_embeddedAssets` 或 processed asset 機制。
+
+詳見 `docs/Architecture.md`「QR Code Architecture」、`docs/CHANGELOG.md`「QR Code」與 `docs/proposals/QR-Code-Product-Proposal.md`、`docs/proposals/QR-Code-Implementation-Proposal.md`。
 
 ## 8. AI 接手規則
 
