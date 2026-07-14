@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QR Code Visual Baseline Demo（獨立 Demo，非 SPX AD 正式功能）</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="page-header">
+  <h1>QR Code Visual Baseline Demo</h1>
+  <p class="subtitle">
+    獨立 Demo，供設計驗證使用。不屬於 SPX AD 正式功能，不會被整合進控制台。<br />
+    Library：<a href="https://github.com/soldair/node-qrcode" target="_blank" rel="noopener">soldair/node-qrcode</a>
+    （npm <code>qrcode</code> v1.5.4，自行建置 browser build） — <a href="./LICENSE" target="_blank">MIT License</a>
+  </p>
+</header>
+
+<main>
+
+  <!-- ================= 1. Controls ================= -->
+  <section class="panel">
+    <h2>1. 輸入與尺寸</h2>
+
+    <div class="field">
+      <label for="url-input">URL</label>
+      <input id="url-input" type="text" value="https://sho.pe/99umcm" autocomplete="off" spellcheck="false" />
+      <p id="url-error" class="error-msg" hidden>請輸入有效的網址（例如：https://example.com）</p>
+    </div>
+
+    <div class="field">
+      <label for="size-slider">Size（QR Code 外框尺寸）：<span id="size-value">200</span> px</label>
+      <input id="size-slider" type="range" min="50" max="500" step="1" value="200" />
+    </div>
+
+    <div class="field inline">
+      <label><input id="overlay-toggle" type="checkbox" /> 顯示 Bounding Box Overlay（僅供 Demo 量測使用）</label>
+    </div>
+
+    <div class="field inline">
+      <label for="grid-select">Grid Overlay：</label>
+      <select id="grid-select">
+        <option value="0">Off</option>
+        <option value="5">5px</option>
+        <option value="10">10px</option>
+        <option value="20">20px</option>
+      </select>
+    </div>
+  </section>
+
+  <!-- ================= 2. Main QR + Measurement ================= -->
+  <section class="panel">
+    <h2>2. QR Code 預覽與量測</h2>
+
+    <div class="preview-row">
+      <div class="qr-stage-wrap">
+        <div id="qr-stage" class="qr-stage">
+          <canvas id="qr-canvas"></canvas>
+          <div id="overlay-boxes" class="overlay-boxes" hidden></div>
+          <div id="overlay-grid" class="overlay-grid" hidden></div>
+        </div>
+        <p class="hint">Bounding Box Overlay：<span class="swatch outer"></span> 整個 QR Code 外框　<span class="swatch inner"></span> 黑碼 Bounding Box</p>
+      </div>
+
+      <table id="measure-table" class="measure-table">
+        <tbody>
+          <tr><th>整個 QR Code 外框尺寸</th><td id="m-outer">—</td></tr>
+          <tr><th>黑碼 Bounding Box</th><td id="m-black">—</td></tr>
+          <tr><th>Quiet Zone — Top</th><td id="m-qz-top">—</td></tr>
+          <tr><th>Quiet Zone — Bottom</th><td id="m-qz-bottom">—</td></tr>
+          <tr><th>Quiet Zone — Left</th><td id="m-qz-left">—</td></tr>
+          <tr><th>Quiet Zone — Right</th><td id="m-qz-right">—</td></tr>
+          <tr><th>黑碼佔整體百分比</th><td id="m-black-pct">—</td></tr>
+          <tr><th>Quiet Zone 佔整體百分比</th><td id="m-qz-pct">—</td></tr>
+          <tr><th>Module 數（不含 Quiet Zone）</th><td id="m-modules">—</td></tr>
+          <tr><th>QR Version</th><td id="m-version">—</td></tr>
+          <tr><th>Error Correction Level</th><td id="m-ecc">—</td></tr>
+          <tr><th>Margin（Quiet Zone，modules）</th><td id="m-margin">—</td></tr>
+          <tr><th>實際輸出尺寸（canvas 真實 px，非滑桿請求值）</th><td id="m-actual">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p id="size-warning" class="warn-msg" hidden></p>
+  </section>
+
+  <!-- ================= 3. Margin Comparison ================= -->
+  <section class="panel">
+    <h2>3. Margin（Quiet Zone）比較：Default / 0 / 1 / 2 / 4</h2>
+    <p class="note">每個變體固定使用相同 scale（6 px／module），只有 margin 不同，方便直接比較 Quiet Zone 視覺差異。</p>
+    <div id="margin-compare" class="compare-row"></div>
+  </section>
+
+  <!-- ================= 4. Scanning Validation ================= -->
+  <section class="panel">
+    <h2>4. Scanning Validation（同一網址，多尺寸並列）</h2>
+    <div id="scan-gallery" class="compare-row"></div>
+  </section>
+
+  <!-- ================= 5. Download ================= -->
+  <section class="panel">
+    <h2>5. Download</h2>
+    <p class="note">下載內容與畫面目前顯示的 QR Code（同一 URL、同一尺寸）完全一致。</p>
+    <div class="field inline">
+      <button id="download-png">Download PNG</button>
+      <button id="download-svg">Download SVG</button>
+    </div>
+  </section>
+
+</main>
+
+<script src="qrcode.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
