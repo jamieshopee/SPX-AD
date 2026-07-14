@@ -6,7 +6,7 @@ Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
 
-- **QR Code（Completed，功能 Commit `79de045`，尚未建立 Git Tag）**：控制台右側欄新增 QRCode 區塊，固定順序為主標／副標／小字之後、Logo 之前；包含標題、網址輸入框、檢查網址連結、狀態訊息（固定保留於輸入框下方，有狀態時顯示文字、無狀態時保持空白）；不提供縮圖、位置／尺寸資訊、拖曳、縮放、旋轉或樣式設定。詳見下方 Right Panel 小節與 CHANGELOG。
+- **QR Code（Completed，功能 Commit `79de045`、Tag `v0.5.2`）**：控制台右側欄新增 QRCode 區塊，固定順序為主標／副標／小字之後、Logo 之前；包含標題、網址輸入框、檢查網址連結、狀態訊息（固定保留於輸入框下方，有狀態時顯示文字、無狀態時保持空白）；不提供縮圖、位置／尺寸資訊、拖曳、縮放、旋轉或樣式設定。詳見下方 Right Panel 小節與 CHANGELOG。
 - **去背失敗獨立分類（Bug Fix）**：Review Workspace 新增第三個 Filter 分頁「去背失敗」與 Navigator 標籤；去背失敗素材的 Decision Area 改顯示提示文字取代三顆按鈕；Completion Screen 新增去背失敗計數，但不影響完成判定；Recovery Banner 不再顯示「部分素材處理失敗」。詳見下方相關小節與 CHANGELOG。
 - AI Workflow 背景處理狀態 UI 完成（macOS Development Validated；Windows Validation Deferred）：Processing Notice、Recovery Banner 皆已實作，詳見下方「Control Center 背景處理狀態 UI」。
 - Review Workspace UI Upgrade：Navigator Information Architecture 簡化、Workspace Layout 與 Dynamic Inspector 改版、Decision Area 三顆按鈕同列、新增 Completion Screen / Completion Recovery、Review Workspace 正式中文化。

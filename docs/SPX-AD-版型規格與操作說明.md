@@ -6,7 +6,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 
 ## What's New
 
-- **QR Code（Completed，功能 Commit `79de045`，尚未建立 Git Tag）**：每個 Job 依 CSV 的 `QRcode` 欄位網址自動產生 QR Code，可於控制台右側欄手動修改；四個尺寸皆有 Locked Visual Baseline 固定座標，位置與大小不可調整。詳見下方「QRCode」章節。
+- **QR Code（Completed，功能 Commit `79de045`、Tag `v0.5.2`）**：每個 Job 依 CSV 的 `QRcode` 欄位網址自動產生 QR Code，可於控制台右側欄手動修改；四個尺寸皆有 Locked Visual Baseline 固定座標，位置與大小不可調整。詳見下方「QRCode」章節。
 - **去背失敗獨立分類（Bug Fix）**：素材審閱新增「去背失敗」Filter 與 Navigator 標籤，去背失敗素材改顯示提示文字並需回控制台手動更換圖片；Completion Screen 新增計數但不影響完成判定。詳見下方「素材審核 / 素材審閱」與「AI Workflow 使用者流程」，以及 CHANGELOG。
 - AI Workflow 使用者流程完成（macOS Development Validated；Windows Validation Deferred）：素材審核／素材審閱流程新增自動化 Ready Check、Processing Mode、自動 Import、自動開啟審閱與 Rerun，詳見下方「素材審核 / 素材審閱」與「AI Workflow 使用者流程」。
 - 四個尺寸皆採用 `template.json` + `styles/01.json`～`styles/16.json`。
