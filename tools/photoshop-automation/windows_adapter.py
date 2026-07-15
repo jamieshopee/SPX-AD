@@ -114,6 +114,71 @@ def _read_run_report(output_folder):
         return None
 
 
+def _debug_mask_path(path):
+    """Windows DoJavaScript Debug Diagnostics (Proposal Freeze
+    2026-07-15-freeze-01), debug-only display helper: returns only the
+    last path component (basename) formatted as '<...>\\<basename>', so
+    bootstrap debug output never reveals the username, AppData, Temp, or
+    any full disk path. Never raises -- any failure to compute a basename
+    falls back to an empty basename rather than propagating an exception
+    out of a debug helper."""
+    try:
+        basename = os.path.basename(str(path))
+    except Exception:
+        basename = ""
+    return "<...>\\{0}".format(basename)
+
+
+def _debug_describe_exception(error):
+    """Windows DoJavaScript Debug Diagnostics (Proposal Freeze
+    2026-07-15-freeze-01), debug-only helper: best-effort, defensive
+    extraction of whatever COM error detail is available on `error` (e.g.
+    a pywintypes.com_error raised by app.DoJavaScript), including HRESULT
+    and, if present, the excepinfo tuple's source / description /
+    helpFile / helpContext / scode. Every attribute access is individually
+    guarded so this debug helper itself can never turn into a new
+    Exception; any field that isn't available is reported as such rather
+    than guessed at. Does not change com_automation_failed's existing
+    return value -- purely additional print output."""
+    lines = ["type: {0}".format(type(error).__name__)]
+
+    def _safe_get(name, fallback_index=None):
+        try:
+            value = getattr(error, name, None)
+        except Exception:
+            value = None
+        if value is None and fallback_index is not None:
+            try:
+                args = getattr(error, "args", None)
+                if args is not None and len(args) > fallback_index:
+                    value = args[fallback_index]
+            except Exception:
+                value = None
+        return value
+
+    hresult = _safe_get("hresult", 0)
+    lines.append("HRESULT: {0}".format(hresult))
+
+    excepinfo = _safe_get("excepinfo", 2)
+    if excepinfo:
+        wcode = source = description = helpfile = helpcontext = scode = None
+        try:
+            fields = list(excepinfo) + [None] * max(0, 6 - len(excepinfo))
+            wcode, source, description, helpfile, helpcontext, scode = fields[:6]
+        except Exception:
+            pass
+        lines.append("excepinfo.wCode: {0}".format(wcode))
+        lines.append("excepinfo.source: {0}".format(source))
+        lines.append("excepinfo.description: {0}".format(description))
+        lines.append("excepinfo.helpFile: {0}".format(helpfile))
+        lines.append("excepinfo.helpContext: {0}".format(helpcontext))
+        lines.append("excepinfo.scode: {0}".format(scode))
+    else:
+        lines.append("excepinfo: not available")
+
+    return "\n".join(lines)
+
+
 class WindowsPhotoshopAdapter:
     def _connect(self):
         """Connect to an ALREADY RUNNING Photoshop instance only. Must never
@@ -216,9 +281,41 @@ class WindowsPhotoshopAdapter:
                 }
 
             bootstrap = _build_bootstrap_script(manifest_path, original_folder, output_folder)
+            # Windows DoJavaScript Debug Diagnostics (Proposal Freeze
+            # 2026-07-15-freeze-01): print only the masked basenames of the
+            # four paths the bootstrap embeds, so it's possible to confirm
+            # the bootstrap was built with the right filenames/last folder
+            # without ever printing the username, AppData, Temp, or any
+            # full disk path. Purely additive -- does not change bootstrap,
+            # the COM call, or any return value.
+            print(
+                "[SPX AD Runtime][Windows Adapter] DoJavaScript bootstrap "
+                "(paths masked):\n"
+                "  manifestPath: {0}\n"
+                "  originalFolder: {1}\n"
+                "  outputFolder: {2}\n"
+                "  JSX_PATH: {3}".format(
+                    _debug_mask_path(manifest_path),
+                    _debug_mask_path(original_folder),
+                    _debug_mask_path(output_folder),
+                    _debug_mask_path(JSX_PATH),
+                )
+            )
             try:
                 app.DoJavaScript(bootstrap)
             except Exception as error:
+                # Windows DoJavaScript Debug Diagnostics (Proposal Freeze
+                # 2026-07-15-freeze-01): print full available COM error
+                # detail (HRESULT, excepinfo fields) so the real DISP_E_
+                # EXCEPTION detail is visible instead of only the generic
+                # "com_automation_failed" string. _debug_describe_exception
+                # is fully defensive and cannot itself raise. Does not
+                # change this except block's existing return value.
+                print(
+                    "[SPX AD Runtime][Windows Adapter] DoJavaScript failed:\n{0}".format(
+                        _debug_describe_exception(error)
+                    )
+                )
                 return {
                     "ok": False,
                     "error": "com_automation_failed: {0}".format(error),
