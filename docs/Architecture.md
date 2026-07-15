@@ -1,11 +1,12 @@
 # Architecture
 
 Version: v0.5.2（AI Workflow Completed；Render Context & Export Workflow Completed；QR Code Completed；Active Phase: None — Waiting for next Proposal）
-Last Updated: 2026-07-14  
+Last Updated: 2026-07-15  
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界、新增 Style 流程，以及 Photoshop Automation / AI Workflow / QR Code 架構。
 
 ## What's New
 
+- **三商品手動同檔名換圖保留 Product Identity（Bug Fix，Commit `3269b67`）**：手動拖曳同檔名圖片取代三商品其中一張時，過去會被當成全新商品處理（移除既有商品、新增一筆新 id，Canvas DOM 重建），造成身份與排版不一致。修正後 `js/bn-editor-plugin.js` 新增 `findExistingProductByFilename()`，以完整檔名（含副檔名，不分大小寫）比對既有商品，比對到者改走 `replaceExistingProductImage()` 原地更新：不 remove／不 re-add，id 不變，filename 正確保留為新檔名；`js/layout-runtime.js` 新增 `bn-product-image-update` handler，只更新既有 DOM box 的圖片來源，並清除三張商品的 `userAdjusted` 後呼叫既有 `layoutProducts()` 整組重新排版，確保換圖後比例、間距、overlap 與商品區域 fit（不超出邊界）皆與其餘兩張一致；換圖判斷 `autoShadow` 改用與 `applyProductsToCanvas()` 相同的 Template JSON 來源（新增 `window._bnGetActiveTemplateJson()`），避免讀到尚未載入的舊全域變數。另新增 runtime-only 屬性 `product.manualReplaceRawSrc`（換圖當下、autoTrim／autoShadow 處理前的原始圖片），`cloneJobForExport()` 匯出時優先內嵌此原始圖，避免下載單張暫存並重新開啟後，已處理過的圖片被 `buildProductPayloads()` 誤當原始素材重複處理。未修改 Project State schema、未新增欄位；`js/asset-render-payload.js`、`layoutProducts()` 本身、Bug #1 的 position／zOrder 邏輯皆未變動。詳見下方「Product Identity」章節與 `docs/CHANGELOG.md`。
 - **三商品前後順序（z-order）與角色身份（position）解耦（Bug Fix，Commit `ff1d97b`）**：`position`（角色身份：主品／左配品／右配品）與 `zOrder`（視覺堆疊順序）過去被前後順序（▲／▼）按鈕當作同一件事處理，點擊會連帶互換 `position`，造成 Canvas、layoutState、右側商品清單、single-state 之間身份錯亂。修正後兩者互相獨立：`position` 永遠代表角色身份；`zOrder` 只控制堆疊順序，右側商品清單依 `zOrder`（Layer 順序）顯示、角色標籤仍依 `position` 顯示；`zOrder` 正確保存於 single-state 並於重新匯入後立即還原，不需使用者先手動操作一次 ▲／▼ 才會更新。未修改 Project State schema、未新增欄位。詳見下方「Product Identity」章節與 `docs/CHANGELOG.md`。
 - **QR Code — Completed（Final Sign-off，功能 Commit `79de045`、Tag `v0.5.2`）**：每個 Job 依 CSV 的 `QRcode` 欄位網址自動產生 QR Code，使用者可於控制台右側欄修改網址。四個尺寸皆新增 `qrZone`（Locked Visual Baseline 固定座標）與 `layerOrder.qrCode = 48`（固定位於既有 `info` 圖層之上）。`job.qrCodeUrl` 為字串欄位，直接隨 Project State 保存還原。已正式列入 Locked Completed Phases。目前 Active Phase 回到 **None（Waiting for next Proposal）**；Next Planned Phase Order 四項已全數完成。詳見下方「QR Code Architecture」章節與 `docs/CHANGELOG.md`。
 - **Render Context & Export Workflow — Completed（Final Sign-off，Tag `v0.5.1`）**：下載完整專案（Batch Render）的 `renderSingleJob()` 改為一律使用控制台目前選擇的 `activePlacement`／`activeTemplate` 作為批次內所有工單共用的輸出 placement／template，不再讀取各工單自己保存、可能已過期的 `job.placementId`／`job.template`。每筆工單的 Style 仍使用該工單自己的 `styleId`，不受此次修正影響（`activePlacement`／`activeTemplate` 不包含 Style）。原因：`selectPlacement()` 只更新全域 `activePlacement`，未同步寫回 `job.placementId`；而產品規格為「一次生成器工作流程只有一種輸出尺寸，批次內所有工單共用使用者最後在控制台選擇的輸出 placement／template」。同步修正 `layoutKey` 計算，改用 `activePlacement`／`activeTemplate` 計算，使其與 `syncActiveLayoutState()` 存檔時使用的 key 一致，避免位置／大小／前後順序讀到錯誤或空白的 layoutState（該 layoutState 仍讀自每筆 job 自己的 `layoutStates` map）。僅修改 `renderSingleJob()`；未修改 `selectPlacement`／`selectTemplate`／`getTemplateForJob`／Main Canvas／Thumbnail／Project State schema／`layoutStates` schema／單張下載。本輪僅實際驗證 `selectPlacement()` 的行為，`selectTemplate()` 是否同步寫回 `job.template`／`job.templateId` 尚未驗證，本文件不對此做斷言。功能 Commit `2ac6546`、Tag `v0.5.1`；已正式列入 Locked Completed Phases。目前 Active Phase 為 **None（Waiting for next Proposal）**；Next Planned Phase Order 第 4 項 QR Code 已完成（見下方「QR Code Architecture」）。詳見下方 State Boundary 表格 Batch Render 列與 `docs/CHANGELOG.md`。
@@ -656,7 +657,7 @@ capture / thumbnail / export
 
 - DOM 重建後 id 可能改變。
 - `position` 永遠代表商品角色身份（主品／左配品／右配品），不受前後順序（`zOrder`／堆疊順序）調整影響；`zOrder` 只控制視覺堆疊順序（誰蓋住誰），與 `position` 為互相獨立、不互相覆寫的欄位（Bug Fix，Commit `ff1d97b`，見 `docs/CHANGELOG.md`）。
-- filename 為 Batch Restore 的穩定身份。
+- filename 為 Batch Restore 的穩定身份；手動同檔名換圖（拖曳完整檔名相符的新圖片取代既有商品）同樣以完整檔名比對，原地更新既有商品的圖片來源與 id，不 remove／不 re-add（Bug Fix，Commit `3269b67`，見 `docs/CHANGELOG.md`）。
 - Batch Render、Restore、Project State Restore 不可只依 position 或 array index 對應商品。
 
 重要限制：
