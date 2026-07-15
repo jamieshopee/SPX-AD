@@ -125,7 +125,18 @@ class WindowsPhotoshopAdapter:
             return None
         try:
             return win32com.client.GetActiveObject(PHOTOSHOP_COM_PROGID)
-        except Exception:
+        except Exception as error:
+            # Windows real-machine diagnostic only (this Phase's explicit,
+            # scoped instruction): print the exception type and message so
+            # the real GetActiveObject failure reason is visible in the
+            # Runtime's own console window, instead of being silently
+            # discarded. Deliberately no traceback and no path/user data --
+            # does not change this method's return value or the Ready
+            # Contract in any way.
+            print(
+                "[SPX AD Runtime][Windows Adapter] GetActiveObject('{0}') failed: "
+                "{1}: {2}".format(PHOTOSHOP_COM_PROGID, type(error).__name__, error)
+            )
             return None
 
     def is_alive(self):
