@@ -6,6 +6,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 
 ## What's New
 
+- **一人一品（Person + Single Product）手動換圖修正（Bug Fix，Commit `c390a61`）**：手動換圖後下載單張暫存並重新開啟，正確保留換過的新圖（不再還原成舊圖）；Single Product 換圖後 Shadow 正確顯示；換圖前已拖曳／縮放／旋轉的位置與角度維持不變，仍可繼續正常拖曳、縮放、旋轉。詳見下方「1人＋1品」章節。
 - **三商品手動同檔名換圖保留 Product Identity（Bug Fix，Commit `3269b67`）**：拖曳與既有商品完整檔名（含副檔名）相符的新圖片，會視為取代該商品，原地更新圖片內容，商品角色身份與前後順序不變；Canvas 立即更新，整組比例、間距、overlap 與商品區域 fit 皆與其餘兩張商品一致；下載單張暫存並重新開啟後，換圖結果維持一致。詳見下方「三商品」章節。
 - **三商品前後順序與角色身份解耦（Bug Fix，Commit `ff1d97b`）**：調整前後順序不再改變商品角色身份（主品／左配品／右配品固定不變），只改變視覺堆疊順序；前後順序會隨其他調整正確保存與還原。詳見下方「三商品」章節。
 - **QR Code（Completed，功能 Commit `79de045`、Tag `v0.5.2`）**：每個 Job 依 CSV 的 `QRcode` 欄位網址自動產生 QR Code，可於控制台右側欄手動修改；四個尺寸皆有 Locked Visual Baseline 固定座標，位置與大小不可調整。詳見下方「QRCode」章節。
@@ -214,6 +215,8 @@ SingleProduct：
 - 初始尺寸由 `singleProduct.maxWidth / maxHeight` 控制。
 - 是否加陰影由 `singleProduct.autoShadow` 控制。
 - 支援拖曳、縮放、旋轉與恢復預設位置。
+
+手動換圖（Person／Single Product 皆適用）：拖曳與既有圖片檔名同角色（含 `_人`／`_品`）的新圖片，會視為取代該角色，原地更新圖片內容，不重建 Canvas 元素；Single Product 換圖後會依既有尺寸規則、依新圖比例重新調整大小，換圖前的位置與旋轉角度維持不變，仍可繼續拖曳、縮放、旋轉；Shadow 依 `singleProduct.autoShadow` 正確套用。下載單張暫存並重新開啟後，換圖結果維持一致，不會還原成換圖前的舊圖（Bug Fix，Commit `c390a61`）。
 
 ## 商品角色命名
 
