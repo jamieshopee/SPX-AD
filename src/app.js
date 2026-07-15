@@ -1763,14 +1763,19 @@ window._bnGetActiveTemplateJson = function() {
 // Bug #2C（手動換圖 Asset Pipeline record 失效化）：手動換圖只更新畫布上的
 // 圖片內容，從未更新 assetPipelineState，導致換圖前仍標示 approved 的那一筆
 // record（連同其 processedAsset）繼續被 Approved Asset Resolver 選中，蓋過
-// 手動換入的新圖。這裡精確限定「目前工單 + role:product + 該商品 slot +
+// 手動換入的新圖。這裡精確限定「目前工單 + role + 該商品 slot（若有）+
 // 完整 filename」這一筆 record，只做狀態欄位調整，不掃描、不批次處理，不
-// 影響同一工單其他商品、其他工單同檔名素材，或 Logo／Person／SingleProduct
-// record。沿用既有 window.BNAssetResolver.resolveApprovedAsset()（不修改
-// js/asset-resolver.js）取得比對到的 assetKey，直接對 assetPipelineState 內
-// 該筆既有 record 更新 status／processedAsset／review 三個既有欄位，不新增
-// schema 或狀態值，不改 Resolver、不改 Asset Pipeline 既有角色。
-window._bnInvalidateApprovedAssetForManualReplace = function(filename, slot) {
+// 影響同一工單其他商品、其他工單同檔名素材，或其他角色的 record。沿用既有
+// window.BNAssetResolver.resolveApprovedAsset()（不修改 js/asset-resolver.js）
+// 取得比對到的 assetKey，直接對 assetPipelineState 內該筆既有 record 更新
+// status／processedAsset／review 三個既有欄位，不新增 schema 或狀態值，不改
+// Resolver、不改 Asset Pipeline 既有角色。
+// 一人一品 Bug Fix（Person + Single Product 手動換圖後暫存還原成舊圖）：
+// role 參數新增，預設值 'product' 維持三商品既有呼叫端行為不變；
+// js/bn-editor-plugin.js 的 handlePersonProductFiles() 換圖後改呼叫本函式，
+// Person 帶入 role:'person'，Single Product 帶入 role:'singleProduct'，
+// 沿用同一套機制，不新增第二套失效化邏輯。
+window._bnInvalidateApprovedAssetForManualReplace = function(filename, slot, role = 'product') {
   if (!assetPipelineState || !assetPipelineState.assets) return;
   if (!window.BNAssetResolver?.resolveApprovedAsset) return;
   const job = activeJob();
@@ -1778,7 +1783,7 @@ window._bnInvalidateApprovedAssetForManualReplace = function(filename, slot) {
   const jobId = String(job.jobId || job.id || job.outputFilename || '');
   const result = window.BNAssetResolver.resolveApprovedAsset(assetPipelineState, {
     jobId,
-    role: 'product',
+    role,
     slot,
     filename,
   });
@@ -1788,7 +1793,7 @@ window._bnInvalidateApprovedAssetForManualReplace = function(filename, slot) {
   record.status = 'pending';
   delete record.processedAsset;
   delete record.review;
-  console.log('[CC][assetPipeline] manual replace invalidated approved record', { assetKey, filename, slot, jobId });
+  console.log('[CC][assetPipeline] manual replace invalidated approved record', { assetKey, filename, slot, role, jobId });
 };
 
 window._bnResetCurrentLayoutState = function(kind) {

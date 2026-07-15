@@ -883,14 +883,37 @@
             var fitW = personDefaults.fitWidth;
             window._bnPerson = {src:src, displayWidth:fitW, objectFit:'contain'};
             broadcast({type:'bn-person-add', src:src, displayWidth:fitW, objectFit:'contain'});
+            /* 一人一品 Bug Fix：手動換圖後沿用三商品既有的 Asset Pipeline
+               record 失效化機制（window._bnInvalidateApprovedAssetForManualReplace，
+               不新增第二套邏輯），避免下載單張暫存並重新匯入後，Approved
+               Asset Resolver 命中換圖前仍標示 approved 的舊 record，蓋過剛
+               內嵌的新圖。Person 無 slot 概念，帶 null。 */
+            if(typeof window._bnInvalidateApprovedAssetForManualReplace === 'function'){
+              window._bnInvalidateApprovedAssetForManualReplace(fname, null, 'person');
+            }
           } else {
-            if(singleDefaults.autoShadow){
+            /* Single Product Shadow Bug Fix：換圖當下改用既有、可靠的
+               window._bnGetActiveTemplateJson()（直接回傳 activeTemplate._json
+               即時參照，src/app.js 提供，三商品 replaceExistingProductImage()
+               已使用同一個函式）重新取得 singleProduct 設定，取代原本讀取、
+               透過 selectJob()/selectStyle() 內未 await 的 .then() 非同步指派、
+               換圖當下可能仍是 null／不完整的 window.__BN_TEMPLATE__。只影響
+               這個分支內 autoShadow／maxWidth／maxHeight 的判斷來源，不影響
+               函式頂端的 tpl／personDefaults，Person 分支行為不變。 */
+            var reliableTpl = typeof window._bnGetActiveTemplateJson === 'function' ? window._bnGetActiveTemplateJson() : null;
+            var singleDefaultsReliable = (((reliableTpl || {}).productZones || {}).singleProduct || {}).defaultLayout || singleDefaults;
+            if(singleDefaultsReliable.autoShadow){
               var shadowed = await autoApplyShadow(src, ratio);
               src = shadowed.src; ratio = shadowed.ratio;
             }
-            var maxW = singleDefaults.maxWidth, maxH = singleDefaults.maxHeight;
+            var maxW = singleDefaultsReliable.maxWidth, maxH = singleDefaultsReliable.maxHeight;
             window._bnSingleProd = {src:src, ratio:ratio, displayW:maxW, displayH:maxH, zoneHeight:maxH, objectFit:'contain'};
             broadcast({type:'bn-single-product-add', src:src, ratio:ratio, displayW:maxW, displayH:maxH, zoneHeight:maxH, objectFit:'contain'});
+            /* 一人一品 Bug Fix：同上，Single Product 帶 role:'singleProduct'，
+               無 slot 概念，帶 null。 */
+            if(typeof window._bnInvalidateApprovedAssetForManualReplace === 'function'){
+              window._bnInvalidateApprovedAssetForManualReplace(fname, null, 'singleProduct');
+            }
           }
         }
         /* 若所有圖片都未含 _人/_品，顯示提示 */

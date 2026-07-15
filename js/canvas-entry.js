@@ -241,6 +241,75 @@
       }
       if (data.type === 'bn-single-product-add') {
         var productZone = document.getElementById('bn-zone-singleprod');
+        /* Single Product 手動換圖 Bug Fix：若既有 box 已存在（換圖情境），
+           原地更新既有 box，不清空 productZone、不重建 DOM，比照三商品
+           bn-product-image-update 的既有做法（只更新既有內容，不重建）。
+           不觸碰旋轉（dataset.rotation／style.transform）與既有拖曳／縮放／
+           旋轉事件綁定（不重新呼叫 attachBoxTransform()）。只有「box 尚不
+           存在」（初次帶入）才維持下方既有的清空／重建流程。 */
+        var existingSingleBox = productZone.querySelector('.bn-single-product-box');
+        if (existingSingleBox) {
+          (function updateExistingSingleProductBox(box) {
+            var img = box.querySelector('img');
+            if (!img) return;
+            var curLeft = parseFloat(box.style.left) || 0;
+            var curTop = parseFloat(box.style.top) || 0;
+            var curWidth = parseFloat(box.style.width) || box.offsetWidth || 1;
+            var curHeight = parseFloat(box.style.height) || box.offsetHeight || 1;
+            var centerX = curLeft + curWidth / 2;
+            var centerY = curTop + curHeight / 2;
+            img.onload = function () {
+              var singleConfig = ((global.__BN_TEMPLATE__ || {}).productZones || {}).singleProduct || {};
+              var singleDefaults = singleConfig.defaultLayout || {};
+              var zoneWidth = styleNumber(singleConfig.style, 'width', productZone.clientWidth || numberValue(singleDefaults.maxWidth, 0));
+              var zoneHeight = styleNumber(singleConfig.style, 'height', productZone.clientHeight || numberValue(singleDefaults.maxHeight, 0));
+              if (!zoneWidth) zoneWidth = numberValue(singleDefaults.maxWidth, 0);
+              if (!zoneHeight) zoneHeight = numberValue(singleDefaults.maxHeight, 0);
+              var maxW = numberValue(singleDefaults.maxWidth, zoneWidth);
+              var maxH = numberValue(singleDefaults.maxHeight, zoneHeight);
+              /* 沿用既有 Single Product 尺寸規則（與 js/asset-render-payload.js
+                 buildProductPayloads() singleProduct 分支相同的 contain 縮放
+                 算法）：依新圖實際比例，在 maxWidth／maxHeight 內等比縮放。 */
+              var naturalRatio = (img.naturalWidth && img.naturalHeight) ? (img.naturalWidth / img.naturalHeight) : (Number(data.ratio) || 1);
+              var newWidth = maxW;
+              var newHeight = maxH;
+              if (naturalRatio > 0 && maxW > 0 && maxH > 0) {
+                if (maxW / maxH > naturalRatio) {
+                  newHeight = maxH;
+                  newWidth = Math.round(maxH * naturalRatio);
+                } else {
+                  newWidth = maxW;
+                  newHeight = Math.round(maxW / naturalRatio);
+                }
+              }
+              /* 保留換圖前的中心位置，不跳回 Template 預設位置。 */
+              var newLeft = centerX - newWidth / 2;
+              var newTop = centerY - newHeight / 2;
+              box.style.width = newWidth + 'px';
+              box.style.height = newHeight + 'px';
+              box.style.left = newLeft + 'px';
+              box.style.top = newTop + 'px';
+              box.dataset.ratio = String(naturalRatio || 1);
+              /* base* 為「目前尺寸下置中預設位置」的既有參考值，與建立時同一套
+                 公式重新計算，確保後續 offsetX／offsetY 計算基準一致；實際
+                 box 位置（left/top）維持上面保留的換圖前中心點，不套用這個
+                 base 值，避免跳回預設位置。 */
+              var newBaseLeft = Math.max(0, (zoneWidth - newWidth) / 2);
+              var newBaseTop = Number(data.zoneHeight) > newHeight
+                ? Math.max(0, (zoneHeight - newHeight) / 2)
+                : 0;
+              box.dataset.baseLeft = String(newBaseLeft);
+              box.dataset.baseTop = String(newBaseTop);
+              box.dataset.baseWidth = String(newWidth);
+              box.dataset.baseHeight = String(newHeight);
+              box.dataset.offsetX = String(newLeft - newBaseLeft);
+              box.dataset.offsetY = String(newTop - newBaseTop);
+              if (typeof syncSingleProductGeometry === 'function') syncSingleProductGeometry(box, productZone);
+            };
+            img.src = data.src;
+          })(existingSingleBox);
+          return;
+        }
         productZone.innerHTML = '';
         var singleConfig = ((global.__BN_TEMPLATE__ || {}).productZones || {}).singleProduct || {};
         var singleDefaults = singleConfig.defaultLayout || {};
