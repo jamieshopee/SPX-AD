@@ -91,15 +91,40 @@ def _build_bootstrap_script(manifest_path, original_folder, output_folder):
     macOS -- sets $.global.__SPX_PS_ADAPTER_ARGS__ then $.evalFile()'s the
     existing, unmodified remove-background.jsx. Not a reimplementation of
     remove-background.jsx's logic; this only ever hands it the same three
-    paths the macOS Adapter already hands it."""
+    paths the macOS Adapter already hands it.
+
+    Windows DoJavaScript Phase Checkpoints (Proposal Freeze
+    2026-07-15-freeze-02), temporary diagnostic only: wraps the same two
+    original statements in a try/catch and tracks which phase was reached
+    via a $.global marker (no temp files -- a Checkpoint file's own
+    creation could itself fail and be misread as an earlier phase, which
+    is exactly why this uses an in-memory $.global assignment instead):
+      'A' -- before the parameters are set at all (the initial value).
+      'B' -- immediately after $.global.__SPX_PS_ADAPTER_ARGS__ is set,
+             right before $.evalFile() is called.
+      'C' -- set by remove-background.jsx's own very first executable
+             statement, so it is only ever reached once $.evalFile() has
+             truly started running that file's content.
+    On any exception, the phase reached so far is appended to a re-thrown
+    Error's message, so the existing Windows COM Exception Diagnostics
+    (_debug_describe_exception) prints it automatically as part of the
+    existing HRESULT/excepinfo output -- no new print logic needed. Still
+    exactly one app.DoJavaScript() call; does not change the Ready/
+    Execution/Status/Result Contract, return values, or Report Format."""
     escaped_manifest = _escape_for_js(manifest_path)
     escaped_original = _escape_for_js(original_folder)
     escaped_output = _escape_for_js(output_folder)
     escaped_jsx = _escape_for_js(JSX_PATH)
     return (
+        "$.global.__SPX_PS_DEBUG_PHASE__ = 'A'; "
+        "try {{ "
         "$.global.__SPX_PS_ADAPTER_ARGS__ = {{ manifestPath: '{0}', "
         "originalFolder: '{1}', outputFolder: '{2}' }}; "
-        "$.evalFile('{3}');"
+        "$.global.__SPX_PS_DEBUG_PHASE__ = 'B'; "
+        "$.evalFile('{3}'); "
+        "}} catch (e) {{ throw new Error('[Phase ' + "
+        "$.global.__SPX_PS_DEBUG_PHASE__ + '] ' + "
+        "(e && e.message ? e.message : e)); }}"
     ).format(escaped_manifest, escaped_original, escaped_output, escaped_jsx)
 
 

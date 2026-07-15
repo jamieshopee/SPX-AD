@@ -10,6 +10,14 @@
  */
 
 (function () {
+  // Windows DoJavaScript Phase Checkpoints (Proposal Freeze
+  // 2026-07-15-freeze-02), temporary diagnostic only: this must remain the
+  // very first executable statement in this file. It marks that
+  // $.evalFile() has truly begun executing this file's content (Phase C),
+  // as opposed to having failed to load/parse the file at all (Phase B).
+  // Does not affect any existing logic below -- to be removed once the
+  // Windows DoJavaScript Bug Fix Investigation no longer needs it.
+  $.global.__SPX_PS_DEBUG_PHASE__ = 'C';
   var args = $.global.__SPX_PS_ADAPTER_ARGS__ || {};
   var startedAt = nowIso();
   var manifest = null;
