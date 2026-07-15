@@ -670,13 +670,99 @@
         });
       }
 
+      /* 手動換圖 Bug Fix（Bug #2A/#2B）：完整檔名（含副檔名，大小寫正規化）
+         比對既有商品，找到相符者視為「取代既有商品」，不得只比對去除副檔名
+         後的 basename（避免「商品.jpg」與「商品.png」被誤判為同一個既有商品）。*/
+      function findExistingProductByFilename(filename){
+        var key = String(filename || '').trim().toLowerCase();
+        if(!key) return null;
+        var found = null;
+        window._bnProducts.forEach(function(p){
+          if(found) return;
+          var existingKey = String(p.filename || '').trim().toLowerCase();
+          if(existingKey && existingKey === key) found = p;
+        });
+        return found;
+      }
+
+      /* 手動換圖 Bug Fix：原地更新既有商品的圖片來源與 filename identity，
+         不 remove、不 re-add、不建立新 id；position／zOrder（JS 端欄位）
+         不動（本函式完全不觸碰這兩個欄位）。
+         整組排版修正（Bug #2 追加）：新圖片 ratio／baselineRatio 送到
+         Canvas 端後，Canvas 會清除三張商品的 userAdjusted 並呼叫既有
+         layoutProducts() 整組重新排版（見 js/layout-runtime.js 的
+         bn-product-image-update handler），這會暫時把 zIndex 依 position
+         順序覆寫；因此這裡送完訊息後，緊接著呼叫既有的 broadcastZOrder()
+         （不修改其邏輯），依目前 zOrder 重新校正 zIndex，確保最終畫面的
+         前後順序與換圖前一致。
+         Template 來源修正（Bug #2 追加）：判斷 autoShadow 改用
+         window._bnGetActiveTemplateJson()（src/app.js 提供，直接回傳目前
+         activeTemplate._json 的即時參照），與 applyProductsToCanvas()／
+         buildProductPayloads() 判斷 autoShadow 用的是同一份 Template JSON
+         來源，不再讀取 window.__BN_TEMPLATE__，不建立第二套判斷。
+         匯出來源修正（Bug #2 追加）：額外把換圖當下、autoTrim／autoShadow
+         處理「之前」的原始 dataURL 存進 existing.manualReplaceRawSrc——
+         這是一個獨立命名、僅供本流程使用的 runtime-only 屬性，不讀寫
+         existing.baseSrc（Crop/Eraser/Shadow Editor 專用，語意不同、不得
+         混用），也不寫入 Project State schema，只供 src/app.js 的
+         cloneJobForExport() 匯出 _embeddedAssets 時讀取，避免匯出「已處理
+         過的 render 圖」被 buildProductPayloads() 在重新匯入時誤當原始
+         素材、再處理一次造成陰影疊加與整組尺寸跑掉。*/
+      async function replaceExistingProductImage(existing, file){
+        var rawSrc = await readFile(file);
+        var src = rawSrc;
+        var tpl = typeof window._bnGetActiveTemplateJson === 'function' ? window._bnGetActiveTemplateJson() : null;
+        var useAutoShadow = !!(tpl && tpl.productZones && tpl.productZones.threeProducts &&
+                               tpl.productZones.threeProducts.defaultLayout &&
+                               tpl.productZones.threeProducts.defaultLayout.autoShadow);
+        var img = await loadImg(src);
+        var trimmed = autoTrim(img);
+        src = trimmed.src;
+        var ratio = trimmed.ratio;
+        var baselineRatio = existing.baselineRatio || 1;
+        if(useAutoShadow){
+          var shadowed = await autoApplyShadow(src, ratio);
+          src = shadowed.src;
+          ratio = shadowed.ratio;
+          baselineRatio = shadowed.baselineRatio || 1;
+        }
+        existing.src = src;
+        existing.manualReplaceRawSrc = rawSrc;
+        existing.filename = file.name;
+        existing.name = file.name.replace(/\.[^.]+$/, '');
+        existing.ratio = ratio || 1;
+        existing.baselineRatio = baselineRatio;
+        broadcast({type:'bn-product-image-update', id:existing.id, src:src, filename:existing.filename, ratio:existing.ratio, baselineRatio:existing.baselineRatio});
+        broadcastZOrder();
+        if(typeof window._bnInvalidateApprovedAssetForManualReplace === 'function'){
+          window._bnInvalidateApprovedAssetForManualReplace(existing.filename, existing.position);
+        }
+      }
+
       async function handleDirectProdFiles(files){
         var imgs = files.filter(function(f){ return f.type.startsWith('image/'); });
         if(!imgs.length) return;
-        var newItems = await Promise.all(imgs.map(function(f){
+        /* 同檔名取代與全新上傳為兩條明確分支：完整檔名比對到既有商品者走
+           原地取代，其餘維持既有 _slotted/_unslotted 全新上傳流程不變。*/
+        var toReplace = [];
+        var toUpload = [];
+        imgs.forEach(function(f){
+          var existing = findExistingProductByFilename(f.name);
+          if(existing) toReplace.push({file:f, existing:existing});
+          else toUpload.push(f);
+        });
+        for(var r=0; r<toReplace.length; r++){
+          await replaceExistingProductImage(toReplace[r].existing, toReplace[r].file);
+        }
+        if(toReplace.length){
+          renderProdList();
+          markStateDirty();
+        }
+        if(!toUpload.length){ updateMutualExclusion(); return; }
+        var newItems = await Promise.all(toUpload.map(function(f){
           return readFile(f).then(function(src){
             var position = window.BNProductSlotUtils.detectProductPosition(f.name);
-            return {src:src, name:f.name.replace(/\.[^.]+$/,''), ratio:1, _slot:position};
+            return {src:src, name:f.name.replace(/\.[^.]+$/,''), filename:f.name, ratio:1, _slot:position};
           });
         }));
         newItems.forEach(function(r){
@@ -893,7 +979,7 @@
            會套錯大小比例。 */
         var sizeScale=sizeRatios?sizeRatios[pos]||0.72:1;
         var baselineRatio = item.baselineRatio || 1;
-        var prod = {id:id,src:src,ratio:item.ratio||1,baselineRatio:baselineRatio,name:item.name,sizeScale:sizeScale,position:pos,zOrder:pos,_slot:item._slot!==undefined?item._slot:null};
+        var prod = {id:id,src:src,ratio:item.ratio||1,baselineRatio:baselineRatio,name:item.name,filename:item.filename||'',sizeScale:sizeScale,position:pos,zOrder:pos,_slot:item._slot!==undefined?item._slot:null};
         if(item.baseSrc) prod.baseSrc = item.baseSrc;
         if(item.meta) prod.meta = JSON.parse(JSON.stringify(item.meta));
         window._bnProducts.push(prod);

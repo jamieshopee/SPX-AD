@@ -1747,6 +1747,50 @@ function updateProductModeLock() {
   if (typeof window._bnUpdateMutualExclusion === 'function') window._bnUpdateMutualExclusion();
 }
 
+// Bug #2（手動換圖 Template 來源不一致）：applyProductsToCanvas()／
+// buildProductPayloads() 判斷 autoShadow／ratio／baselineRatio 用的是
+// activeTemplate._json（經 ensureTemplateJson() 保證已載入、有 memoization，
+// 可靠），手動換圖（js/bn-editor-plugin.js 的 replaceExistingProductImage()）
+// 原本讀的是 window.__BN_TEMPLATE__——一個由 selectJob() 內部未 await 的
+// promise 非同步指派的全域變數，換圖時機若早於該指派完成，會讀到 null／
+// 舊值，導致 autoShadow 誤判為 false、ratio／baselineRatio 用錯資料。這裡
+// 提供一個單純的 getter，直接回傳目前 activeTemplate._json 的即時參照，
+// 不建立第二份 Template State、不需要另外同步。
+window._bnGetActiveTemplateJson = function() {
+  return activeTemplate?._json || null;
+};
+
+// Bug #2C（手動換圖 Asset Pipeline record 失效化）：手動換圖只更新畫布上的
+// 圖片內容，從未更新 assetPipelineState，導致換圖前仍標示 approved 的那一筆
+// record（連同其 processedAsset）繼續被 Approved Asset Resolver 選中，蓋過
+// 手動換入的新圖。這裡精確限定「目前工單 + role:product + 該商品 slot +
+// 完整 filename」這一筆 record，只做狀態欄位調整，不掃描、不批次處理，不
+// 影響同一工單其他商品、其他工單同檔名素材，或 Logo／Person／SingleProduct
+// record。沿用既有 window.BNAssetResolver.resolveApprovedAsset()（不修改
+// js/asset-resolver.js）取得比對到的 assetKey，直接對 assetPipelineState 內
+// 該筆既有 record 更新 status／processedAsset／review 三個既有欄位，不新增
+// schema 或狀態值，不改 Resolver、不改 Asset Pipeline 既有角色。
+window._bnInvalidateApprovedAssetForManualReplace = function(filename, slot) {
+  if (!assetPipelineState || !assetPipelineState.assets) return;
+  if (!window.BNAssetResolver?.resolveApprovedAsset) return;
+  const job = activeJob();
+  if (!job || !filename) return;
+  const jobId = String(job.jobId || job.id || job.outputFilename || '');
+  const result = window.BNAssetResolver.resolveApprovedAsset(assetPipelineState, {
+    jobId,
+    role: 'product',
+    slot,
+    filename,
+  });
+  const assetKey = result && result.assetKey;
+  const record = assetKey ? assetPipelineState.assets[assetKey] : null;
+  if (!record) return;
+  record.status = 'pending';
+  delete record.processedAsset;
+  delete record.review;
+  console.log('[CC][assetPipeline] manual replace invalidated approved record', { assetKey, filename, slot, jobId });
+};
+
 window._bnResetCurrentLayoutState = function(kind) {
   const job = activeJob();
   if (job?.layoutState) {
@@ -3742,14 +3786,23 @@ function cloneJobForExport(job) {
 
   if (window._bnProducts?.length) {
     const labels = ['主品', '左配品', '右配品'];
+    // Bug #2（陰影重複烘焙修正）：手動換圖後 product.src 是 autoTrim／
+    // autoShadow 處理「後」的 render 圖；若直接內嵌這張圖，重新匯入時
+    // buildProductPayloads() 會把它當原始素材再處理一次，造成陰影疊加、
+    // 整組尺寸跑掉。product.manualReplaceRawSrc（js/bn-editor-plugin.js
+    // 的 replaceExistingProductImage() 寫入的 runtime-only 屬性，僅服務
+    // 本次手動換圖流程，與 Crop/Eraser/Shadow Editor 專用的 baseSrc 無關）
+    // 若存在，優先內嵌這張「處理前」的原始圖；未曾手動換圖的商品沒有這個
+    // 屬性，維持原本內嵌 product.src 的既有行為不變。
     copy.productFilenames = window._bnProducts
       .slice()
       .sort((a, b) => (a.position ?? 99) - (b.position ?? 99))
       .map((product, index) => {
         const position = product.position ?? index;
-        const ext = extFromMime(dataUrlMime(product.src, 'image/png'));
+        const embedSrc = product.manualReplaceRawSrc || product.src;
+        const ext = extFromMime(dataUrlMime(embedSrc, 'image/png'));
         const name = `${key}_PRODUCT_${String(position + 1).padStart(2, '0')}_${labels[position] || '商品'}.${ext}`;
-        copy._embeddedAssets[name] = { dataUrl: product.src, category: 'products', type: dataUrlMime(product.src, 'image/png') };
+        copy._embeddedAssets[name] = { dataUrl: embedSrc, category: 'products', type: dataUrlMime(embedSrc, 'image/png') };
         return name;
       });
   } else if (window._bnPerson || window._bnSingleProd) {

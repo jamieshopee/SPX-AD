@@ -564,6 +564,44 @@
       notifyLayoutState();
     }
 
+    /* 手動換圖 Bug Fix（Bug #2A/#2B）：只更新既有商品 DOM box 內的圖片
+       來源與 filename identity，不建立新 DOM、不移除既有 DOM、不讀寫
+       _boxStates。與 bn-product-add／bn-product-remove／bn-product-zorder
+       完全獨立、不修改這三者本身。
+       整組排版修正（Bug #2 追加，取代先前「只重算單張商品」的作法）：
+       換圖後三商品必須整組重新套用「第一次置入三商品」的排版結果（比例、
+       間距、overlap、fitScale、baseline 對齊、商品區域邊界），不得只处理
+       被換的那一張，也不得另外維護一套排版公式。做法：同步被換商品的
+       dataset.ratio／baselineRatio 後，清除 pzone 內三張商品全部的
+       data-userAdjusted（本次確認的預期行為：換圖即重新套用整組預設排版，
+       不論換圖前是否手動調整過任何一格），直接呼叫既有、本次不修改的
+       layoutProducts(pzone)，讓三張商品一起重新計算 left/top/width/height。
+       zIndex 校正另外由 js/bn-editor-plugin.js 的 replaceExistingProductImage()
+       呼叫既有 broadcastZOrder() 處理，本函式不負責。 */
+    if (e.data.type === 'bn-product-image-update') {
+      var pzone = getProductZone(); if(!pzone) return;
+      var box = pzone.querySelector('.bn-prod-box[data-id="'+e.data.id+'"]');
+      if(box){
+        var pimg = box.querySelector('img');
+        if(pimg) pimg.src = e.data.src;
+        box.dataset.filename = e.data.filename || box.dataset.filename || '';
+
+        var newRatio = parseFloat(e.data.ratio);
+        if(!isFinite(newRatio) || newRatio <= 0) newRatio = 1;
+        box.dataset.ratio = String(newRatio);
+        if(e.data.baselineRatio !== undefined && e.data.baselineRatio !== null){
+          box.dataset.baselineRatio = String(e.data.baselineRatio);
+        }
+
+        Array.from(pzone.querySelectorAll('.bn-prod-box')).forEach(function(b){
+          delete b.dataset.userAdjusted;
+        });
+
+        layoutProducts(pzone);
+      }
+      notifyLayoutState();
+    }
+
     /* 空間位置更新：換排序後更新 data-position 並重新 layout */
     if (e.data.type === 'bn-product-reposition') {
       var pzone = getProductZone(); if(!pzone) return;
