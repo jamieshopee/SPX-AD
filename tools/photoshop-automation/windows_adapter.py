@@ -63,9 +63,11 @@ import os
 try:
     import win32com.client
     import pywintypes
+    import pythoncom
 except ImportError:  # pragma: no cover - only unavailable on non-Windows hosts
     win32com = None
     pywintypes = None
+    pythoncom = None
 
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _PHOTOSHOP_TOOLS_DIR = os.path.abspath(os.path.join(_THIS_DIR, "..", "photoshop"))
@@ -142,8 +144,32 @@ class WindowsPhotoshopAdapter:
     def is_alive(self):
         """Platform-specific liveness primitive: is Photoshop currently
         running and reachable via COM. Used both for Ready Check and for
-        Runtime Health Detection polling during Running."""
-        return self._connect() is not None
+        Runtime Health Detection polling during Running.
+
+        COM initialization note (Windows COM Initialization Bug Fix):
+        SPX AD Runtime handles each HTTP request on its own thread
+        (ThreadingMixIn), and win32com.client.GetActiveObject requires COM
+        to have been initialized on the CALLING thread first, or it fails
+        with com_error -2147221008 ("CoInitialize has not been called") --
+        this was the actual, previously-hidden root cause of Ready Check
+        always reporting Photoshop as closed. pythoncom.CoInitialize() is
+        called immediately before the one piece of COM work this method
+        does (_connect()), and pythoncom.CoUninitialize() is guaranteed to
+        run afterward via try/finally, whether _connect() returns normally
+        or raises -- this method never keeps the returned COM object alive
+        past its own return, so it is safe to uninitialize COM before
+        returning here. Does not change this method's return value (still
+        a plain bool) or the Ready Contract."""
+        if pythoncom is None:
+            return False
+        try:
+            pythoncom.CoInitialize()
+        except Exception:
+            return False
+        try:
+            return self._connect() is not None
+        finally:
+            pythoncom.CoUninitialize()
 
     def is_ready(self):
         """Ready Contract primitive: same liveness check for this adapter,
@@ -154,32 +180,60 @@ class WindowsPhotoshopAdapter:
         """Hand the manifest to the existing JSX pipeline via Photoshop COM
         Automation. Blocks until the one-shot DoJavaScript() execution
         finishes (or fails to run at all). Does not modify
-        remove-background.jsx in any way."""
-        app = self._connect()
-        if app is None:
+        remove-background.jsx in any way.
+
+        COM initialization note (Windows COM Initialization Bug Fix): same
+        reasoning as is_alive() -- this method must initialize COM on its
+        own calling thread before touching COM at all. Unlike is_alive(),
+        the COM object returned by _connect() (`app`) is used AFTER the
+        connect call too (app.DoJavaScript(...) below), so the
+        CoInitialize()/CoUninitialize() pair here wraps this method's
+        entire body, not just the _connect() call, and CoUninitialize()
+        only runs (via finally) once this method is completely done with
+        `app`. Does not change this method's return value shape or the
+        Ready Contract."""
+        if pythoncom is None:
             return {
                 "ok": False,
                 "error": "photoshop_com_unavailable",
                 "report": None,
             }
-
-        bootstrap = _build_bootstrap_script(manifest_path, original_folder, output_folder)
         try:
-            app.DoJavaScript(bootstrap)
-        except Exception as error:
+            pythoncom.CoInitialize()
+        except Exception:
             return {
                 "ok": False,
-                "error": "com_automation_failed: {0}".format(error),
+                "error": "photoshop_com_unavailable",
                 "report": None,
             }
+        try:
+            app = self._connect()
+            if app is None:
+                return {
+                    "ok": False,
+                    "error": "photoshop_com_unavailable",
+                    "report": None,
+                }
 
-        # DoJavaScript() returned without raising -- the ExtendScript ran to
-        # completion. Mirrors macos_adapter.py's leniency exactly: report
-        # may still be None here (e.g. the JSX exited early before writing
-        # one); that ambiguity is deliberately NOT decided here -- SPX AD
-        # Runtime's existing, unmodified _resolve_outcome() already treats a
-        # missing/non-dict report as a Failure with a generic reason, the
-        # same way it would for macOS. This file does not duplicate that
-        # decision.
-        report = _read_run_report(output_folder)
-        return {"ok": True, "error": None, "report": report}
+            bootstrap = _build_bootstrap_script(manifest_path, original_folder, output_folder)
+            try:
+                app.DoJavaScript(bootstrap)
+            except Exception as error:
+                return {
+                    "ok": False,
+                    "error": "com_automation_failed: {0}".format(error),
+                    "report": None,
+                }
+
+            # DoJavaScript() returned without raising -- the ExtendScript ran
+            # to completion. Mirrors macos_adapter.py's leniency exactly:
+            # report may still be None here (e.g. the JSX exited early
+            # before writing one); that ambiguity is deliberately NOT
+            # decided here -- SPX AD Runtime's existing, unmodified
+            # _resolve_outcome() already treats a missing/non-dict report as
+            # a Failure with a generic reason, the same way it would for
+            # macOS. This file does not duplicate that decision.
+            report = _read_run_report(output_folder)
+            return {"ok": True, "error": None, "report": report}
+        finally:
+            pythoncom.CoUninitialize()
