@@ -22,22 +22,15 @@ confirmed in an earlier Read-Only architecture phase, not re-decided here):
     server instance registered in the Running Object Table, and fail
     (raise) rather than start a new one" -- unlike win32com.client.Dispatch,
     which would create/launch a new instance if none exists.
-  - Execute drives the SAME existing, unmodified tools/photoshop/
-    remove-background.jsx that the macOS Adapter already uses, via
-    app.DoJavaScript(bootstrapScript), where bootstrapScript sets the exact
-    same $.global.__SPX_PS_ADAPTER_ARGS__ = {manifestPath, originalFolder,
-    outputFolder} global variable and then $.evalFile(jsxPath) that
-    tools/photoshop/run-photoshop-manifest.applescript already sets up for
-    macOS (see that file's `bootstrap` variable) -- this is the same
-    mechanism, just built as a Python string instead of an AppleScript
-    string, and invoked via COM instead of `do javascript` -- neither
-    remove-background.jsx nor the Manifest/Naming/Matching Contract change
-    at all.
-  - app.DoJavaScript() blocks until the one-shot ExtendScript execution
-    finishes (same synchronous, one-shot semantics as macOS's
-    `do javascript` inside `run script`), so this adapter's execute() can
-    read photoshop-run-report.json immediately after the call returns, the
-    same way macos_adapter.py does.
+  - Execute drives the SAME tools/photoshop/remove-background.jsx that the
+    macOS Adapter uses, via app.DoJavaScriptFile(JSX_PATH, arguments,
+    executionMode). Windows passes manifestPath / originalFolder /
+    outputFolder as the method's JavaScript arguments; the JSX normalizes
+    those values into the same internal args object used by the existing
+    macOS $.global.__SPX_PS_ADAPTER_ARGS__ entry.
+  - app.DoJavaScriptFile() blocks until the one-shot ExtendScript execution
+    finishes, so this adapter's execute() can read photoshop-run-report.json
+    immediately after the call returns, the same way macos_adapter.py does.
 
 Dependency note (per this Phase's explicit instruction): pywin32 is a
 Windows-only dependency of this one file. It is never imported on macOS or
@@ -72,69 +65,9 @@ except ImportError:  # pragma: no cover - only unavailable on non-Windows hosts
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _PHOTOSHOP_TOOLS_DIR = os.path.abspath(os.path.join(_THIS_DIR, "..", "photoshop"))
 
-# TEMPORARY (Windows Minimal JSX Load Verification, Proposal Freeze
-# 2026-07-15-freeze-03): JSX_PATH is temporarily repointed at a minimal,
-# standalone test JSX in the same tools/photoshop/ folder, to A/B-test
-# whether $.evalFile() itself can load/execute a JSX at all here,
-# independent of remove-background.jsx's own content. _build_bootstrap_
-# script() itself is unchanged -- only this one path value differs.
-# Revert this single line back to "remove-background.jsx" and delete
-# tools/photoshop/debug-minimal-evalfile-test.jsx once validation is done.
-JSX_PATH = os.path.join(_PHOTOSHOP_TOOLS_DIR, "debug-minimal-evalfile-test.jsx")
+JSX_PATH = os.path.join(_PHOTOSHOP_TOOLS_DIR, "remove-background.jsx")
 
 PHOTOSHOP_COM_PROGID = "Photoshop.Application"
-
-
-def _escape_for_js(raw_text):
-    """Same escaping rule as run-photoshop-manifest.applescript's
-    escapeForJs handler: backslashes first, then single quotes, so the
-    result can be safely embedded inside a single-quoted JS string literal.
-    Windows paths (e.g. C:\\Users\\...) are exactly the kind of input this
-    guards against."""
-    return raw_text.replace("\\", "\\\\").replace("'", "\\'")
-
-
-def _build_bootstrap_script(manifest_path, original_folder, output_folder):
-    """Builds the exact same bootstrap ExtendScript that
-    run-photoshop-manifest.applescript's `bootstrap` variable builds for
-    macOS -- sets $.global.__SPX_PS_ADAPTER_ARGS__ then $.evalFile()'s the
-    existing, unmodified remove-background.jsx. Not a reimplementation of
-    remove-background.jsx's logic; this only ever hands it the same three
-    paths the macOS Adapter already hands it.
-
-    Windows DoJavaScript Phase Checkpoints (Proposal Freeze
-    2026-07-15-freeze-02), temporary diagnostic only: wraps the same two
-    original statements in a try/catch and tracks which phase was reached
-    via a $.global marker (no temp files -- a Checkpoint file's own
-    creation could itself fail and be misread as an earlier phase, which
-    is exactly why this uses an in-memory $.global assignment instead):
-      'A' -- before the parameters are set at all (the initial value).
-      'B' -- immediately after $.global.__SPX_PS_ADAPTER_ARGS__ is set,
-             right before $.evalFile() is called.
-      'C' -- set by remove-background.jsx's own very first executable
-             statement, so it is only ever reached once $.evalFile() has
-             truly started running that file's content.
-    On any exception, the phase reached so far is appended to a re-thrown
-    Error's message, so the existing Windows COM Exception Diagnostics
-    (_debug_describe_exception) prints it automatically as part of the
-    existing HRESULT/excepinfo output -- no new print logic needed. Still
-    exactly one app.DoJavaScript() call; does not change the Ready/
-    Execution/Status/Result Contract, return values, or Report Format."""
-    escaped_manifest = _escape_for_js(manifest_path)
-    escaped_original = _escape_for_js(original_folder)
-    escaped_output = _escape_for_js(output_folder)
-    escaped_jsx = _escape_for_js(JSX_PATH)
-    return (
-        "$.global.__SPX_PS_DEBUG_PHASE__ = 'A'; "
-        "try {{ "
-        "$.global.__SPX_PS_ADAPTER_ARGS__ = {{ manifestPath: '{0}', "
-        "originalFolder: '{1}', outputFolder: '{2}' }}; "
-        "$.global.__SPX_PS_DEBUG_PHASE__ = 'B'; "
-        "$.evalFile('{3}'); "
-        "}} catch (e) {{ throw new Error('[Phase ' + "
-        "$.global.__SPX_PS_DEBUG_PHASE__ + '] ' + "
-        "(e && e.message ? e.message : e)); }}"
-    ).format(escaped_manifest, escaped_original, escaped_output, escaped_jsx)
 
 
 def _read_run_report(output_folder):
@@ -149,10 +82,10 @@ def _read_run_report(output_folder):
 
 
 def _debug_mask_path(path):
-    """Windows DoJavaScript Debug Diagnostics (Proposal Freeze
+    """Windows JavaScript Entry Diagnostics (Proposal Freeze
     2026-07-15-freeze-01), debug-only display helper: returns only the
     last path component (basename) formatted as '<...>\\<basename>', so
-    bootstrap debug output never reveals the username, AppData, Temp, or
+    JavaScript entry debug output never reveals the username, AppData, Temp, or
     any full disk path. Never raises -- any failure to compute a basename
     falls back to an empty basename rather than propagating an exception
     out of a debug helper."""
@@ -164,10 +97,10 @@ def _debug_mask_path(path):
 
 
 def _debug_describe_exception(error):
-    """Windows DoJavaScript Debug Diagnostics (Proposal Freeze
+    """Windows JavaScript Entry Diagnostics (Proposal Freeze
     2026-07-15-freeze-01), debug-only helper: best-effort, defensive
     extraction of whatever COM error detail is available on `error` (e.g.
-    a pywintypes.com_error raised by app.DoJavaScript), including HRESULT
+    a pywintypes.com_error raised by app.DoJavaScriptFile), including HRESULT
     and, if present, the excepinfo tuple's source / description /
     helpFile / helpContext / scode. Every attribute access is individually
     guarded so this debug helper itself can never turn into a new
@@ -277,15 +210,15 @@ class WindowsPhotoshopAdapter:
 
     def execute(self, manifest_path, original_folder, output_folder):
         """Hand the manifest to the existing JSX pipeline via Photoshop COM
-        Automation. Blocks until the one-shot DoJavaScript() execution
-        finishes (or fails to run at all). Does not modify
-        remove-background.jsx in any way.
+        Automation. Blocks until the one-shot DoJavaScriptFile() execution
+        finishes (or fails to run at all). Does not modify the processing
+        logic inside remove-background.jsx.
 
         COM initialization note (Windows COM Initialization Bug Fix): same
         reasoning as is_alive() -- this method must initialize COM on its
         own calling thread before touching COM at all. Unlike is_alive(),
         the COM object returned by _connect() (`app`) is used AFTER the
-        connect call too (app.DoJavaScript(...) below), so the
+        connect call too (app.DoJavaScriptFile(...) below), so the
         CoInitialize()/CoUninitialize() pair here wraps this method's
         entire body, not just the _connect() call, and CoUninitialize()
         only runs (via finally) once this method is completely done with
@@ -314,16 +247,15 @@ class WindowsPhotoshopAdapter:
                     "report": None,
                 }
 
-            bootstrap = _build_bootstrap_script(manifest_path, original_folder, output_folder)
-            # Windows DoJavaScript Debug Diagnostics (Proposal Freeze
-            # 2026-07-15-freeze-01): print only the masked basenames of the
-            # four paths the bootstrap embeds, so it's possible to confirm
-            # the bootstrap was built with the right filenames/last folder
-            # without ever printing the username, AppData, Temp, or any
-            # full disk path. Purely additive -- does not change bootstrap,
-            # the COM call, or any return value.
+            script_arguments = win32com.client.VARIANT(
+                pythoncom.VT_ARRAY | pythoncom.VT_VARIANT,
+                [manifest_path, original_folder, output_folder],
+            )
+            # Windows JavaScript Entry Diagnostics: print only the masked
+            # basenames of the file and three path arguments without ever
+            # printing the username, AppData, Temp, or any full disk path.
             print(
-                "[SPX AD Runtime][Windows Adapter] DoJavaScript bootstrap "
+                "[SPX AD Runtime][Windows Adapter] DoJavaScriptFile call "
                 "(paths masked):\n"
                 "  manifestPath: {0}\n"
                 "  originalFolder: {1}\n"
@@ -336,9 +268,9 @@ class WindowsPhotoshopAdapter:
                 )
             )
             try:
-                app.DoJavaScript(bootstrap)
+                app.DoJavaScriptFile(JSX_PATH, script_arguments, 1)
             except Exception as error:
-                # Windows DoJavaScript Debug Diagnostics (Proposal Freeze
+                # Windows JavaScript Entry Diagnostics (Proposal Freeze
                 # 2026-07-15-freeze-01): print full available COM error
                 # detail (HRESULT, excepinfo fields) so the real DISP_E_
                 # EXCEPTION detail is visible instead of only the generic
@@ -346,7 +278,7 @@ class WindowsPhotoshopAdapter:
                 # is fully defensive and cannot itself raise. Does not
                 # change this except block's existing return value.
                 print(
-                    "[SPX AD Runtime][Windows Adapter] DoJavaScript failed:\n{0}".format(
+                    "[SPX AD Runtime][Windows Adapter] DoJavaScriptFile failed:\n{0}".format(
                         _debug_describe_exception(error)
                     )
                 )
@@ -356,8 +288,8 @@ class WindowsPhotoshopAdapter:
                     "report": None,
                 }
 
-            # DoJavaScript() returned without raising -- the ExtendScript ran
-            # to completion. Mirrors macos_adapter.py's leniency exactly:
+            # DoJavaScriptFile() returned without raising -- the ExtendScript
+            # ran to completion. Mirrors macos_adapter.py's leniency exactly:
             # report may still be None here (e.g. the JSX exited early
             # before writing one); that ambiguity is deliberately NOT
             # decided here -- SPX AD Runtime's existing, unmodified

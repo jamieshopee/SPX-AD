@@ -9,7 +9,7 @@
  * Logo assets are copied to processed PNG without background removal.
  */
 
-(function () {
+(function (entryArgs) {
   // Windows DoJavaScript Phase Checkpoints (Proposal Freeze
   // 2026-07-15-freeze-02), temporary diagnostic only: this must remain the
   // very first executable statement in this file. It marks that
@@ -18,7 +18,13 @@
   // Does not affect any existing logic below -- to be removed once the
   // Windows DoJavaScript Bug Fix Investigation no longer needs it.
   $.global.__SPX_PS_DEBUG_PHASE__ = 'C';
-  var args = $.global.__SPX_PS_ADAPTER_ARGS__ || {};
+  var args = entryArgs && entryArgs.length >= 3
+    ? {
+        manifestPath: String(entryArgs[0]),
+        originalFolder: String(entryArgs[1]),
+        outputFolder: String(entryArgs[2])
+      }
+    : ($.global.__SPX_PS_ADAPTER_ARGS__ || {});
   var startedAt = nowIso();
   var manifest = null;
   var report = {
@@ -61,7 +67,7 @@
 
   report.finishedAt = nowIso();
   writeTextFile(new File(joinPath(args.outputFolder, 'photoshop-run-report.json')), stringifyJson(report, 0));
-})();
+})(typeof arguments !== 'undefined' ? arguments : []);
 
 function processItem(item, originalFolder, outputFolder, report) {
   var assetKey = item.assetKey || '';
