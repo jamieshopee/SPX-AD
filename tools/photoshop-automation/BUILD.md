@@ -1,5 +1,11 @@
 # Building the Production Launcher (Coding Phase 7／7)
 
+> Historical implementation note: this file documents the older local
+> Production Launcher prototype. It is **not** the approved SPX Helper
+> deployment path. SPX Helper core now lives in `spx_helper.py`; installer,
+> login auto-start, update, signing, notarization, Authenticode, and release
+> packaging require their own later Implementation Proposals.
+
 Scope: implementation reference for this Coding pass only, same as
 `README.md` in this directory — not a project-level document under `docs/`.
 

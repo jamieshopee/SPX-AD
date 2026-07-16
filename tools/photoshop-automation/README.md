@@ -1,17 +1,25 @@
-# SPX AD Runtime (Photoshop Automation)
+# SPX Helper / SPX AD Runtime (Photoshop Automation)
 
 Scope: implementation reference for this module. This is not a
 project-level document under `docs/`; the formal, up-to-date description of
 AI Workflow / Photoshop Automation status lives in `docs/AI-HANDOFF.md`,
 `docs/Architecture.md`, and `docs/Photoshop Asset Pipeline.md` — this file
-only documents the Runtime's own files and HTTP contract.
+only documents the Helper / Runtime module files and HTTP boundary.
 
-Status: AI Workflow / Photoshop Automation are Completed and are the
+Status: SPX Helper core, AI Workflow, and Photoshop Automation are Completed and are the
 project's primary flow (Ready Check → Processing Mode → Auto Import → Auto
-Open Review → automatic Rerun), driven by the Control Center calling this
-Runtime automatically. macOS and Windows have completed real-machine
-Development Validation with Photoshop 2025; the Windows Validation and Jamie
-Manual Validation both passed.
+Open Review → automatic Rerun). SPX Helper owns the production localhost
+boundary and delegates allowed requests to the existing RuntimeCore without
+changing its contract. macOS and Windows have completed SPX Helper manual
+validation; packaging, installation, login auto-start, updates, signing, and
+automatic recovery remain separate deployment work.
+
+Manual validation result: macOS completed the full Happy Path through Run
+Report and Processed PNG, including a second Execute after Helper restart.
+Windows completed Helper, Browser, Ready, Execute, RuntimeCore, Windows
+Adapter, Runtime Contract, and Run Report validation. The Windows laptop's
+Remove Background / Select Subject failure was isolated to the Photoshop API
+execution stage and is tracked separately; it is not an SPX Helper regression.
 
 ## What this is
 
@@ -46,9 +54,31 @@ of the console.
   — it is not how end users start the Runtime; the Control Center's own
   Ready Check flow is what end users interact with directly.
 
-## Development vs Production
+## SPX Helper boundary
 
-**Current (Completed, Development-validated on macOS):**
+```text
+GitHub Pages (official Origin)
+  ↓ HTTPS browser page → local HTTP
+SPX Helper (127.0.0.1:8901)
+  ↓ direct in-process delegation
+Existing RuntimeCore
+  ↓
+Platform Adapter (macOS / Windows)
+```
+
+`spx_helper.py` binds only `127.0.0.1:8901`, allows the official
+`https://jamieshopee.github.io` Origin, handles CORS / OPTIONS, and reuses the
+existing Runtime HTTP handler for Ready / Execute / Asset Upload / Status /
+Result. Binding the fixed endpoint is the single-instance boundary: a second
+Helper exits instead of selecting another port.
+
+For current manual validation only, start it from this directory with
+`python3 spx_helper.py` (Windows: `python spx_helper.py`). The production
+installer and background lifecycle are not part of the completed Helper core.
+
+## Development Runtime fallback
+
+The older direct Development Runtime path remains available and unchanged:
 
 ```text
 Control Center (AI Workflow, js/ai-workflow-*.js)
@@ -58,20 +88,18 @@ SPX AD Runtime (this module)
 Platform Adapter (macOS / Windows)
 ```
 
-The Runtime's lifecycle today is still started by hand for development /
-validation via `start-spx-ad-runtime.command`; a packaged Production
-Launcher that starts/stops the Runtime automatically alongside the SPX AD
-Application exists as source + build docs (`production_launcher.py`,
-`production_launcher_macos.spec`, `production_launcher_windows.spec`,
-`BUILD.md`) but Production Deployment itself has **Not Started**.
-
 `start-spx-ad-runtime.command` is used for: development, debug, Runtime
-Validation, and manual testing today. Until Production Deployment ships,
-running it by hand (with Photoshop already open) is what makes the Control
-Center's Ready Check pass.
+Validation, and manual testing. It is not the SPX Helper production boundary.
 
 ## Files
 
+- `spx_helper.py` — production localhost boundary. Owns the sole
+  `127.0.0.1:8901` listener, validates the official GitHub Pages Origin,
+  supplies CORS / OPTIONS behavior, and delegates allowed requests to a fresh
+  existing `RuntimeCore` instance without redefining the Runtime Contract.
+- `validate_spx_helper.py` — self-contained validation for Origin rejection,
+  CORS / OPTIONS, unchanged Runtime response mapping, fixed-port
+  single-instance behavior, clean restart, and real RuntimeCore pass-through.
 - `spx_ad_runtime.py` — SPX AD Runtime core. Platform-agnostic: contains no
   AppleScript, no Windows-specific code, and no knowledge of Control Center,
   Project State, Review Workspace, or any Locked Completed Phase. Exposes a
@@ -115,9 +143,9 @@ Center's Ready Check pass.
   The previously validated `DoJavaScriptFile()` entry failed in this
   environment and is not used.
 - `production_launcher.py`, `production_launcher_macos.spec`,
-  `production_launcher_windows.spec`, `BUILD.md`,
-  `requirements-windows.txt` — Production Launcher source and packaging docs
-  (PyInstaller). Production Deployment itself has Not Started.
+  `production_launcher_windows.spec`, `BUILD.md` — older launcher prototype
+  sources and build notes. They are not the approved SPX Helper deployment
+  path and are not part of this completed Helper core.
 - `validate_runtime.py` — self-contained Runtime Validation harness (see its
   own module docstring); run with `python3 validate_runtime.py`.
 - `start-spx-ad-runtime.command` — starts the Runtime for development /

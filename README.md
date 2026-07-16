@@ -5,6 +5,8 @@
 - 控制台：雙擊 `launch/啟動 AD 管理器（Chrome）.command`
 - 編輯器：雙擊 `launch/啟動編輯器_*.command`
 
+SPX Helper Core 已完成並通過 macOS／Windows Jamie Manual Validation。目前仍以手動方式驗證：先開啟 Photoshop，再於 `tools/photoshop-automation/` 執行 `python3 spx_helper.py`（Windows 使用 `python spx_helper.py`）。正式 installer、登入自動啟動、更新、簽章與 release packaging 尚待後續 Proposal。
+
 Editor Launcher 行為：
 
 - 四個 Editor Launcher 共用同一個本機 HTTP Server（`127.0.0.1:8080`）。
