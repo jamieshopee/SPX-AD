@@ -130,7 +130,7 @@ def _build_bootstrap_script(manifest_path, original_folder, output_folder):
         "$.global.__SPX_PS_ADAPTER_ARGS__ = {{ manifestPath: '{0}', "
         "originalFolder: '{1}', outputFolder: '{2}' }}; "
         "$.global.__SPX_PS_DEBUG_PHASE__ = 'B'; "
-        "$.evalFile('{3}'); "
+        "throw new Error('SPX_PRE_EVAL_PROBE'); "
         "}} catch (e) {{ throw new Error('[Phase ' + "
         "$.global.__SPX_PS_DEBUG_PHASE__ + '] ' + "
         "(e && e.message ? e.message : e)); }}"
