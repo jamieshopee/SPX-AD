@@ -23,12 +23,10 @@ confirmed in an earlier Read-Only architecture phase, not re-decided here):
     (raise) rather than start a new one" -- unlike win32com.client.Dispatch,
     which would create/launch a new instance if none exists.
   - Execute drives the SAME tools/photoshop/remove-background.jsx that the
-    macOS Adapter uses, via app.DoJavaScriptFile(JSX_PATH, arguments,
-    executionMode). Windows passes manifestPath / originalFolder /
-    outputFolder as the method's JavaScript arguments; the JSX normalizes
-    those values into the same internal args object used by the existing
-    macOS $.global.__SPX_PS_ADAPTER_ARGS__ entry.
-  - app.DoJavaScriptFile() blocks until the one-shot ExtendScript execution
+    macOS Adapter uses. Windows reads that shared file as UTF-8, prepends the
+    existing $.global.__SPX_PS_ADAPTER_ARGS__ object, and sends the complete
+    JavaScript source through app.DoJavaScript().
+  - app.DoJavaScript() blocks until the one-shot ExtendScript execution
     finishes, so this adapter's execute() can read photoshop-run-report.json
     immediately after the call returns, the same way macos_adapter.py does.
 
@@ -81,6 +79,11 @@ def _read_run_report(output_folder):
         return None
 
 
+def _read_javascript_source():
+    with open(JSX_PATH, "r", encoding="utf-8") as handle:
+        return handle.read()
+
+
 def _debug_mask_path(path):
     """Windows JavaScript Entry Diagnostics (Proposal Freeze
     2026-07-15-freeze-01), debug-only display helper: returns only the
@@ -100,7 +103,7 @@ def _debug_describe_exception(error):
     """Windows JavaScript Entry Diagnostics (Proposal Freeze
     2026-07-15-freeze-01), debug-only helper: best-effort, defensive
     extraction of whatever COM error detail is available on `error` (e.g.
-    a pywintypes.com_error raised by app.DoJavaScriptFile), including HRESULT
+    a pywintypes.com_error raised by app.DoJavaScript), including HRESULT
     and, if present, the excepinfo tuple's source / description /
     helpFile / helpContext / scode. Every attribute access is individually
     guarded so this debug helper itself can never turn into a new
@@ -210,7 +213,7 @@ class WindowsPhotoshopAdapter:
 
     def execute(self, manifest_path, original_folder, output_folder):
         """Hand the manifest to the existing JSX pipeline via Photoshop COM
-        Automation. Blocks until the one-shot DoJavaScriptFile() execution
+        Automation. Blocks until the one-shot DoJavaScript() execution
         finishes (or fails to run at all). Does not modify the processing
         logic inside remove-background.jsx.
 
@@ -218,7 +221,7 @@ class WindowsPhotoshopAdapter:
         reasoning as is_alive() -- this method must initialize COM on its
         own calling thread before touching COM at all. Unlike is_alive(),
         the COM object returned by _connect() (`app`) is used AFTER the
-        connect call too (app.DoJavaScriptFile(...) below), so the
+        connect call too (app.DoJavaScript(...) below), so the
         CoInitialize()/CoUninitialize() pair here wraps this method's
         entire body, not just the _connect() call, and CoUninitialize()
         only runs (via finally) once this method is completely done with
@@ -247,15 +250,31 @@ class WindowsPhotoshopAdapter:
                     "report": None,
                 }
 
-            script_arguments = win32com.client.VARIANT(
-                pythoncom.VT_ARRAY | pythoncom.VT_VARIANT,
-                [manifest_path, original_folder, output_folder],
+            try:
+                jsx_source = _read_javascript_source()
+            except Exception as error:
+                return {
+                    "ok": False,
+                    "error": "javascript_source_read_failed: {0}".format(error),
+                    "report": None,
+                }
+
+            args_json = json.dumps(
+                {
+                    "manifestPath": manifest_path,
+                    "originalFolder": original_folder,
+                    "outputFolder": output_folder,
+                },
+                ensure_ascii=True,
+                separators=(",", ":"),
             )
+            preamble = "$.global.__SPX_PS_ADAPTER_ARGS__ = {0};\n".format(args_json)
+            full_script = preamble + jsx_source
             # Windows JavaScript Entry Diagnostics: print only the masked
             # basenames of the file and three path arguments without ever
             # printing the username, AppData, Temp, or any full disk path.
             print(
-                "[SPX AD Runtime][Windows Adapter] DoJavaScriptFile call "
+                "[SPX AD Runtime][Windows Adapter] DoJavaScript call "
                 "(paths masked):\n"
                 "  manifestPath: {0}\n"
                 "  originalFolder: {1}\n"
@@ -268,7 +287,7 @@ class WindowsPhotoshopAdapter:
                 )
             )
             try:
-                app.DoJavaScriptFile(JSX_PATH, script_arguments, 1)
+                app.DoJavaScript(full_script)
             except Exception as error:
                 # Windows JavaScript Entry Diagnostics (Proposal Freeze
                 # 2026-07-15-freeze-01): print full available COM error
@@ -278,7 +297,7 @@ class WindowsPhotoshopAdapter:
                 # is fully defensive and cannot itself raise. Does not
                 # change this except block's existing return value.
                 print(
-                    "[SPX AD Runtime][Windows Adapter] DoJavaScriptFile failed:\n{0}".format(
+                    "[SPX AD Runtime][Windows Adapter] DoJavaScript failed:\n{0}".format(
                         _debug_describe_exception(error)
                     )
                 )
@@ -288,8 +307,8 @@ class WindowsPhotoshopAdapter:
                     "report": None,
                 }
 
-            # DoJavaScriptFile() returned without raising -- the ExtendScript
-            # ran to completion. Mirrors macos_adapter.py's leniency exactly:
+            # DoJavaScript() returned without raising -- the ExtendScript ran
+            # to completion. Mirrors macos_adapter.py's leniency exactly:
             # report may still be None here (e.g. the JSX exited early
             # before writing one); that ambiguity is deliberately NOT
             # decided here -- SPX AD Runtime's existing, unmodified
