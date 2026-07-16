@@ -9,11 +9,9 @@ only documents the Runtime's own files and HTTP contract.
 Status: AI Workflow / Photoshop Automation are Completed and are the
 project's primary flow (Ready Check → Processing Mode → Auto Import → Auto
 Open Review → automatic Rerun), driven by the Control Center calling this
-Runtime automatically. macOS has completed real-machine validation
-(Photoshop 2025). Windows (`windows_adapter.py`) has completed Coding and
-automated testing; real Windows + Photoshop machine validation is
-**Deferred** (Waiting for Windows Validation Environment) — not
-"not implemented".
+Runtime automatically. macOS and Windows have completed real-machine
+Development Validation with Photoshop 2025; the Windows Validation and Jamie
+Manual Validation both passed.
 
 ## What this is
 
@@ -109,9 +107,13 @@ Center's Ready Check pass.
 - `windows_adapter.py` — pywin32 (`win32com.client`) implementation.
   `is_ready()` / `is_alive()` use `GetActiveObject("Photoshop.Application")`
   (only connects to an already-open instance, never auto-launches);
-  `execute()` uses `app.DoJavaScript(...)` to run the same, unmodified
-  `remove-background.jsx`. Coding and automated tests are Completed; real
-  Windows + Photoshop machine validation is Deferred.
+  `execute()` reads the shared `remove-background.jsx` as UTF-8, uses
+  `json.dumps()` to inject `manifestPath`, `originalFolder`, and
+  `outputFolder`, then calls `app.DoJavaScript(full_script)`. Windows
+  Validation and Jamie Manual Validation passed on a real Windows + Photoshop
+  2025 machine, producing both `photoshop-run-report.json` and Processed PNG.
+  The previously validated `DoJavaScriptFile()` entry failed in this
+  environment and is not used.
 - `production_launcher.py`, `production_launcher_macos.spec`,
   `production_launcher_windows.spec`, `BUILD.md`,
   `requirements-windows.txt` — Production Launcher source and packaging docs

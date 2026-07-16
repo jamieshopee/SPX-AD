@@ -12,7 +12,7 @@ Scope: 最新系統架構、Render Flow、Template / Style / Project State / Ass
 - **QR Code — Completed（Final Sign-off，功能 Commit `79de045`、Tag `v0.5.2`）**：每個 Job 依 CSV 的 `QRcode` 欄位網址自動產生 QR Code，使用者可於控制台右側欄修改網址。四個尺寸皆新增 `qrZone`（Locked Visual Baseline 固定座標）與 `layerOrder.qrCode = 48`（固定位於既有 `info` 圖層之上）。`job.qrCodeUrl` 為字串欄位，直接隨 Project State 保存還原。已正式列入 Locked Completed Phases。目前 Active Phase 回到 **None（Waiting for next Proposal）**；Next Planned Phase Order 四項已全數完成。詳見下方「QR Code Architecture」章節與 `docs/CHANGELOG.md`。
 - **Render Context & Export Workflow — Completed（Final Sign-off，Tag `v0.5.1`）**：下載完整專案（Batch Render）的 `renderSingleJob()` 改為一律使用控制台目前選擇的 `activePlacement`／`activeTemplate` 作為批次內所有工單共用的輸出 placement／template，不再讀取各工單自己保存、可能已過期的 `job.placementId`／`job.template`。每筆工單的 Style 仍使用該工單自己的 `styleId`，不受此次修正影響（`activePlacement`／`activeTemplate` 不包含 Style）。原因：`selectPlacement()` 只更新全域 `activePlacement`，未同步寫回 `job.placementId`；而產品規格為「一次生成器工作流程只有一種輸出尺寸，批次內所有工單共用使用者最後在控制台選擇的輸出 placement／template」。同步修正 `layoutKey` 計算，改用 `activePlacement`／`activeTemplate` 計算，使其與 `syncActiveLayoutState()` 存檔時使用的 key 一致，避免位置／大小／前後順序讀到錯誤或空白的 layoutState（該 layoutState 仍讀自每筆 job 自己的 `layoutStates` map）。僅修改 `renderSingleJob()`；未修改 `selectPlacement`／`selectTemplate`／`getTemplateForJob`／Main Canvas／Thumbnail／Project State schema／`layoutStates` schema／單張下載。本輪僅實際驗證 `selectPlacement()` 的行為，`selectTemplate()` 是否同步寫回 `job.template`／`job.templateId` 尚未驗證，本文件不對此做斷言。功能 Commit `2ac6546`、Tag `v0.5.1`；已正式列入 Locked Completed Phases。目前 Active Phase 為 **None（Waiting for next Proposal）**；Next Planned Phase Order 第 4 項 QR Code 已完成（見下方「QR Code Architecture」）。詳見下方 State Boundary 表格 Batch Render 列與 `docs/CHANGELOG.md`。
 - **去背失敗獨立分類（Bug Fix，Commit `289ac76`）**：解決「批次去背只要有素材失敗，整個流程就卡住」的問題。Runtime 的 `lastResult` 新增逐筆 `itemResults`（success／error），PartialFailure（至少一張成功）不再顯示整批 Recovery Banner，改為直接把成功的素材帶入素材審閱；從未成功過的素材標記新狀態 `background_removal_failed`（去背失敗），於素材審閱顯示原圖與提示文字，不提供核准／重新去背／撤回按鈕，也不計入「重新去背素材（N）」與完成畫面的完成判定；已成功過但 Rerun 又失敗的素材維持原本 `needs_rerun`，沿用上一次成功的處理結果，不新增額外狀態。整批全部失敗（zero success）行為不變。詳見下方 Error / Recovery 表格與 `docs/proposals/Background-Removal-Failure-Classification-Proposal.md`、`docs/CHANGELOG.md`。
-- Photoshop Automation 與 AI Workflow 已完成 Coding 並通過 macOS Development Manual Validation（Photoshop 2025，Stage 1–4 共 18 項 PASS），已完成 Final Sign-off（Tag `v0.5.0`）。兩者皆列入 Locked Completed Phases。Windows 實機驗證狀態為 Deferred（Waiting for Windows Validation Environment），是獨立的 Deferred Validation Item，不是 Current 或 Next 開發 Phase；Production Launcher／PyInstaller／Cloud Deployment 尚未開始，同樣不是 Current 或 Next 開發 Phase。詳見下方「Photoshop Automation Architecture」與「AI Workflow Architecture」。
+- Photoshop Automation 與 AI Workflow 已完成 Coding 並通過 macOS Development Manual Validation（Photoshop 2025，Stage 1–4 共 18 項 PASS），已完成 Final Sign-off（Tag `v0.5.0`）。兩者皆列入 Locked Completed Phases。Windows Development Validation 與 Jamie Manual Validation 已在 Photoshop 2025 實機 PASS；Production Launcher／PyInstaller／Cloud Deployment 尚未開始，同樣不是 Current 或 Next 開發 Phase。詳見下方「Photoshop Automation Architecture」與「AI Workflow Architecture」。
 - Roadmap 已更新：Extension System 已從 Roadmap 移除（不在 Completed / Current / Next / Next Planned Phase Order 中）。Review Workspace UI Upgrade 已完成並列入 Locked Completed Phases。
 - Review Workspace UI Upgrade 完成：Navigator Information Architecture 簡化（檔名 / Review Status / Dirty Status）、Workspace Layout（Inspector 預設收合、依工具展開 Dynamic Inspector）、Decision Area 三顆按鈕同列、Completion Screen 與 Completion Recovery、Review Workspace 正式中文化。此為 UI 層改版，未修改 Asset Pipeline schema、Review Decision Model、Crop / Eraser Core Logic、Approved Asset Resolver 或 Photoshop Pipeline。
 - Control Center UI Upgrade 完成：Header 簡化為一般使用者入口，素材審核整合狀態與入口，中央版位下拉只調整 display order。
@@ -125,8 +125,8 @@ Completed
   ├─ Review Workspace UX Polish
   ├─ Project Persistence
   ├─ UI Upgrade（Control Center UI Upgrade + Review Workspace UI Upgrade）
-  ├─ Photoshop Automation（macOS Development Validated；Windows Validation Deferred）
-  ├─ AI Workflow（macOS Development Validated；Windows Validation Deferred）
+  ├─ Photoshop Automation（macOS 與 Windows Development Validated）
+  ├─ AI Workflow（macOS 與 Windows Development Validated）
   ├─ Render Context & Export Workflow（Batch Render placement/template Bug Fix；Tag v0.5.1）
   └─ QR Code（CSV QRcode 欄位網址自動產生；功能 Commit 79de045、Tag v0.5.2）
 
@@ -142,16 +142,13 @@ Next Planned Phase Order（Locked，已全數完成）
   ├─ Render Context & Export Workflow（Completed — Tag v0.5.1）
   └─ QR Code（Completed — 功能 Commit 79de045、Tag v0.5.2）
 
-Deferred Validation Item（不佔上述順序位置，非 Current 亦非 Next）
-  └─ Windows Validation（Waiting for Windows Validation Environment）
-
 Unscheduled / Not Started（尚未排入開發 Phase 順序，非 Current 亦非 Next）
   └─ Production Deployment（Production Launcher、PyInstaller、Cloud Deployment；Not Started）
 ```
 
 Extension System 已從 Roadmap 移除，不列入 Completed / Current / Next / Next Planned Phase Order。目前沒有新增素材審閱工具的產品需求；未來若有明確需求，再由 Jamie 另外提出新的 Proposal。
 
-Review Workspace（Crop / Eraser）、Photoshop Rerun Automation、Review Workspace UX Polish、Project Persistence、UI Upgrade（Control Center UI Upgrade + Review Workspace UI Upgrade）、Photoshop Automation、AI Workflow、Render Context & Export Workflow 與 QR Code 皆已完成。Photoshop Automation 與 AI Workflow 已通過 macOS Development Manual Validation（Photoshop 2025，18/18 PASS）；Render Context & Export Workflow 已完成 Final Sign-off（Tag `v0.5.1`）；QR Code 已完成 Coding、Browser Validation 與 Jamie Manual Validation（功能 Commit `79de045`、Tag `v0.5.2`）。目前 Active Phase 為 **None（Waiting for next Proposal）**；Next Planned Phase Order 四項已全數完成，下一個 Phase 待 Product Owner 另行提出 Proposal。Windows Validation 為獨立的 Deferred Validation Item（Waiting for Windows Validation Environment），不是 Current 或 Next 開發 Phase，不宣稱支援 Windows 或所有 Photoshop 版本。Production Deployment（Production Launcher、PyInstaller、Cloud Deployment）尚未開始，同樣不是 Current 或 Next 開發 Phase，不得描述為「Windows Validation 完成後即進入 Production Deployment」。
+Review Workspace（Crop / Eraser）、Photoshop Rerun Automation、Review Workspace UX Polish、Project Persistence、UI Upgrade（Control Center UI Upgrade + Review Workspace UI Upgrade）、Photoshop Automation、AI Workflow、Render Context & Export Workflow 與 QR Code 皆已完成。Photoshop Automation 與 AI Workflow 已通過 macOS Development Manual Validation（Photoshop 2025，18/18 PASS），Windows Development Validation 與 Jamie Manual Validation 亦已在 Photoshop 2025 實機 PASS；Render Context & Export Workflow 已完成 Final Sign-off（Tag `v0.5.1`）；QR Code 已完成 Coding、Browser Validation 與 Jamie Manual Validation（功能 Commit `79de045`、Tag `v0.5.2`）。目前 Active Phase 為 **None（Waiting for next Proposal）**；Next Planned Phase Order 四項已全數完成，下一個 Phase 待 Product Owner 另行提出 Proposal。Production Deployment（Production Launcher、PyInstaller、Cloud Deployment）尚未開始，不是 Current 或 Next 開發 Phase，且不因 Windows Validation 完成而自動開始。不得將 Photoshop 2025 驗證結果延伸為支援所有 Photoshop 版本。
 
 ## Pipeline Loop
 
@@ -711,7 +708,7 @@ Photoshop Pipeline 不可寫：
 
 ## Photoshop Automation Architecture（Completed）
 
-本節描述 Photoshop Automation 的實際已完成架構（macOS Development Validated；Windows Validation Deferred）。Photoshop Automation 只涵蓋「已開啟且 Ready 的 Photoshop」這一側的能力，不包含 Control Center orchestration（Manifest 建立、自動 Import、自動開啟 Review Workspace 屬於 AI Workflow，見下一節）。既有的人工流程（`tools/photoshop/run-photoshop-manifest.command` 手動雙擊）仍保留、未被移除，是與 Runtime 並存的獨立路徑。
+本節描述 Photoshop Automation 的實際已完成架構（macOS 與 Windows Development Validated，Photoshop 2025）。Photoshop Automation 只涵蓋「已開啟且 Ready 的 Photoshop」這一側的能力，不包含 Control Center orchestration（Manifest 建立、自動 Import、自動開啟 Review Workspace 屬於 AI Workflow，見下一節）。既有的人工流程（`tools/photoshop/run-photoshop-manifest.command` 手動雙擊）仍保留、未被移除，是與 Runtime 並存的獨立路徑。
 
 ### Runtime 架構
 
@@ -749,11 +746,11 @@ processed PNG + photoshop-run-report.json（Runtime 隱藏 Workspace 內）
 - **不負責** Control Center Processing Mode UI、Control Center 自動 Import Processed Result、自動開啟 Review Workspace——這些是 AI Workflow 的責任（見下一節）。
 - 未修改：Review Workspace UI、Navigator、Dynamic Inspector、Decision Area、Completion Screen、Crop / Eraser、Canvas、Thumbnail、Batch、`layoutStates`、Approved Asset Resolver、Project State schema、Review Decision Model。
 - 未修改既有 Manifest schema 的核心概念、Photoshop Adapter Boundary、`remove-background.jsx` 的去背核心／Logo copy／Run Report。輸出命名一律為「原始 basename + `.png`」（見下方 Manifest Contract），不使用 `{assetKey}__processed.png`；`remove-background.jsx` 唯一被修改之處是 `output.filename` 缺漏時的 fallback（Naming Contract Consistency Fix，改為 source basename + `.png`，不再組出 `assetKey + "__processed.png"`），去背核心邏輯不受影響。
-- Windows Adapter 使用 pywin32（`win32com.client`），未使用 VBScript 或 `cscript.exe` 等淘汰技術；已完成實作與自動化測試，尚未通過真實 Windows + Photoshop 環境驗證。
+- Windows Adapter 使用 pywin32（`win32com.client`），由 Runtime 以 UTF-8 讀取共用 `remove-background.jsx`，以 `json.dumps()` 建立 `manifestPath`、`originalFolder`、`outputFolder` 參數物件，將 preamble 與完整 JSX 原始碼組成 `full_script`，再呼叫 `app.DoJavaScript(full_script)`。`DoJavaScriptFile()` 為實機驗證失敗的歷史方案，不再採用。Windows Validation 與 Jamie Manual Validation 已 PASS，並成功產生 `photoshop-run-report.json` 與 Processed PNG；macOS Adapter 與正式產品架構不變，兩平台維持單一共用 `remove-background.jsx`。
 
 ## AI Workflow Architecture（Completed）
 
-本節描述 AI Workflow 的實際已完成架構（macOS Development Validated；Windows Validation Deferred）。目的：使用者只需在開始前自行開啟 Photoshop；之後不需操作 Photoshop，也不需理解 Manifest / Runtime / Processed Folder 等技術 Pipeline。
+本節描述 AI Workflow 的實際已完成架構（macOS 與 Windows Development Validated，Photoshop 2025）。目的：使用者只需在開始前自行開啟 Photoshop；之後不需操作 Photoshop，也不需理解 Manifest / Runtime / Processed Folder 等技術 Pipeline。
 
 ### 使用者可見流程（Completed）
 

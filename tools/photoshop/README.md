@@ -60,7 +60,7 @@ Background removal runs only for:
 
 Logo assets are not background-removed. They are opened and saved as processed PNG copies so the output contract remains consistent.
 
-The JSX core is shared by macOS and Windows runners (via `tools/photoshop-automation/macos_adapter.py` / `windows_adapter.py`). The AppleScript file (`run-photoshop-manifest.applescript`) is only the macOS runner; Windows invokes this JSX via `win32com.client.DoJavaScript`, not AppleScript.
+The JSX core is shared by macOS and Windows runners (via `tools/photoshop-automation/macos_adapter.py` / `windows_adapter.py`). The AppleScript file (`run-photoshop-manifest.applescript`) remains the macOS runner. Windows reads this same JSX as UTF-8, injects the three path arguments with `json.dumps()`, and sends the combined source through `win32com.client.DoJavaScript`; it does not use AppleScript or `DoJavaScriptFile()`.
 
 Primary target:
 
@@ -148,4 +148,4 @@ Example:
 - Review / approve happens in Review Workspace (Control Center), not here.
 - No crop / trim / normalize in this script.
 - No direct Canvas integration — this script only produces processed PNG files and a run report.
-- Windows is implemented via `tools/photoshop-automation/windows_adapter.py` (pywin32 `DoJavaScript`), which invokes this exact same `remove-background.jsx` — not a separate `.bat` / PowerShell runner. Windows has completed Coding but Windows real-machine validation is Deferred (Waiting for Windows Validation Environment); macOS has completed real-machine validation (Photoshop 2025).
+- Windows is implemented via `tools/photoshop-automation/windows_adapter.py` (pywin32 `DoJavaScript`), which invokes this exact same `remove-background.jsx` — not a separate `.bat` / PowerShell runner. Windows Validation and Jamie Manual Validation passed on a real Windows + Photoshop 2025 machine, producing `photoshop-run-report.json` and Processed PNG; macOS continues to use its existing validated flow unchanged.

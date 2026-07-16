@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## Windows DoJavaScript full-script entry - 2026-07-16
+
+- Windows Runtime 改為每次 `execute()` 以 UTF-8 讀取單一共用的 `tools/photoshop/remove-background.jsx`，以 `json.dumps()` 注入 `manifestPath`、`originalFolder`、`outputFolder`，再透過 `app.DoJavaScript(full_script)` 執行完整 JavaScript 字串。macOS 現有 AppleScript 流程、Runtime Contract、Processed Pipeline 與正式產品架構均未改變。
+- `DoJavaScriptFile()` 為已完成實機驗證且失敗的歷史方案，不再採用；未建立 Windows 專用 JSX 副本。
+- Windows Validation：PASS。Jamie Manual Validation：PASS。真實 Windows + Photoshop 2025 環境已成功產生 `photoshop-run-report.json` 與 Processed PNG。Production Deployment 仍為 Not Started。
+
 Version: v0.5.2（AI Workflow Completed；Render Context & Export Workflow Completed；QR Code Completed；Active Phase: None — Waiting for next Proposal）
 Last Updated: 2026-07-15  
 Scope: 專案版本紀錄與重要設計決策。此文件不是 Git commit log，而是維護者交接用版本紀錄。

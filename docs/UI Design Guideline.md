@@ -9,7 +9,7 @@ Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 - **三商品前後順序（z-order）與角色身份解耦（Bug Fix，Commit `ff1d97b`）**：右側商品圖清單改為依前後順序（Layer／堆疊順序）排列顯示；每一列的角色標籤（主品／左配品／右配品）仍固定依該商品實際角色顯示，不隨列的顯示順序改變。詳見下方商品圖區塊小節與 CHANGELOG。
 - **QR Code（Completed，功能 Commit `79de045`、Tag `v0.5.2`）**：控制台右側欄新增 QRCode 區塊，固定順序為主標／副標／小字之後、Logo 之前；包含標題、網址輸入框、檢查網址連結、狀態訊息（固定保留於輸入框下方，有狀態時顯示文字、無狀態時保持空白）；不提供縮圖、位置／尺寸資訊、拖曳、縮放、旋轉或樣式設定。詳見下方 Right Panel 小節與 CHANGELOG。
 - **去背失敗獨立分類（Bug Fix）**：Review Workspace 新增第三個 Filter 分頁「去背失敗」與 Navigator 標籤；去背失敗素材的 Decision Area 改顯示提示文字取代三顆按鈕；Completion Screen 新增去背失敗計數，但不影響完成判定；Recovery Banner 不再顯示「部分素材處理失敗」。詳見下方相關小節與 CHANGELOG。
-- AI Workflow 背景處理狀態 UI 完成（macOS Development Validated；Windows Validation Deferred）：Processing Notice、Recovery Banner 皆已實作，詳見下方「Control Center 背景處理狀態 UI」。
+- AI Workflow 背景處理狀態 UI 完成（macOS 與 Windows Development Validated，Photoshop 2025）：Processing Notice、Recovery Banner 皆已實作，詳見下方「Control Center 背景處理狀態 UI」。
 - Review Workspace UI Upgrade：Navigator Information Architecture 簡化、Workspace Layout 與 Dynamic Inspector 改版、Decision Area 三顆按鈕同列、新增 Completion Screen / Completion Recovery、Review Workspace 正式中文化。
 - Control Center UI Upgrade：Header 簡化為一般使用者主入口，素材審核入口整合狀態與操作。
 - 控制台 UI 文件同步 Template + Style 架構。
@@ -374,7 +374,7 @@ Completion 判斷必須使用全域 Reviewable Assets，不得使用目前 Filte
 
 中文化只限 UI Label，internal values 必須繼續維持英文小寫原值，不得因中文化而改變資料格式或 API 契約。
 
-### Control Center 背景處理狀態 UI（AI Workflow，Completed — macOS Development Validated；Windows Validation Deferred）
+### Control Center 背景處理狀態 UI（AI Workflow，Completed — macOS 與 Windows Development Validated）
 
 Photoshop Automation 已完成背景自動化能力，AI Workflow 已完成 Control Center 端的背景處理狀態 UI，並通過 macOS Development Manual Validation（Photoshop 2025）。以下為目前實際實作行為。
 
@@ -417,7 +417,7 @@ Recovery Banner（可復原的失敗狀態，`position:fixed`，z-index 高於 G
 - 部分素材去背失敗（PartialFailure，至少一張成功；去背失敗獨立分類 Bug Fix）不顯示 Recovery Banner、不使用「部分素材處理失敗」文案——直接進入素材審閱，Lock 正常解除；失敗素材改於素材審閱內以「去背失敗」呈現（見上方 Review Workspace 相關小節）。只有全部素材皆處理失敗（zero success）才會顯示上述「素材處理失敗。」Recovery Banner。
 - AI Workflow 已完成背景處理狀態（含 Ready Check 提示與 Recovery Banner）自動化，未重新設計 Review Workspace UI Upgrade 的 Locked 規格架構（Navigator、Dynamic Inspector、Decision Area、Completion Screen 的架構皆維持既有設計）；已修正兩個既有 UX Bug：完成畫面判斷改為依目前 Filter 是否還有素材、去背失敗獨立分類新增第三個 Filter 與 Decision Area／Completion Screen 內的新增顯示內容（皆為既有元件內的新增內容，非重新設計，見 CHANGELOG）。
 - Photoshop Automation 與 AI Workflow 責任不重疊：本節描述的 Control Center UI 屬於 AI Workflow；Photoshop 端的 Ready Contract、批次處理、狀態回報屬於 Photoshop Automation，不在本節範圍內。
-- Windows Validation 為 Deferred（Waiting for Windows Validation Environment），本節 UI 尚未在 Windows 上實機驗證。
+- Windows Validation 與 Jamie Manual Validation 已在 Photoshop 2025 實機 PASS。
 
 ## Project Persistence UX
 

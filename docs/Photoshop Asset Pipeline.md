@@ -2,7 +2,7 @@
 
 Version: 2026.07.12-ai-workflow-completed  
 Last Updated: 2026-07-13  
-Scope: Photoshop Asset Pipeline 的操作流程、內部資料契約、Runtime Contract、State Boundary 與 Troubleshooting。此文件描述目前實際行為：Photoshop Automation 與 AI Workflow 已完成 Coding 並通過 macOS Development Manual Validation（Photoshop 2025，Stage 1–4 共 18 項 PASS）。Windows Validation 為 **Deferred（Waiting for Windows Validation Environment）**，不是 Completed，不宣稱已支援 Windows 或所有 Photoshop 版本。Production Launcher／PyInstaller／Cloud Deployment 尚未開始（Not Started）。
+Scope: Photoshop Asset Pipeline 的操作流程、內部資料契約、Runtime Contract、State Boundary 與 Troubleshooting。此文件描述目前實際行為：Photoshop Automation 與 AI Workflow 已完成 Coding 並通過 macOS Development Manual Validation（Photoshop 2025，Stage 1–4 共 18 項 PASS）。Windows Development Validation 與 Jamie Manual Validation 亦已在 Photoshop 2025 實機 PASS；此結論不代表支援所有 Photoshop 版本。Production Launcher／PyInstaller／Cloud Deployment 尚未開始（Not Started）。
 
 ## Quick Workflow
 
@@ -141,7 +141,7 @@ Platform Adapter Interface（platform_adapter.py，依作業系統選擇）
 macOS Adapter                    Windows Adapter
 （macos_adapter.py，              （windows_adapter.py，
  AppleScript／osascript，          pywin32／win32com.client，
- 已完成 macOS 實機驗證）            已完成實作，Windows 實機驗證 Deferred）
+ 已完成 macOS 實機驗證）            Windows 實機驗證 PASS）
   ↓                                  ↓
 既有 remove-background.jsx（去背核心／Logo copy／Run Report 未修改，兩平台共用同一個腳本；
                             output.filename 缺漏時的 fallback 已改為 source basename + .png，
@@ -155,7 +155,7 @@ Runtime Workspace（暫存輸入／輸出）完全隱藏、自動建立與清理
 ### Platform Adapter
 
 - **macOS Adapter**：Ready Check 使用 bundle id `com.adobe.Photoshop` 的 `is running` 屬性判斷（`application id "com.adobe.Photoshop" is running`），只連接已開啟的 Photoshop，不自動啟動；不依賴容易因版本不同而變動的 process 名稱（Root Cause Fix，取代原本用 System Events process 名稱完全比對的做法）。Execute 呼叫既有、未修改的 `run-photoshop-manifest.applescript` → `remove-background.jsx`（去背核心不變）。
-- **Windows Adapter**：使用 pywin32（`win32com.client`）。Ready Check 用 `GetActiveObject("Photoshop.Application")`（只連接已開啟的實例，不自動啟動）；Execute 用 `app.DoJavaScript(...)` 執行同一份 `remove-background.jsx`（去背核心不變）。未使用 VBScript 或 `cscript.exe` 等淘汰技術。已完成實作與自動化測試，**尚未使用真實 Windows + Photoshop 環境驗證**。
+- **Windows Adapter**：使用 pywin32（`win32com.client`）。Ready Check 用 `GetActiveObject("Photoshop.Application")`（只連接已開啟的實例，不自動啟動）；Execute 由 Runtime 以 UTF-8 讀取共用 `remove-background.jsx`，以 `json.dumps()` 注入 `manifestPath`、`originalFolder`、`outputFolder`，再呼叫 `app.DoJavaScript(full_script)`。已在真實 Windows + Photoshop 2025 環境完成 Windows Validation 與 Jamie Manual Validation，成功產生 `photoshop-run-report.json` 與 Processed PNG。`DoJavaScriptFile()` 實機驗證失敗，不再採用。macOS 現有 AppleScript 流程不變，兩平台維持共用單一 `remove-background.jsx`。
 
 ### Ready / Execution / Status / Result Contract
 
@@ -664,7 +664,7 @@ Review Workspace UI Upgrade 只調整 Review Workspace 的 UI（Navigator / Dyna
 
 ### Photoshop Automation（Completed）
 
-完成 SPX AD Runtime（Ready / Execution / Status / Result Contract）、Platform Adapter Architecture、macOS Adapter（bundle id Ready Check）與 Windows Adapter（pywin32）。macOS 已完成實機驗證（Photoshop 2025）；Windows Validation 為 Deferred（Waiting for Windows Validation Environment）。
+完成 SPX AD Runtime（Ready / Execution / Status / Result Contract）、Platform Adapter Architecture、macOS Adapter（bundle id Ready Check）與 Windows Adapter（pywin32）。macOS 已完成實機驗證（Photoshop 2025）；Windows Validation 與 Jamie Manual Validation 亦已在 Photoshop 2025 實機 PASS。
 
 ### AI Workflow（Completed）
 
