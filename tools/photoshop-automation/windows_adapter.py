@@ -71,7 +71,16 @@ except ImportError:  # pragma: no cover - only unavailable on non-Windows hosts
 
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _PHOTOSHOP_TOOLS_DIR = os.path.abspath(os.path.join(_THIS_DIR, "..", "photoshop"))
-JSX_PATH = os.path.join(_PHOTOSHOP_TOOLS_DIR, "remove-background.jsx")
+
+# TEMPORARY (Windows Minimal JSX Load Verification, Proposal Freeze
+# 2026-07-15-freeze-03): JSX_PATH is temporarily repointed at a minimal,
+# standalone test JSX in the same tools/photoshop/ folder, to A/B-test
+# whether $.evalFile() itself can load/execute a JSX at all here,
+# independent of remove-background.jsx's own content. _build_bootstrap_
+# script() itself is unchanged -- only this one path value differs.
+# Revert this single line back to "remove-background.jsx" and delete
+# tools/photoshop/debug-minimal-evalfile-test.jsx once validation is done.
+JSX_PATH = os.path.join(_PHOTOSHOP_TOOLS_DIR, "debug-minimal-evalfile-test.jsx")
 
 PHOTOSHOP_COM_PROGID = "Photoshop.Application"
 
