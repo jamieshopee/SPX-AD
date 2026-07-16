@@ -7,3 +7,4 @@
  * Delete this file once Windows validation is complete.
  */
 $.global.__SPX_PS_DEBUG_PHASE__ = 'C';
+throw new Error('SPX_PHASE_C_PROBE');
