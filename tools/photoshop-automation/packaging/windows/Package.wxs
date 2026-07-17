@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="SPX Helper"
+    Manufacturer="SPX AD"
+    Version="0.5.4"
+    UpgradeCode="{0E9BD5FB-A6F1-472B-8B6B-A395BDEDC941}"
+    Scope="perMachine"
+    Compressed="yes">
+
+    <MajorUpgrade
+      DowngradeErrorMessage="A newer version of SPX Helper is already installed."
+      Schedule="afterInstallInitialize" />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="SPXHelper.ico" SourceFile="$(var.IconPath)" />
+    <Property Id="ARPPRODUCTICON" Value="SPXHelper.ico" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="SPX Helper" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="PROGRAMMENUDIR" Name="SPX Helper" />
+    </StandardDirectory>
+
+    <Component Id="MainExecutableComponent" Directory="INSTALLFOLDER" Guid="*">
+      <File
+        Id="SPXHelperExe"
+        Source="$(var.BundleDir)\SPX Helper.exe"
+        KeyPath="yes">
+        <Shortcut
+          Id="StartMenuShortcut"
+          Advertise="yes"
+          Directory="PROGRAMMENUDIR"
+          Name="SPX Helper"
+          Description="SPX Helper"
+          Icon="SPXHelper.ico"
+          WorkingDirectory="INSTALLFOLDER" />
+      </File>
+      <RemoveFolder Id="RemoveProgramMenuFolder" Directory="PROGRAMMENUDIR" On="uninstall" />
+    </Component>
+
+    <Component Id="StartupComponent" Directory="INSTALLFOLDER" Guid="*">
+      <RegistryValue
+        Root="HKLM"
+        Key="Software\Microsoft\Windows\CurrentVersion\Run"
+        Name="SPX Helper"
+        Type="string"
+        Value="&quot;[INSTALLFOLDER]SPX Helper.exe&quot;"
+        KeyPath="yes" />
+    </Component>
+
+    <Feature Id="ProductFeature" Title="SPX Helper" Level="1">
+      <Files Include="$(var.BundleDir)\**" Directory="INSTALLFOLDER">
+        <Exclude Files="$(var.BundleDir)\SPX Helper.exe" />
+      </Files>
+      <ComponentRef Id="MainExecutableComponent" />
+      <ComponentRef Id="StartupComponent" />
+    </Feature>
+
+    <CustomAction
+      Id="LaunchSPXHelper"
+      FileRef="SPXHelperExe"
+      ExeCommand=""
+      Execute="immediate"
+      Return="asyncNoWait"
+      Impersonate="yes" />
+
+    <InstallExecuteSequence>
+      <Custom
+        Action="LaunchSPXHelper"
+        After="InstallFinalize"
+        Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND NOT REMOVE~=&quot;ALL&quot;" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

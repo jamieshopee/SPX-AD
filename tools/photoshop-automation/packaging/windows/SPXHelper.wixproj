@@ -1,0 +1,17 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <OutputName>SPX Helper-0.5.4-x64</OutputName>
+    <OutputPath>$(MSBuildThisFileDirectory)dist\</OutputPath>
+    <IntermediateOutputPath>$(MSBuildThisFileDirectory)build\wix\</IntermediateOutputPath>
+    <DefineConstants>BundleDir=$(BundleDir);IconPath=$(IconPath)</DefineConstants>
+  </PropertyGroup>
+
+  <Target Name="ValidatePackagingInputs" BeforeTargets="Build">
+    <Error Condition="'$(BundleDir)' == ''" Text="BundleDir is required." />
+    <Error Condition="'$(IconPath)' == ''" Text="IconPath is required." />
+    <Error Condition="!Exists('$(BundleDir)\SPX Helper.exe')" Text="SPX Helper.exe is missing from BundleDir." />
+    <Error Condition="!Exists('$(BundleDir)\photoshop\remove-background.jsx')" Text="The shared remove-background.jsx is missing from BundleDir." />
+    <Error Condition="!Exists('$(IconPath)')" Text="The generated Windows icon is missing." />
+  </Target>
+</Project>

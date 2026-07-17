@@ -1,0 +1,4 @@
+PyInstaller==6.21.0
+pystray==0.19.5
+Pillow==11.3.0
+pywin32==312
