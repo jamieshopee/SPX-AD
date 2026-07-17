@@ -1,8 +1,8 @@
 # Photoshop Asset Pipeline
 
-Version: 2026.07.17-spx-helper-core-completed
+Version: 2026.07.17-windows-packaging-completed
 Last Updated: 2026-07-17
-Scope: Photoshop Asset Pipeline 的操作流程、內部資料契約、Runtime Contract、State Boundary 與 Troubleshooting。此文件描述目前實際行為：Photoshop Automation 與 AI Workflow 已完成；SPX Helper Core 已整合既有 RuntimeCore 並完成 macOS／Windows Jamie Manual Validation。installer、登入自動啟動、更新、簽章與 release packaging 尚未實作。Photoshop 實機結果不得延伸為支援所有 Photoshop 版本。
+Scope: Photoshop Asset Pipeline 的操作流程、內部資料契約、Runtime Contract、State Boundary 與 Troubleshooting。此文件描述目前實際行為：Photoshop Automation 與 AI Workflow 已完成；SPX Helper Core 已整合既有 RuntimeCore；Phase 2 Windows Packaging 已以 PyInstaller 與 WiX Toolset SDK 5.0.2 完成，並通過 Windows 正式流程驗證。macOS PKG、Update／Uninstall 與 Final Validation 尚未完成。Photoshop 實機結果不得延伸為支援所有 Photoshop 版本。
 
 ## Quick Workflow
 
@@ -153,6 +153,8 @@ processed PNG + photoshop-run-report.json（寫入 Runtime 隱藏 Workspace）
 ```
 
 Runtime Workspace（暫存輸入／輸出）完全隱藏、自動建立與清理，不是使用者可見的 Run 資料夾；具備 Pending Execution Timeout（避免上傳中斷導致永久 busy）與啟動時的 stale Workspace 清理。
+
+Windows 正式產品以 PyInstaller 封裝既有 Product Host，並由 WiX Toolset SDK 5.0.2 建立 per-machine MSI。Jamie Manual Validation 已確認安裝後的 GitHub Pages → SPX Helper → Photoshop → Processed PNG 流程；此 Packaging 不改變上述 Pipeline、Runtime Contract、Platform Adapter 或共用 `remove-background.jsx`。
 
 ### Platform Adapter
 
@@ -605,6 +607,10 @@ Batch / Thumbnail 在 render projection 時會透過 Approved Asset Resolver 判
 ### Q: Ready Check 明明 Photoshop 已開啟卻顯示未通過？
 
 macOS：確認 Photoshop 版本；Ready Check 依 bundle id `com.adobe.Photoshop` 判斷，理論上跨版本穩定。若持續異常，檢查 Runtime Terminal 的診斷輸出（returncode／stderr／例外類型）。Windows：Helper、RuntimeCore、Windows Adapter 與 Runtime Contract 已完成實機驗證。若 Photoshop 在 Remove Background／Select Subject 階段失敗，應依 Run Report 與 Photoshop 執行狀態另案診斷；目前 Windows 筆電發現的此類 Photoshop API 問題已確認不是 SPX Helper regression。
+
+### Known Issue: Windows Information Dialog 無法關閉
+
+同一 Windows 環境中，Version／About Information Dialog 與部分 Installer Dialog 的 OK、Esc、X 關閉事件異常。此問題不影響 Packaging、Runtime、Browser API、Photoshop Automation 或正式去背流程，另案處理。
 
 ## Phase History
 

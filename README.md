@@ -5,7 +5,9 @@
 - 控制台：雙擊 `launch/啟動 AD 管理器（Chrome）.command`
 - 編輯器：雙擊 `launch/啟動編輯器_*.command`
 
-SPX Helper Core 與 Runtime Productization Phase 1 Foundation 已完成，Browser／Platform Validation 與 Jamie Manual Validation 均 PASS。開發驗證時，先開啟 Photoshop，再於 `tools/photoshop-automation/` 執行 `python3 spx_helper_product.py`（Windows 使用 `python spx_helper_product.py`）；這不是正式使用者啟動方式。正式 Installer、Windows MSI、macOS PKG、登入自動啟動、更新、簽章與 release packaging 尚未完成，分別屬於後續 Phase。
+SPX Helper Core、Runtime Productization Phase 1 Foundation 與 Phase 2 Windows Packaging 已完成。Windows 正式產品使用 PyInstaller executable bundle 與 WiX Toolset SDK 5.0.2 MSI，安裝後可背景常駐並完成 GitHub Pages → SPX Helper → Photoshop → Processed PNG；Windows Packaging configuration、Product Foundation 與 Jamie Manual Validation 均 PASS。macOS PKG、跨平台 Update／Uninstall 與 Final Validation 仍屬後續 Phase。開發驗證入口仍為 `tools/photoshop-automation/spx_helper_product.py`，不是正式 Windows 使用者啟動方式。
+
+Known Issue：同一 Windows 環境中，Version／About 與部分 Installer Dialog 的 OK、Esc、X 關閉事件異常；不影響 Packaging、Runtime、Browser API、Photoshop Automation 或正式去背流程，另案處理。
 
 Editor Launcher 行為：
 

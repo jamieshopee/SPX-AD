@@ -2,7 +2,7 @@
 
 Status: Implementation Proposal Audit PASS
 
-Phase Status: Phase 1 Foundation Completed；Next: Phase 2 — Windows Packaging
+Phase Status: Phase 1 Foundation Completed；Phase 2 Windows Packaging Completed；Next: Phase 3 — macOS Packaging
 
 ## Goal
 
@@ -149,7 +149,7 @@ in-place update
 
 Phase 1 未包含 Installer、MSI、PKG、登入自動啟動、Update、Uninstall 或 Final Validation。
 
-### Phase 2 — Windows Packaging（Next；Not Started）
+### Phase 2 — Windows Packaging（Completed）
 
 完成範圍：
 
@@ -160,6 +160,10 @@ Phase 1 未包含 Installer、MSI、PKG、登入自動啟動、Update、Uninstal
 - Start Menu。
 - Apps & Features。
 - Windows Validation。
+
+實際完成：PyInstaller executable bundle、WiX Toolset SDK 5.0.2 per-machine MSI 與上述 Windows lifecycle。功能 Commit：`9240504`（`feat: add Phase 2 Windows packaging`）。Windows Packaging configuration、MSI Build／Install 與 GitHub Pages → SPX Helper → Photoshop → Processed PNG 均已實機 PASS。
+
+Known Issue：同一 Windows 環境中，Version／About Information Dialog 與部分 Installer Dialog 的關閉事件異常；不影響 Packaging、Runtime、Browser API、Photoshop Automation 或正式去背流程，另案處理。
 
 ### Phase 3 — macOS Packaging（Not Started）
 
@@ -204,4 +208,4 @@ Phase 2 只處理 Windows Packaging，不得：
 
 ## Current Status
 
-Phase 1 Foundation 已正式完成，Code Commit、Browser／Platform Validation 與 Jamie Manual Validation 均 PASS。下一步為 Phase 2 — Windows Packaging。
+Phase 1 Foundation 與 Phase 2 Windows Packaging 已正式完成。Phase 2 功能 Commit 為 `9240504`，Windows Packaging configuration、MSI Build／Install 與 Jamie Manual Validation 均 PASS。下一步為 Phase 3 — macOS Packaging。

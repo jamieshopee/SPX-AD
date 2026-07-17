@@ -6,21 +6,21 @@ AI Workflow / Photoshop Automation status lives in `docs/AI-HANDOFF.md`,
 `docs/Architecture.md`, and `docs/Photoshop Asset Pipeline.md` — this file
 only documents the Helper / Runtime module files and HTTP boundary.
 
-Status: SPX Helper Core, Runtime Productization Phase 1 Foundation, AI
-Workflow, and Photoshop Automation are Completed. SPX Helper owns the
+Status: SPX Helper Core, Runtime Productization Phase 1 Foundation, Phase 2
+Windows Packaging, AI Workflow, and Photoshop Automation are Completed. SPX Helper owns the
 production localhost boundary and delegates allowed requests to the existing
 RuntimeCore without changing its contract. The Phase 1 Product Host owns only
 the desktop Foundation lifecycle: Running / Working / Attention, one Helper
-instance, the fixed Tray / Menu Bar surface, Quit, and Restart. Installer,
-Windows MSI, macOS PKG, login auto-start, updates, signing, and release
-packaging remain later phases.
+instance, the fixed Tray / Menu Bar surface, Quit, and Restart. Phase 2 packages
+that unchanged Product Host with PyInstaller and WiX Toolset SDK 5.0.2 as a
+per-machine Windows MSI. macOS PKG, updates, uninstall, and final validation
+remain later phases.
 
 Manual validation result: macOS completed the full Happy Path through Run
 Report and Processed PNG, including a second Execute after Helper restart.
-Windows completed Helper, Browser, Ready, Execute, RuntimeCore, Windows
-Adapter, Runtime Contract, and Run Report validation. The Windows laptop's
-Remove Background / Select Subject failure was isolated to the Photoshop API
-execution stage and is tracked separately; it is not an SPX Helper regression.
+Windows completed PyInstaller EXE and WiX MSI build/install, background
+residency, System Tray, Browser, Ready, Execute, RuntimeCore, Windows Adapter,
+Runtime Contract, Run Report, and Processed PNG validation.
 
 ## What this is
 
@@ -73,11 +73,21 @@ existing Runtime HTTP handler for Ready / Execute / Asset Upload / Status /
 Result. Binding the fixed endpoint is the single-instance boundary: a second
 Helper exits instead of selecting another port.
 
-`spx_helper.py` remains the unchanged Helper Core. For current Phase 1
-development validation, start the Product Host from this directory with
+`spx_helper.py` remains the unchanged Helper Core. For development validation,
+start the Product Host from this directory with
 `python3 spx_helper_product.py` (Windows: `python spx_helper_product.py`). This
-source command is not the final end-user launch path; Installer, MSI, PKG, and
-login auto-start belong to later phases.
+source command is not the final Windows end-user launch path; Phase 2 installs
+the packaged Product Host through the Windows MSI. PKG and macOS login startup
+remain Phase 3 scope.
+
+Windows Packaging source is located in `packaging/windows/`. It uses
+PyInstaller plus WiX Toolset SDK 5.0.2; WiX v7 is not used because its OSMF
+condition does not meet this project's no-additional-cost packaging requirement.
+
+Known Issue: in the validated Windows environment, Version / About information
+dialogs and some Installer dialogs do not close through OK, Esc, or X. This does
+not affect Packaging, Runtime, Browser API, Photoshop Automation, or the
+background-removal flow and is tracked separately.
 
 ## Development Runtime fallback
 
