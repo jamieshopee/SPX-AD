@@ -1,0 +1,10 @@
+# Phase 1 desktop product host only. Platform installers will bundle these;
+# end users must never install or manage Python dependencies themselves.
+pystray==0.19.5
+Pillow==11.3.0
+
+# pystray's macOS backend. Kept explicit so the product host can be validated
+# before the later PKG / notarization phase.
+pyobjc-core==9.2; sys_platform == "darwin"
+pyobjc-framework-Cocoa==9.2; sys_platform == "darwin"
+pyobjc-framework-Quartz==9.2; sys_platform == "darwin"
