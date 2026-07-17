@@ -6,13 +6,14 @@ AI Workflow / Photoshop Automation status lives in `docs/AI-HANDOFF.md`,
 `docs/Architecture.md`, and `docs/Photoshop Asset Pipeline.md` — this file
 only documents the Helper / Runtime module files and HTTP boundary.
 
-Status: SPX Helper core, AI Workflow, and Photoshop Automation are Completed and are the
-project's primary flow (Ready Check → Processing Mode → Auto Import → Auto
-Open Review → automatic Rerun). SPX Helper owns the production localhost
-boundary and delegates allowed requests to the existing RuntimeCore without
-changing its contract. macOS and Windows have completed SPX Helper manual
-validation; packaging, installation, login auto-start, updates, signing, and
-automatic recovery remain separate deployment work.
+Status: SPX Helper Core, Runtime Productization Phase 1 Foundation, AI
+Workflow, and Photoshop Automation are Completed. SPX Helper owns the
+production localhost boundary and delegates allowed requests to the existing
+RuntimeCore without changing its contract. The Phase 1 Product Host owns only
+the desktop Foundation lifecycle: Running / Working / Attention, one Helper
+instance, the fixed Tray / Menu Bar surface, Quit, and Restart. Installer,
+Windows MSI, macOS PKG, login auto-start, updates, signing, and release
+packaging remain later phases.
 
 Manual validation result: macOS completed the full Happy Path through Run
 Report and Processed PNG, including a second Execute after Helper restart.
@@ -72,9 +73,11 @@ existing Runtime HTTP handler for Ready / Execute / Asset Upload / Status /
 Result. Binding the fixed endpoint is the single-instance boundary: a second
 Helper exits instead of selecting another port.
 
-For current manual validation only, start it from this directory with
-`python3 spx_helper.py` (Windows: `python spx_helper.py`). The production
-installer and background lifecycle are not part of the completed Helper core.
+`spx_helper.py` remains the unchanged Helper Core. For current Phase 1
+development validation, start the Product Host from this directory with
+`python3 spx_helper_product.py` (Windows: `python spx_helper_product.py`). This
+source command is not the final end-user launch path; Installer, MSI, PKG, and
+login auto-start belong to later phases.
 
 ## Development Runtime fallback
 
@@ -93,10 +96,22 @@ Validation, and manual testing. It is not the SPX Helper production boundary.
 
 ## Files
 
+- `spx_helper_product.py` — Phase 1 desktop Product Host. Composes the
+  unchanged `spx_helper.py` Core and existing RuntimeCore; exposes
+  Running / Working / Attention, prevents a second Helper listener, and owns
+  the fixed Open / About / Version / Restart / Quit Tray or Menu Bar lifecycle.
+- `validate_spx_helper_product.py` — self-contained Phase 1 validation for
+  lifecycle state, unchanged Ready response, single-instance behavior,
+  Working transitions, Attention, fixed menu commands, Quit, Restart, and
+  Working warnings. Run with `python3 validate_spx_helper_product.py`.
+- `requirements-product.txt` — Phase 1 Product Host dependencies used for
+  development and later platform bundling. End users must not install or
+  manage these Python packages themselves.
 - `spx_helper.py` — production localhost boundary. Owns the sole
   `127.0.0.1:8901` listener, validates the official GitHub Pages Origin,
   supplies CORS / OPTIONS behavior, and delegates allowed requests to a fresh
   existing `RuntimeCore` instance without redefining the Runtime Contract.
+  Phase 1 did not modify this file.
 - `validate_spx_helper.py` — self-contained validation for Origin rejection,
   CORS / OPTIONS, unchanged Runtime response mapping, fixed-port
   single-instance behavior, clean restart, and real RuntimeCore pass-through.

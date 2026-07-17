@@ -1,11 +1,12 @@
 # SPX AD 電子版位管理器
 
-Version: 2026.07.01-s  
-Last Updated: 2026-07-01  
+Version: v0.5.4
+Last Updated: 2026-07-17
 Scope: 專案總覽、啟動方式、目前架構、主要流程與維護入口。
 
 ## What's New
 
+- SPX Helper Runtime Productization Phase 1 Foundation 已完成：正式 Product Host、Running／Working／Attention、單一 Helper Instance、Tray／Menu Bar、Quit 與 Restart 均已通過 Browser／Platform Validation 與 Jamie Manual Validation；下一步為 Phase 2 — Windows Packaging。
 - Template + Style 架構已完成：`template.json` 負責排版結構，`styles/{styleId}.json` 負責視覺樣式。
 - Project State 已重整：CSV 匯入 = 建立全新工作區；匯入暫存 JSON = 恢復既有工作區。
 - Style 下拉改為獨立控制背景、資訊圖與文字顏色。
@@ -71,7 +72,7 @@ Preview / Thumbnail / PNG Export
 
 啟動檔會開啟本機 HTTP server，避免直接用 file 開啟時遇到瀏覽器資源限制。
 
-若要驗證目前已完成的 SPX Helper Core，需先自行開啟 Photoshop，再於 `tools/photoshop-automation/` 執行 `python3 spx_helper.py`（Windows 使用 `python spx_helper.py`）；Helper 會監聽 `127.0.0.1:8901`，並將正式 GitHub Pages 的請求委派給既有 RuntimeCore。macOS 與 Windows Jamie Manual Validation 已 PASS。這仍是目前的手動驗證啟動方式；installer、登入自動啟動、更新、簽章與 release packaging 尚未實作。舊的 `start-spx-ad-runtime.command` 保留為 Development Runtime 入口。詳見 `docs/AI-HANDOFF.md`、`docs/Architecture.md` 與 `tools/photoshop-automation/README.md`。
+SPX Helper Core 與 Runtime Productization Phase 1 Foundation 已完成。Foundation 新增正式 Product Host、Running／Working／Attention、單一 Helper Instance、固定 Tray／Menu Bar、Quit 與 Restart lifecycle，且未修改 Helper Core、Runtime Contract、Browser API 或 Frontend。開發驗證時，先自行開啟 Photoshop，再於 `tools/photoshop-automation/` 執行 `python3 spx_helper_product.py`（Windows 使用 `python spx_helper_product.py`）；Helper 仍監聽 `127.0.0.1:8901`，並將正式 GitHub Pages 的請求委派給既有 RuntimeCore。Browser／Platform Validation 與 Jamie Manual Validation 均 PASS。正式 Installer、Windows MSI、macOS PKG、登入自動啟動、更新、簽章與 release packaging 仍屬後續 Phase；舊的 `start-spx-ad-runtime.command` 保留為 Development Runtime 入口。詳見 `docs/AI-HANDOFF.md`、`docs/Architecture.md` 與 `tools/photoshop-automation/README.md`。
 
 ## 資料夾結構
 

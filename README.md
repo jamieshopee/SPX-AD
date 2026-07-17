@@ -5,7 +5,7 @@
 - 控制台：雙擊 `launch/啟動 AD 管理器（Chrome）.command`
 - 編輯器：雙擊 `launch/啟動編輯器_*.command`
 
-SPX Helper Core 已完成並通過 macOS／Windows Jamie Manual Validation。目前仍以手動方式驗證：先開啟 Photoshop，再於 `tools/photoshop-automation/` 執行 `python3 spx_helper.py`（Windows 使用 `python spx_helper.py`）。正式 installer、登入自動啟動、更新、簽章與 release packaging 尚待後續 Proposal。
+SPX Helper Core 與 Runtime Productization Phase 1 Foundation 已完成，Browser／Platform Validation 與 Jamie Manual Validation 均 PASS。開發驗證時，先開啟 Photoshop，再於 `tools/photoshop-automation/` 執行 `python3 spx_helper_product.py`（Windows 使用 `python spx_helper_product.py`）；這不是正式使用者啟動方式。正式 Installer、Windows MSI、macOS PKG、登入自動啟動、更新、簽章與 release packaging 尚未完成，分別屬於後續 Phase。
 
 Editor Launcher 行為：
 
