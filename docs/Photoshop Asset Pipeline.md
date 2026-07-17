@@ -1,8 +1,8 @@
 # Photoshop Asset Pipeline
 
-Version: 2026.07.17-windows-packaging-completed
-Last Updated: 2026-07-17
-Scope: Photoshop Asset Pipeline 的操作流程、內部資料契約、Runtime Contract、State Boundary 與 Troubleshooting。此文件描述目前實際行為：Photoshop Automation 與 AI Workflow 已完成；SPX Helper Core 已整合既有 RuntimeCore；Phase 2 Windows Packaging 已以 PyInstaller 與 WiX Toolset SDK 5.0.2 完成，並通過 Windows 正式流程驗證。macOS PKG、Update／Uninstall 與 Final Validation 尚未完成。Photoshop 實機結果不得延伸為支援所有 Photoshop 版本。
+Version: 2026.07.18-macos-packaging-completed
+Last Updated: 2026-07-18
+Scope: Photoshop Asset Pipeline 的操作流程、內部資料契約、Runtime Contract、State Boundary 與 Troubleshooting。此文件描述目前實際行為：Photoshop Automation 與 AI Workflow 已完成；SPX Helper Core 已整合既有 RuntimeCore；Phase 2 Windows Packaging 與 Phase 3 macOS Packaging 均已完成。macOS 正式產品安裝於 `/Applications/SPX Helper.app`，並已通過 GitHub Pages → Helper → Photoshop → Processed PNG；Developer ID／Notarization 為尚未驗證的 Credential-dependent validation。Phase 4 Update／Uninstall 與 Phase 5 Final Validation 尚未開始。Photoshop 實機結果不得延伸為支援所有 Photoshop 版本。
 
 ## Quick Workflow
 
@@ -154,7 +154,7 @@ processed PNG + photoshop-run-report.json（寫入 Runtime 隱藏 Workspace）
 
 Runtime Workspace（暫存輸入／輸出）完全隱藏、自動建立與清理，不是使用者可見的 Run 資料夾；具備 Pending Execution Timeout（避免上傳中斷導致永久 busy）與啟動時的 stale Workspace 清理。
 
-Windows 正式產品以 PyInstaller 封裝既有 Product Host，並由 WiX Toolset SDK 5.0.2 建立 per-machine MSI。Jamie Manual Validation 已確認安裝後的 GitHub Pages → SPX Helper → Photoshop → Processed PNG 流程；此 Packaging 不改變上述 Pipeline、Runtime Contract、Platform Adapter 或共用 `remove-background.jsx`。
+Windows 正式產品以 PyInstaller 封裝既有 Product Host，並由 WiX Toolset SDK 5.0.2 建立 per-machine MSI。macOS 正式產品同樣封裝既有 Product Host，以 PyInstaller 建立 `SPX Helper.app`，由 PKG 安裝至 `/Applications/SPX Helper.app`，並透過 LaunchAgent 登入啟動。兩平台 Jamie Manual Validation 均已確認安裝後的 GitHub Pages → SPX Helper → Photoshop → Processed PNG 流程；Packaging 不改變上述 Pipeline、Runtime Contract、Platform Adapter 或共用 `remove-background.jsx`。macOS Developer ID signing 與 Apple Notarization 尚未驗證。
 
 ### Platform Adapter
 
@@ -677,3 +677,7 @@ Review Workspace UI Upgrade 只調整 Review Workspace 的 UI（Navigator / Dyna
 ### AI Workflow（Completed）
 
 完成 Ready Check、Manifest Send + Processing Mode、Status Polling + Auto Import、Auto Open Review Workspace、Rerun Workflow、Error / Recovery Hardening，並通過 macOS Development Manual Validation（Stage 1–4 共 18 項 PASS）。詳見上方各章節與 `docs/CHANGELOG.md`。
+
+### SPX Helper Runtime Productization Phase 3 macOS Packaging（Completed）
+
+功能 Commit `ee55dd527a00361f1155ba45713ff2ce3957b06c`（`feat: add Phase 3 macOS packaging`）新增正式 `SPX Helper.app` 與 macOS PKG pipeline。Jamie Manual Validation 已確認 Fresh Install、安裝後立即啟動、Menu Bar、Applications 手動啟動、Restart、Quit、Login Startup 與正式 GitHub Pages → Helper → Photoshop → Processed PNG 全部 PASS；PKG relocation 以 component plist 的固定 Applications path 與 `BundleIsRelocatable = false` 修正並重驗 PASS。此 Phase 未修改 Photoshop Pipeline；Developer ID signing／Notarization 尚未驗證。

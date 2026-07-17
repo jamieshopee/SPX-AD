@@ -1,11 +1,12 @@
 # SPX AD 版型規格與操作說明
 
-Version: 2026.07.12-ai-workflow  
-Last Updated: 2026-07-15  
+Version: 2026.07.18-macos-packaging-completed
+Last Updated: 2026-07-18
 Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數規格與操作流程。
 
 ## What's New
 
+- **SPX Helper Runtime Productization Phase 3 macOS Packaging（Completed）**：macOS 正式產品由 PKG 安裝至 `/Applications/SPX Helper.app`，安裝後立即啟動，之後登入時透過 LaunchAgent 自動啟動；也可從 Applications 手動開啟。Menu Bar 提供 Running、Open SPX BN Generator、About、Version `0.5.4`、Restart 與 Quit；App 不顯示 Dock Icon，也不開啟 Terminal Window。Jamie Manual Validation 全部 PASS。Developer ID signing／Notarization 尚未驗證。
 - **一人一品（Person + Single Product）手動換圖修正（Bug Fix，Commit `c390a61`）**：手動換圖後下載單張暫存並重新開啟，正確保留換過的新圖（不再還原成舊圖）；Single Product 換圖後 Shadow 正確顯示；換圖前已拖曳／縮放／旋轉的位置與角度維持不變，仍可繼續正常拖曳、縮放、旋轉。詳見下方「1人＋1品」章節。
 - **三商品手動同檔名換圖保留 Product Identity（Bug Fix，Commit `3269b67`）**：拖曳與既有商品完整檔名（含副檔名）相符的新圖片，會視為取代該商品，原地更新圖片內容，商品角色身份與前後順序不變；Canvas 立即更新，整組比例、間距、overlap 與商品區域 fit 皆與其餘兩張商品一致；下載單張暫存並重新開啟後，換圖結果維持一致。詳見下方「三商品」章節。
 - **三商品前後順序與角色身份解耦（Bug Fix，Commit `ff1d97b`）**：調整前後順序不再改變商品角色身份（主品／左配品／右配品固定不變），只改變視覺堆疊順序；前後順序會隨其他調整正確保存與還原。詳見下方「三商品」章節。
@@ -264,6 +265,8 @@ templates/{size}/styles/17.json
 新增 Style 不需要修改 Template。若 Style 清單來自 config，需同步更新 config 或產生器，讓控制台知道新增的 style id。
 
 ## 控制台入口
+
+macOS 正式使用方式：安裝 SPX Helper PKG 後，Helper 位於 `/Applications/SPX Helper.app`。安裝完成會立即啟動；後續登入會自動啟動，也可從 Applications 手動開啟。Menu Bar 的「Open SPX BN Generator」可開啟正式 GitHub Pages 控制台。Quit 會停止目前登入 Session 的 Helper，且因 LaunchAgent 不使用 `KeepAlive`，不會立刻自動重啟；下次登入或從 Applications 手動開啟才會再次啟動。Product Version 為 `0.5.4`。
 
 控制台名稱：
 

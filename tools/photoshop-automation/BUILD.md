@@ -2,9 +2,13 @@
 
 > Historical implementation note: this file documents the older local
 > Production Launcher prototype. It is **not** the approved SPX Helper
-> deployment path. SPX Helper core now lives in `spx_helper.py`; installer,
-> login auto-start, update, signing, notarization, Authenticode, and release
-> packaging require their own later Implementation Proposals.
+> deployment path. The approved completed packaging paths are now
+> `packaging/windows/` (Phase 2) and `packaging/macos/` (Phase 3). The macOS
+> path builds `SPX Helper.app` plus a PKG installed to `/Applications`, with
+> LaunchAgent login startup. Update／uninstall and Final Validation remain later
+> phases; macOS Developer ID signing／Notarization remains credential-dependent
+> and unverified. The commands below are preserved only as historical notes for
+> the superseded launcher prototype.
 
 Scope: implementation reference for this Coding pass only, same as
 `README.md` in this directory — not a project-level document under `docs/`.

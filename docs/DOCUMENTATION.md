@@ -106,7 +106,8 @@
 - QR Code（CSV `QRcode` 欄位網址自動產生、控制台右側欄手動修改、四尺寸 Locked Visual Baseline；功能 Commit `79de045`、Tag `v0.5.2`）
 - SPX Helper Core（正式 localhost 邊界、Origin / CORS、單一實例邊界、既有 RuntimeCore Integration；功能 Commit `9a71794`；installer／auto-start／update／signing／packaging 不在此完成範圍）
 - SPX Helper Runtime Productization — Phase 1 Foundation（Product Host、Running / Working / Attention、單一 Helper Instance、Tray / Menu Bar、Quit、Restart；功能 Commit `51c4828`）
-- SPX Helper Runtime Productization — Phase 2 Windows Packaging（PyInstaller executable bundle、WiX Toolset SDK 5.0.2 per-machine MSI、Fresh Install、登入自動啟動、Start Menu、Apps & Features、Windows Validation；功能 Commit `9240504`；Phase 3～5 未完成）
+- SPX Helper Runtime Productization — Phase 2 Windows Packaging（PyInstaller executable bundle、WiX Toolset SDK 5.0.2 per-machine MSI、Fresh Install、登入自動啟動、Start Menu、Apps & Features、Windows Validation；功能 Commit `9240504`）
+- SPX Helper Runtime Productization — Phase 3 macOS Packaging（PyInstaller `SPX Helper.app`、macOS PKG、Applications、LaunchAgent、Login Startup、Menu Bar、macOS Validation；功能 Commit `ee55dd527a00361f1155ba45713ff2ce3957b06c`；Developer ID／Notarization 為 Credential-dependent validation）
 
 Known Issue：同一 Windows 環境中，Version／About Information Dialog 與部分 Installer Dialog 的關閉事件異常；不影響 Packaging、Runtime、Browser API、Photoshop Automation 或正式去背流程，另案處理。
 
@@ -371,7 +372,7 @@ After Review Workspace UI Upgrade v0.4.5, Photoshop Automation and AI Workflow w
 3. Render Context & Export Workflow（Completed — Batch Render placement/template Bug Fix, Tag `v0.5.1`）
 4. QR Code（Completed — CSV `QRcode` field-driven QR generation, functional Commit `79de045`, Tag `v0.5.2`）
 
-SPX Helper Core subsequently completed Coding and macOS／Windows Jamie Manual Validation (functional Commit `9a71794`). SPX Helper Runtime Productization Phase 1 Foundation completed Product Host lifecycle (functional Commit `51c4828`), and Phase 2 Windows Packaging completed the PyInstaller executable bundle, WiX Toolset SDK 5.0.2 MSI, and Windows validation (functional Commit `9240504`). Branch is `main`; the next phase is **Phase 3 — macOS Packaging (Not Started)**. Phase 4 Update + Uninstall and Phase 5 Final Validation remain incomplete.
+SPX Helper Core subsequently completed Coding and macOS／Windows Jamie Manual Validation (functional Commit `9a71794`). SPX Helper Runtime Productization Phase 1 Foundation completed Product Host lifecycle (functional Commit `51c4828`), Phase 2 Windows Packaging completed the PyInstaller executable bundle, WiX Toolset SDK 5.0.2 MSI, and Windows validation (functional Commit `9240504`), and Phase 3 macOS Packaging completed the PyInstaller app bundle, macOS PKG, Applications install, LaunchAgent login startup, and macOS validation (functional Commit `ee55dd527a00361f1155ba45713ff2ce3957b06c`). Developer ID signing and Apple Notarization remain credential-dependent and unverified. Branch is `main`; the next phase is **Phase 4 — Update + Uninstall (Not Started)**. Phase 5 Final Validation has not started.
 
 Rules：
 
@@ -379,13 +380,13 @@ Rules：
 - Future AI sessions must follow this order by default.
 - Do not propose a different next phase unless the product owner explicitly asks.
 - Completed phases must remain locked.
-- SPX Helper Runtime Productization Phase 1 Foundation and Phase 2 Windows Packaging are Completed and locked; Phase 3–5 must not be described as completed.
+- SPX Helper Runtime Productization Phase 1 Foundation, Phase 2 Windows Packaging, and Phase 3 macOS Packaging are Completed and locked; Phase 4–5 must not be described as completed.
 - Completed Review Workspace phases remain locked, including Review Workspace UI Upgrade.
 - Photoshop Automation and AI Workflow are Completed for macOS and Windows Development on Photoshop 2025. Neither must be redesigned, re-Proposaled, or renamed except for Bug Fix, User Request, or an explicit Architecture change — the same Completed Phase rule as any other Locked Completed Phase.
 - Render Context & Export Workflow is Completed and locked (Tag `v0.5.1`). Must not be redesigned, re-Proposaled, or renamed except for Bug Fix, User Request, or an explicit Architecture change.
 - QR Code is Completed and locked (functional Commit `79de045`, Tag `v0.5.2`). Must not be redesigned, re-Proposaled, or renamed except for Bug Fix, User Request, or an explicit Architecture change. The CSV column-matching rule (exact match on `QRcode` after cleaning, not a loose substring match) is Locked — real submission sheets contain other SPX-internal columns that also contain the substring "QRcode".
-- Windows Development Validation and Jamie Manual Validation are PASS on Photoshop 2025. Do not generalize this result to unvalidated Photoshop versions or Production Deployment.
-- SPX Helper Core is Completed and locked. The complete Production Deployment lifecycle is not completed; installer, auto-start, update, signing, packaging, compatibility, and recovery must remain explicitly pending.
+- Windows Development Validation and Jamie Manual Validation are PASS on Photoshop 2025. macOS Phase 3 local build／install and Jamie Manual Validation are PASS, but Developer ID signing and Apple Notarization are not. Do not generalize either result to unvalidated Photoshop versions or credential-dependent release validation.
+- SPX Helper Core is Completed and locked. Windows and macOS installer／auto-start packaging are complete; update、uninstall、final validation、credential-dependent macOS signing／notarization、compatibility and recovery remain explicitly pending where applicable.
 - Extension System has been removed from the roadmap (not Completed, not Current, not Next, not in Next Planned Phase Order). There is currently no product need for new Review Workspace tooling beyond 核准 / 重新去背 / 裁切 / 橡皮擦. If a concrete need appears later, the product owner will open a new Proposal for it rather than reserving a phase slot now.
 
 ## Photoshop Automation Rules（Completed）

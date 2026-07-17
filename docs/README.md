@@ -1,12 +1,12 @@
 # SPX AD 電子版位管理器
 
-Version: v0.5.4
-Last Updated: 2026-07-17
+Version: v0.5.5（Product Host `0.5.4`）
+Last Updated: 2026-07-18
 Scope: 專案總覽、啟動方式、目前架構、主要流程與維護入口。
 
 ## What's New
 
-- SPX Helper Runtime Productization Phase 1 Foundation 與 Phase 2 Windows Packaging 已完成：Windows 使用 PyInstaller + WiX Toolset SDK 5.0.2 建立 executable bundle／MSI，Fresh Install、背景常駐、System Tray 與 GitHub Pages → Helper → Photoshop → Processed PNG 已通過 Jamie Manual Validation；下一步為 Phase 3 — macOS Packaging。
+- SPX Helper Runtime Productization Phase 1 Foundation、Phase 2 Windows Packaging 與 Phase 3 macOS Packaging 已完成。Phase 3 功能 Commit `ee55dd527a00361f1155ba45713ff2ce3957b06c`（`feat: add Phase 3 macOS packaging`）新增正式 `SPX Helper.app` 與 macOS PKG build pipeline；Fresh Install、安裝後立即啟動、Login Startup、Menu Bar 及 GitHub Pages → Helper → Photoshop → Processed PNG 已通過 Jamie Manual Validation。下一步為尚未開始的 Phase 4 — Update + Uninstall。
 - Known Issue：同一 Windows 環境中，Version／About 與部分 Installer Dialog 的 OK、Esc、X 關閉事件異常；不影響正式 Runtime 與去背流程，另案處理。
 - Template + Style 架構已完成：`template.json` 負責排版結構，`styles/{styleId}.json` 負責視覺樣式。
 - Project State 已重整：CSV 匯入 = 建立全新工作區；匯入暫存 JSON = 恢復既有工作區。
@@ -73,7 +73,7 @@ Preview / Thumbnail / PNG Export
 
 啟動檔會開啟本機 HTTP server，避免直接用 file 開啟時遇到瀏覽器資源限制。
 
-SPX Helper Core、Runtime Productization Phase 1 Foundation 與 Phase 2 Windows Packaging 已完成。Foundation 新增正式 Product Host、Running／Working／Attention、單一 Helper Instance、固定 Tray／Menu Bar、Quit 與 Restart lifecycle，且未修改 Helper Core、Runtime Contract、Browser API 或 Frontend。Phase 2 以 PyInstaller 封裝既有 `spx_helper_product.py`，並以 WiX Toolset SDK 5.0.2 建立 per-machine MSI、安裝後立即啟動、Login Startup、Start Menu 與 Apps & Features；WiX v7 因 OSMF 不符合本專案不需額外付費的 Packaging 要求而未採用。Windows 實機已完成 MSI Build／Install、背景常駐及 GitHub Pages → Helper → Photoshop → Processed PNG Happy Path。macOS PKG、Update／Uninstall 與 Final Validation 仍屬後續 Phase；舊的 `start-spx-ad-runtime.command` 與 `spx_helper_product.py` 仍保留為 Development 入口。詳見 `docs/AI-HANDOFF.md`、`docs/Architecture.md` 與 `tools/photoshop-automation/README.md`。
+SPX Helper Core、Runtime Productization Phase 1 Foundation、Phase 2 Windows Packaging 與 Phase 3 macOS Packaging 已完成。Foundation 新增正式 Product Host、Running／Working／Attention、單一 Helper Instance、固定 Tray／Menu Bar、Quit 與 Restart lifecycle，且未修改 Helper Core、Runtime Contract、Browser API 或 Frontend。Phase 2 以 PyInstaller 與 WiX Toolset SDK 5.0.2 建立 Windows per-machine MSI。Phase 3 以 PyInstaller 建立無 Dock Icon／無 Terminal Window 的 `SPX Helper.app`，並以 PKG 安裝到 `/Applications/SPX Helper.app`；`/Library/LaunchAgents/com.spxad.helper.plist` 使用 `RunAtLoad = true` 且不設定 `KeepAlive`，因此登入時自動啟動，但 Quit 後不會在同一登入 Session 自動重啟。macOS local app build、local PKG build、installation validation 與 Jamie Manual Validation 均 PASS；Developer ID Application／Installer signing 與 Apple Notarization 因目前缺少有效 identities／credentials，仍是 Credential-dependent validation，不得視為 PASS。Product Host version 維持 `0.5.4`，最新正式 Git Tag 為 `v0.5.5`。Phase 4 Update + Uninstall 與 Phase 5 Final Validation 尚未開始；舊的 `start-spx-ad-runtime.command` 與 `spx_helper_product.py` 仍保留為 Development 入口。詳見 `docs/AI-HANDOFF.md`、`docs/Architecture.md` 與 `tools/photoshop-automation/README.md`。
 
 ## 資料夾結構
 

@@ -7,20 +7,28 @@ AI Workflow / Photoshop Automation status lives in `docs/AI-HANDOFF.md`,
 only documents the Helper / Runtime module files and HTTP boundary.
 
 Status: SPX Helper Core, Runtime Productization Phase 1 Foundation, Phase 2
-Windows Packaging, AI Workflow, and Photoshop Automation are Completed. SPX Helper owns the
+Windows Packaging, Phase 3 macOS Packaging, AI Workflow, and Photoshop Automation are Completed. SPX Helper owns the
 production localhost boundary and delegates allowed requests to the existing
 RuntimeCore without changing its contract. The Phase 1 Product Host owns only
 the desktop Foundation lifecycle: Running / Working / Attention, one Helper
 instance, the fixed Tray / Menu Bar surface, Quit, and Restart. Phase 2 packages
 that unchanged Product Host with PyInstaller and WiX Toolset SDK 5.0.2 as a
-per-machine Windows MSI. macOS PKG, updates, uninstall, and final validation
-remain later phases.
+per-machine Windows MSI. Phase 3 packages the same Product Host as a PyInstaller
+`SPX Helper.app` and macOS PKG installed at `/Applications/SPX Helper.app`, with
+LaunchAgent login startup. Update, uninstall, and final validation remain later
+phases. Developer ID signing and Apple Notarization are credential-dependent and
+have not been validated.
 
 Manual validation result: macOS completed the full Happy Path through Run
 Report and Processed PNG, including a second Execute after Helper restart.
 Windows completed PyInstaller EXE and WiX MSI build/install, background
 residency, System Tray, Browser, Ready, Execute, RuntimeCore, Windows Adapter,
 Runtime Contract, Run Report, and Processed PNG validation.
+macOS completed local app／PKG build and install validation, Fresh Install,
+immediate launch, Menu Bar, Applications launch, Restart, Quit, Login Startup,
+and GitHub Pages → Helper → Photoshop → Processed PNG. The PKG relocation issue
+was fixed with a non-relocatable component plist and revalidated with the staging
+App retained.
 
 ## What this is
 
@@ -76,13 +84,24 @@ Helper exits instead of selecting another port.
 `spx_helper.py` remains the unchanged Helper Core. For development validation,
 start the Product Host from this directory with
 `python3 spx_helper_product.py` (Windows: `python spx_helper_product.py`). This
-source command is not the final Windows end-user launch path; Phase 2 installs
-the packaged Product Host through the Windows MSI. PKG and macOS login startup
-remain Phase 3 scope.
+source command is not the final Windows or macOS end-user launch path; Phase 2
+installs the packaged Product Host through the Windows MSI, and Phase 3 installs
+`/Applications/SPX Helper.app` through the macOS PKG. The system LaunchAgent at
+`/Library/LaunchAgents/com.spxad.helper.plist` uses `RunAtLoad = true` without
+`KeepAlive`, so login starts the Helper while Quit remains stopped for the current
+login session.
 
 Windows Packaging source is located in `packaging/windows/`. It uses
 PyInstaller plus WiX Toolset SDK 5.0.2; WiX v7 is not used because its OSMF
 condition does not meet this project's no-additional-cost packaging requirement.
+
+macOS Packaging source is located in `packaging/macos/`. It uses PyInstaller to
+build the menu-bar-only `SPX Helper.app`, then `pkgbuild`／`productbuild` to create
+the PKG. Product Name is `SPX Helper`, bundle identifier is `com.spxad.helper`,
+package identifier is `com.spxad.helper.pkg`, and Product Version is `0.5.4`.
+Local app build, local PKG build, install validation, and Jamie Manual Validation
+passed. Release mode requires Developer ID Application／Installer identities and
+a notary profile, but those credential-dependent paths have not been validated.
 
 Known Issue: in the validated Windows environment, Version / About information
 dialogs and some Installer dialogs do not close through OK, Esc, or X. This does
@@ -117,6 +136,9 @@ Validation, and manual testing. It is not the SPX Helper production boundary.
 - `requirements-product.txt` — Phase 1 Product Host dependencies used for
   development and later platform bundling. End users must not install or
   manage these Python packages themselves.
+- `packaging/macos/` — completed Phase 3 macOS Packaging source: PyInstaller
+  spec, PKG build pipeline, entitlements, LaunchAgent, postinstall script, icon
+  generator, static/artifact validation, and installed-product validation.
 - `spx_helper.py` — production localhost boundary. Owns the sole
   `127.0.0.1:8901` listener, validates the official GitHub Pages Origin,
   supplies CORS / OPTIONS behavior, and delegates allowed requests to a fresh
