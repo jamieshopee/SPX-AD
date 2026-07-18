@@ -1,7 +1,7 @@
 # SPX AD 版型規格與操作說明
 
-Version: 2026.07.18-macos-packaging-completed
-Last Updated: 2026-07-18
+Version: 2026.07.19-ui-copy
+Last Updated: 2026-07-19
 Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數規格與操作流程。
 
 ## What's New
@@ -19,7 +19,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 - Style 只保存背景、資訊圖與文字顏色。
 - Source assets 統一放在 `backgrounds/` 與 `info/`。
 - 商品角色命名支援 `_主品/_左配品/_右配品`，並相容 `_01/_02/_03`。
-- 控制台名稱更新為 `SPX BN生成器`，Header 固定一般使用者入口。
+- 控制台名稱為 `SPX AD BN生成器`，Header 固定一般使用者入口。
 - Review Workspace UI Upgrade 完成：更新素材審閱操作流程（Navigator、Dynamic Inspector、Decision Area、Completion Screen、Completion Recovery）。
 
 ## Table of Contents
@@ -272,7 +272,7 @@ macOS 正式使用方式：安裝 SPX Helper PKG 後，Helper 位於 `/Applicati
 控制台名稱：
 
 ```text
-SPX BN生成器
+SPX AD BN生成器
 ```
 
 Header 固定四個一般使用者入口：
