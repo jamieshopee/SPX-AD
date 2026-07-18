@@ -28,7 +28,12 @@ macOS completed local app／PKG build and install validation, Fresh Install,
 immediate launch, Menu Bar, Applications launch, Restart, Quit, Login Startup,
 and GitHub Pages → Helper → Photoshop → Processed PNG. The PKG relocation issue
 was fixed with a non-relocatable component plist and revalidated with the staging
-App retained.
+App retained. Phase 3 Bug Fix Commit
+`781df79c232a9644cc0bd69653e390ef70d12964` replaced the install-complete
+`/usr/bin/open` launch with LaunchAgent bootstrap plus non-forcing kickstart so
+the Helper does not inherit PackageKit's temporary sandbox environment. Clean
+Install, the normal user temp environment, and the 5-job／22-asset production
+Happy Path were revalidated PASS by Jamie.
 
 ## What this is
 
@@ -89,7 +94,9 @@ installs the packaged Product Host through the Windows MSI, and Phase 3 installs
 `/Applications/SPX Helper.app` through the macOS PKG. The system LaunchAgent at
 `/Library/LaunchAgents/com.spxad.helper.plist` uses `RunAtLoad = true` without
 `KeepAlive`, so login starts the Helper while Quit remains stopped for the current
-login session.
+login session. The PKG `postinstall` starts that registered job with
+`launchctl kickstart` in the current GUI user domain; it does not use
+`kickstart -k`, direct `/usr/bin/open`, or `bootout`.
 
 Windows Packaging source is located in `packaging/windows/`. It uses
 PyInstaller plus WiX Toolset SDK 5.0.2; WiX v7 is not used because its OSMF
@@ -100,7 +107,10 @@ build the menu-bar-only `SPX Helper.app`, then `pkgbuild`／`productbuild` to cr
 the PKG. Product Name is `SPX Helper`, bundle identifier is `com.spxad.helper`,
 package identifier is `com.spxad.helper.pkg`, and Product Version is `0.5.4`.
 Local app build, local PKG build, install validation, and Jamie Manual Validation
-passed. Release mode requires Developer ID Application／Installer identities and
+passed, including the Phase 3 install-launch Bug Fix validation confirming that
+the installed Helper environment contains no `PKInstallSandbox` or installer
+variables and that the production Photoshop pipeline produces Processed PNG.
+Release mode requires Developer ID Application／Installer identities and
 a notary profile, but those credential-dependent paths have not been validated.
 
 Known Issue: in the validated Windows environment, Version / About information

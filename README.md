@@ -5,7 +5,7 @@
 - 控制台：雙擊 `launch/啟動 AD 管理器（Chrome）.command`
 - 編輯器：雙擊 `launch/啟動編輯器_*.command`
 
-SPX Helper Runtime Productization Phase 1 Foundation、Phase 2 Windows Packaging 與 Phase 3 macOS Packaging 均已完成。macOS 正式產品以 PyInstaller 建立 `SPX Helper.app`，由 PKG 安裝至 `/Applications/SPX Helper.app`，並透過 `/Library/LaunchAgents/com.spxad.helper.plist` 在登入時啟動；Fresh Install、安裝後立即啟動、Menu Bar、Restart、Quit、Login Startup，以及 GitHub Pages → SPX Helper → Photoshop → Processed PNG 均已通過 Jamie Manual Validation。Product Host version 維持 `0.5.4`；最新正式 Git Tag 為 `v0.5.5`。下一步是尚未開始的 Phase 4 — Update + Uninstall；Phase 5 Final Validation 亦尚未開始。開發驗證入口仍為 `tools/photoshop-automation/spx_helper_product.py`，不是正式 Windows 或 macOS 使用者啟動方式。
+SPX Helper Runtime Productization Phase 1 Foundation、Phase 2 Windows Packaging 與 Phase 3 macOS Packaging 均已完成。macOS 正式產品以 PyInstaller 建立 `SPX Helper.app`，由 PKG 安裝至 `/Applications/SPX Helper.app`，並透過 `/Library/LaunchAgents/com.spxad.helper.plist` 在登入時啟動；Fresh Install、安裝後立即啟動、Menu Bar、Restart、Quit、Login Startup，以及 GitHub Pages → SPX Helper → Photoshop → Processed PNG 均已通過 Jamie Manual Validation。Phase 3 後續以 Commit `781df79c232a9644cc0bd69653e390ef70d12964`（`fix: launch macOS helper through LaunchAgent`）修正 PKG `postinstall` 直接使用 `/usr/bin/open` 所造成的 `PKInstallSandbox` environment 繼承問題；安裝完成改由 LaunchAgent bootstrap + 非強制 kickstart 啟動，Clean Install 與正式 Happy Path 已重新驗證 PASS。Product Host version 維持 `0.5.4`；最新正式 Git Tag 為 `v0.5.5`。下一步是尚未開始的 Phase 4 — Update + Uninstall；Phase 5 Final Validation 亦尚未開始。開發驗證入口仍為 `tools/photoshop-automation/spx_helper_product.py`，不是正式 Windows 或 macOS 使用者啟動方式。
 
 Known Issue：同一 Windows 環境中，Version／About 與部分 Installer Dialog 的 OK、Esc、X 關閉事件異常；不影響 Packaging、Runtime、Browser API、Photoshop Automation 或正式去背流程，另案處理。
 

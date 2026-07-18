@@ -769,6 +769,8 @@ SPX Helper Core → RuntimeCore → Windows Adapter → Photoshop
 Status：**Completed**
 Code Commit：`ee55dd527a00361f1155ba45713ff2ce3957b06c`
 Commit subject：`feat: add Phase 3 macOS packaging`
+Bug Fix Commit：`781df79c232a9644cc0bd69653e390ef70d12964`
+Bug Fix subject：`fix: launch macOS helper through LaunchAgent`
 
 Phase 3 將 Phase 1 的既有 Product Host 封裝為 macOS 正式產品，不修改 Product Host、SPX Helper Core 或任何 Runtime／Browser Contract：
 
@@ -790,6 +792,8 @@ SPX Helper Core → RuntimeCore → macOS Adapter → Photoshop
 - Static／Build／Install Validation：macOS Packaging Static Validation、local app build、local PKG build 與 local installation validation 全部 PASS。
 - Jamie Manual Validation：Fresh Install、安裝到 `/Applications/SPX Helper.app`、安裝後立即啟動、LaunchAgent、Package Receipt、Menu Bar、Running、Open SPX BN Generator、About、Version `0.5.4`、無 Dock Icon、無 Terminal Window、GitHub Pages → SPX Helper → Photoshop → Processed PNG、Restart、Quit、Login Startup 全部 PASS。Restart 與 Login 後均只有一個 Product Host process 與一個 `127.0.0.1:8901` listener；Quit 後 process 與 listener 均為 0。
 - PKG relocation Root Cause Fix：初次 Fresh Install 發現 PackageKit 將 App relocation 回 build staging。根因為 bundle relocation 行為；build pipeline 產生 component plist 並明確設定 `RootRelativeBundlePath = Applications/SPX Helper.app` 與 `BundleIsRelocatable = false`。在 staging App 保留的情況下重新驗證後，App 正確安裝至 `/Applications/SPX Helper.app`，relocation 不再發生，Fresh Install PASS。
+- 安裝完成啟動 Root Cause Fix：原 `postinstall` 以 `launchctl asuser ... /usr/bin/open` 直接啟動 App，使 Helper 繼承 PackageKit 的 `PKInstallSandbox`／installer environment。sandbox 刪除後，`POST /execute` 在 `_create_workspace()` 呼叫 `tempfile.mkdtemp()` 時因 cached temp path 不存在而拋出 `FileNotFoundError`，最終回傳 HTTP 400 `manifest_invalid`。Bug Fix 保留 LaunchAgent bootstrap，並以 `launchctl kickstart "gui/$CONSOLE_UID/com.spxad.helper"` 啟動已註冊 job；不使用 `kickstart -k`，不新增 `KeepAlive`。
+- Bug Fix Validation：local PKG build、Clean Install 與 Jamie Manual Validation PASS。安裝後 LaunchAgent job 為 running，Helper process／`127.0.0.1:8901` listener 各一，`/ready` 200；process environment 使用存在的正常使用者 `TMPDIR`，且不含 `PKInstallSandbox`、`INSTALLER_TEMP`、`INSTALLER_PAYLOAD_DIR`、`SCRIPT_NAME=postinstall` 或 installer `PWD`。正式 GitHub Pages → Helper → Photoshop → Processed PNG PASS。`RunAtLoad = true`、Menu Bar Quit 與 Login Startup lifecycle 不變。
 - Credential-dependent validation：Release pipeline 已要求 Developer ID Application identity、Developer ID Installer identity 與 notary profile，並包含 sign／submit／staple／validate 步驟；但目前機器沒有有效 signing identities／notary credentials，因此 Developer ID Application signing、Developer ID Installer signing 與 Apple Notarization **尚未驗證**，不得宣稱 PASS。
 - Scope Boundary：未修改 SPX Helper Core、Runtime Contract、HTTP API、Browser API、Frontend、GitHub Pages、Photoshop Automation、AI Workflow 或 Windows Packaging。
 - Roadmap：Phase 1 Foundation、Phase 2 Windows Packaging、Phase 3 macOS Packaging 均為 Completed。下一步是 Phase 4 — Update + Uninstall（Not Started）；Phase 5 Final Validation 尚未開始。

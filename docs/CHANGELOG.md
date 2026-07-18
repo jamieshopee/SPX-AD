@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## Phase 3 macOS Packaging Bug Fix - 2026-07-18
+
+Status：**Completed — Jamie Manual Validation PASS**
+Code Commit：`781df79c232a9644cc0bd69653e390ef70d12964`
+Commit subject：`fix: launch macOS helper through LaunchAgent`
+
+- Root Cause：PKG `postinstall` 直接使用 `launchctl asuser ... /usr/bin/open "/Applications/SPX Helper.app"` 啟動 Helper，導致 process 繼承 PackageKit 的 `PKInstallSandbox`、`INSTALLER_TEMP`、`INSTALLER_PAYLOAD_DIR`、`SCRIPT_NAME=postinstall` 與 installer `PWD`。Installer 清除 sandbox 後，`POST /execute` 在 `_create_workspace()`／`tempfile.mkdtemp()` 拋出 `FileNotFoundError`，回傳 HTTP 400 `manifest_invalid`。
+- Fix：移除 `APP_PATH` 與 `/usr/bin/open`，保留既有 LaunchAgent bootstrap，改以非強制 `launchctl kickstart` 啟動 `gui/$CONSOLE_UID/com.spxad.helper`。不使用 `kickstart -k` 或 `bootout`，不新增 `KeepAlive`；`RunAtLoad = true`、Menu Bar Quit 與 Login Startup 行為不變。
+- Validation：shell syntax、macOS static validator、local PKG build、Clean Install 全部 PASS。安裝後 LaunchAgent job running，Helper process／`127.0.0.1:8901` listener 各一，`/ready` 200，正常使用者 `TMPDIR` 存在，environment 不含任何 installer variables。
+- Jamie Manual Validation：以正式 GitHub Pages 匯入 5 筆工單、處理 22 個素材，SPX Helper → Adobe Photoshop → Processed PNG 全流程 PASS；安裝後不需手動 Quit 或重新啟動 Helper。
+- Scope：只修改 macOS Packaging `postinstall` 與 static validator；未修改 SPX Helper Core、Runtime、Adapter、Browser API、Frontend、Photoshop Automation、Windows Packaging 或 Product Host version。Phase 4、Phase 5 尚未開始。
+- Release 狀態不變：Developer ID Application／Installer signing 與 Apple Notarization 尚未驗證；最新正式 Git Tag 仍為 `v0.5.5`，本次不建立 Tag。
+
 ## SPX Helper Runtime Productization — Phase 3 macOS Packaging - 2026-07-18
 
 Status：**Completed**

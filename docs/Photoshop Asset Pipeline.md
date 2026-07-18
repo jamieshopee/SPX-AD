@@ -681,3 +681,5 @@ Review Workspace UI Upgrade 只調整 Review Workspace 的 UI（Navigator / Dyna
 ### SPX Helper Runtime Productization Phase 3 macOS Packaging（Completed）
 
 功能 Commit `ee55dd527a00361f1155ba45713ff2ce3957b06c`（`feat: add Phase 3 macOS packaging`）新增正式 `SPX Helper.app` 與 macOS PKG pipeline。Jamie Manual Validation 已確認 Fresh Install、安裝後立即啟動、Menu Bar、Applications 手動啟動、Restart、Quit、Login Startup 與正式 GitHub Pages → Helper → Photoshop → Processed PNG 全部 PASS；PKG relocation 以 component plist 的固定 Applications path 與 `BundleIsRelocatable = false` 修正並重驗 PASS。此 Phase 未修改 Photoshop Pipeline；Developer ID signing／Notarization 尚未驗證。
+
+Phase 3 Bug Fix Commit `781df79c232a9644cc0bd69653e390ef70d12964`（`fix: launch macOS helper through LaunchAgent`）修正安裝後啟動來源：原 `postinstall` 的 `/usr/bin/open` 會使 Helper 繼承隨 Installer 結束而刪除的 `PKInstallSandbox` temp path，令第一個 `POST /execute` 在建立 Runtime Workspace 時回傳 HTTP 400 `manifest_invalid`。修正後由既有 LaunchAgent bootstrap + 非強制 kickstart 啟動；Clean Install environment 與正式 5 筆工單／22 個素材的 GitHub Pages → Helper → Photoshop → Processed PNG 已由 Jamie 重驗 PASS。Runtime Contract、Adapter、AppleScript、JSX 與 Pipeline 本身均未修改。
