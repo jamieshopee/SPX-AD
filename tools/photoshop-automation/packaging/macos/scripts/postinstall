@@ -3,7 +3,7 @@
 set -u
 
 LAUNCH_AGENT="/Library/LaunchAgents/com.spxad.helper.plist"
-APP_PATH="/Applications/SPX Helper.app"
+LAUNCH_AGENT_LABEL="com.spxad.helper"
 
 /usr/sbin/chown root:wheel "$LAUNCH_AGENT"
 /bin/chmod 0644 "$LAUNCH_AGENT"
@@ -15,11 +15,12 @@ fi
 
 CONSOLE_UID=$(/usr/bin/id -u "$CONSOLE_USER")
 
-# Register the login lifecycle in the active Aqua session. RunAtLoad starts
-# the Helper immediately on a fresh install; `open` is a safe fallback if the
-# agent was already registered by an interrupted installer retry.
+# Register the login lifecycle in the active Aqua session, then start the
+# registered job through launchd so the Helper receives the normal GUI login
+# environment instead of inheriting PackageKit's temporary script sandbox.
 /bin/launchctl asuser "$CONSOLE_UID" /bin/launchctl bootstrap \
   "gui/$CONSOLE_UID" "$LAUNCH_AGENT" >/dev/null 2>&1 || true
-/bin/launchctl asuser "$CONSOLE_UID" /usr/bin/open "$APP_PATH" >/dev/null 2>&1 || true
+/bin/launchctl asuser "$CONSOLE_UID" /bin/launchctl kickstart \
+  "gui/$CONSOLE_UID/$LAUNCH_AGENT_LABEL" >/dev/null 2>&1 || true
 
 exit 0

@@ -107,7 +107,19 @@ def validate_build_inputs(packaging_dir, automation_dir):
 
     postinstall_text = (packaging_dir / "scripts" / "postinstall").read_text(encoding="utf-8")
     check("Install registers the current Aqua session", "launchctl bootstrap" in postinstall_text)
-    check("Install launches SPX Helper immediately", "/usr/bin/open \"$APP_PATH\"" in postinstall_text)
+    check("Install does not launch the App through open", "/usr/bin/open" not in postinstall_text)
+    check("Install does not retain the direct App path launcher", "APP_PATH" not in postinstall_text)
+    check(
+        "Install uses the fixed LaunchAgent label",
+        'LAUNCH_AGENT_LABEL="com.spxad.helper"' in postinstall_text,
+    )
+    check("Install targets the current GUI user domain", '"gui/$CONSOLE_UID"' in postinstall_text)
+    check("Install starts SPX Helper through LaunchAgent kickstart", "launchctl kickstart" in postinstall_text)
+    check(
+        "Install kickstart targets the registered LaunchAgent job",
+        '"gui/$CONSOLE_UID/$LAUNCH_AGENT_LABEL"' in postinstall_text,
+    )
+    check("Install does not force-restart the LaunchAgent job", "kickstart -k" not in postinstall_text)
     check("Install does not remove login startup", "bootout" not in postinstall_text)
 
 
