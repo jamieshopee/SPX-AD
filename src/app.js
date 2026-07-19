@@ -86,6 +86,7 @@ let suppressLayoutStateWrites = false;
 let previewScale          = 1;
 let singleProductGeometry = null;
 let singleProductDrag     = null;
+let pendingManualSingleRenderCapture = null;
 let dragOverlay           = null;
 
 let jobs        = [];
@@ -1205,8 +1206,14 @@ async function pickAssetFolder() {
     if (frameReady && activeJobId) {
       const job = jobs.find(j => j.id === activeJobId);
       if (job) {
+        const productLoadSeq = canvasLoadSeq;
+        const productFrameWindow = el.frame.contentWindow;
         await applyLogosToCanvas(job.logoFilenames || []);
-        await applyProductsToCanvas(job.productFilenames || []);
+        await applyProductsToCanvas(job.productFilenames || [], isThreeProductJob(job) ? {
+          job,
+          loadSeq: productLoadSeq,
+          frameWindow: productFrameWindow,
+        } : {});
         await applyQrCodeToCanvas(job);
       }
     }
@@ -1525,7 +1532,7 @@ async function buildMainCanvasProductPayloadForJob(job) {
     try { await ensureTemplateJson(activeTemplate, job.styleId || '01'); } catch (_) {}
   }
   const resolvedAssets = await buildMainCanvasResolvedAssets(job);
-  return window.BNAssetRenderPayload.buildProductPayloads({
+  const payload = await window.BNAssetRenderPayload.buildProductPayloads({
     filenames: job.productFilenames || [],
     templateJson: activeTemplate?._json || {},
     getHandle: lookupAsset,
@@ -1535,6 +1542,7 @@ async function buildMainCanvasProductPayloadForJob(job) {
     resolvedAssets,
     createId: (kind, index) => 'cc_refresh_' + Date.now() + '_' + index,
   });
+  return applyJobManualRenderStateToPayload(job, payload);
 }
 
 async function updateMainCanvasImageSourcesForJob(job, reason = '') {
@@ -1775,7 +1783,118 @@ window._bnGetActiveTemplateJson = function() {
 // js/bn-editor-plugin.js 的 handlePersonProductFiles() 換圖後改呼叫本函式，
 // Person 帶入 role:'person'，Single Product 帶入 role:'singleProduct'，
 // 沿用同一套機制，不新增第二套失效化邏輯。
+function saveJobManualRenderState(job, filename, slot, role) {
+  if (!job || !filename) return false;
+  const info = classifyProducts(job.productFilenames || []);
+  const nextState = job._manualRenderState || {
+    products: {},
+    person: null,
+    singleProduct: null,
+  };
+
+  if (role === 'product') {
+    const identity = (info.products || []).find(item =>
+      item.filename === filename && Number(item.position) === Number(slot)
+    );
+    const product = (window._bnProducts || []).find(item =>
+      item.filename === filename && Number(item.position) === Number(slot)
+    );
+    if (!identity || !product?.src) return false;
+    nextState.products[String(Number(slot))] = {
+      filename: identity.filename,
+      src: product.src,
+      ratio: product.ratio,
+      baselineRatio: product.baselineRatio,
+    };
+  } else if (role === 'person') {
+    const person = window._bnPerson;
+    if (info.person !== filename || !person?.src) return false;
+    nextState.person = {
+      filename: info.person,
+      src: person.src,
+      displayWidth: person.displayWidth,
+      objectFit: person.objectFit,
+    };
+  } else if (role === 'singleProduct') {
+    const singleProduct = window._bnSingleProd;
+    if (!(info.singles || []).includes(filename) || !singleProduct?.src) return false;
+    nextState.singleProduct = {
+      filename,
+      src: singleProduct.src,
+      ratio: singleProduct.ratio,
+      displayW: singleProduct.displayW,
+      displayH: singleProduct.displayH,
+      zoneHeight: singleProduct.zoneHeight,
+      objectFit: singleProduct.objectFit,
+    };
+    pendingManualSingleRenderCapture = { job, filename };
+  } else {
+    return false;
+  }
+
+  job._manualRenderState = nextState;
+  return true;
+}
+
+function applyJobManualRenderStateToPayload(job, payload) {
+  const state = job?._manualRenderState;
+  if (!state || !payload) return payload;
+
+  if (payload.type === 'three_products') {
+    (payload.products || []).forEach(product => {
+      const manual = state.products?.[String(Number(product.position))];
+      if (!manual || manual.filename !== product.filename || !manual.src) return;
+      product.src = manual.src;
+      product.ratio = manual.ratio;
+      product.baselineRatio = manual.baselineRatio;
+      const message = (payload.messages || []).find(item =>
+        item.type === 'bn-product-add' && item.id === product.id
+      );
+      if (message) {
+        message.src = manual.src;
+        message.ratio = manual.ratio;
+        message.baselineRatio = manual.baselineRatio;
+      }
+    });
+    return payload;
+  }
+
+  const person = state.person;
+  if (person && person.filename === payload.info?.person && payload.person) {
+    payload.person.src = person.src;
+    payload.person.displayWidth = person.displayWidth;
+    payload.person.objectFit = person.objectFit;
+    const message = (payload.messages || []).find(item => item.type === 'bn-person-add');
+    if (message) {
+      message.src = person.src;
+      message.displayWidth = person.displayWidth;
+      message.objectFit = person.objectFit;
+    }
+  }
+
+  const singleProduct = state.singleProduct;
+  if (singleProduct && (payload.info?.singles || []).includes(singleProduct.filename) && payload.singleProduct) {
+    payload.singleProduct.src = singleProduct.src;
+    payload.singleProduct.ratio = singleProduct.ratio;
+    payload.singleProduct.displayW = singleProduct.displayW;
+    payload.singleProduct.displayH = singleProduct.displayH;
+    payload.singleProduct.zoneHeight = singleProduct.zoneHeight;
+    payload.singleProduct.objectFit = singleProduct.objectFit;
+    const message = (payload.messages || []).find(item => item.type === 'bn-single-product-add');
+    if (message) {
+      message.src = singleProduct.src;
+      message.ratio = singleProduct.ratio;
+      message.displayW = singleProduct.displayW;
+      message.displayH = singleProduct.displayH;
+      message.zoneHeight = singleProduct.zoneHeight;
+      message.objectFit = singleProduct.objectFit;
+    }
+  }
+  return payload;
+}
+
 window._bnInvalidateApprovedAssetForManualReplace = function(filename, slot, role = 'product') {
+  saveJobManualRenderState(activeJob(), filename, slot, role);
   if (!assetPipelineState || !assetPipelineState.assets) return;
   if (!window.BNAssetResolver?.resolveApprovedAsset) return;
   const job = activeJob();
@@ -2439,11 +2558,16 @@ async function selectJob(id, options = {}) {
     const savedLayoutState = getJobLayoutStateStrict(job, layoutKey);
     setMainFrameLayoutTarget(job, layoutKey);
     const loadSeq = loadCanvas(activeTemplate._templatePath, job.styleId || '01');
+    const frameWindow = el.frame.contentWindow;
     waitForFrameReady(15000).then(async () => {
       if (loadSeq !== canvasLoadSeq) return;
       await applyLogosToCanvas(job.logoFilenames || []);
       if (loadSeq !== canvasLoadSeq) return;
-      await applyProductsToCanvas(job.productFilenames || []);
+      await applyProductsToCanvas(job.productFilenames || [], isThreeProductJob(job) ? {
+        job,
+        loadSeq,
+        frameWindow,
+      } : {});
       if (loadSeq !== canvasLoadSeq) return;
       await applyQrCodeToCanvas(job);
       if (loadSeq !== canvasLoadSeq) return;
@@ -2665,13 +2789,38 @@ async function applyQrCodeToCanvas(job) {
 // ══════════════════════════════════════════════════════
 async function applyProductsToCanvas(productFilenames, options = {}) {
   if (!productFilenames.length) return;
-  if (activeTemplate) {
-    try { await ensureTemplateJson(activeTemplate, activeJob()?.styleId || '01'); } catch (_) {}
+  const transaction = options.job && options.loadSeq != null && options.frameWindow
+    ? { job: options.job, loadSeq: options.loadSeq, frameWindow: options.frameWindow, template: activeTemplate }
+    : null;
+  const stopStaleProductRender = stage => {
+    if (!transaction) return false;
+    const stale = transaction.job.id !== activeJobId
+      || transaction.loadSeq !== canvasLoadSeq
+      || transaction.frameWindow !== el.frame?.contentWindow;
+    if (stale) {
+      console.log('[CC][products] stale render stopped', {
+        stage,
+        job: transaction.job.jobId || transaction.job.id,
+        loadSeq: transaction.loadSeq,
+        activeJobId,
+        canvasLoadSeq,
+      });
+    }
+    return stale;
+  };
+  if (stopStaleProductRender('start')) return;
+
+  const renderTemplate = transaction ? transaction.template : activeTemplate;
+  const renderJob = transaction ? transaction.job : activeJob();
+  if (renderTemplate) {
+    try { await ensureTemplateJson(renderTemplate, renderJob?.styleId || '01'); } catch (_) {}
   }
-  const resolvedAssets = await buildMainCanvasResolvedAssets(activeJob());
+  if (stopStaleProductRender('template-ready')) return;
+  const resolvedAssets = await buildMainCanvasResolvedAssets(renderJob);
+  if (stopStaleProductRender('assets-resolved')) return;
   const payload = await window.BNAssetRenderPayload.buildProductPayloads({
     filenames: productFilenames,
-    templateJson: activeTemplate?._json || {},
+    templateJson: renderTemplate?._json || {},
     getHandle: lookupAsset,
     handleToDataUrl,
     trim: autoTrim,
@@ -2679,16 +2828,21 @@ async function applyProductsToCanvas(productFilenames, options = {}) {
     resolvedAssets,
     createId: (kind, index) => 'cc_p' + Date.now() + '_' + index,
   });
+  if (stopStaleProductRender('payload-built')) return;
+  applyJobManualRenderStateToPayload(renderJob, payload);
   const info = payload.info;
   console.log('[CC] 商品分類:', payload.type);
   payload.missing.forEach(filename => console.warn('[CC] 商品找不到:', filename));
   payload.errors.forEach(item => console.error('[CC] 商品圖失敗:', item.filename, item.error));
 
   if (payload.type === 'three_products') {
+    if (stopStaleProductRender('before-products-state')) return;
     updateTemplateModeLabel('three_products');
     clearPersonProductState(false);
+    if (stopStaleProductRender('before-products-globals')) return;
     window._bnProducts = [];           // 先清空 plugin 狀態
     for (let i = 0; i < payload.products.length; i++) {
+      if (stopStaleProductRender('before-product-' + i)) return;
       const product = payload.products[i];
       window._bnProducts.push({
         id: product.id,
@@ -2702,12 +2856,15 @@ async function applyProductsToCanvas(productFilenames, options = {}) {
         zOrder: product.zOrder,
         _slot: product._slot,
       });
-      el.frame.contentWindow.postMessage(payload.messages[i], '*');
+      if (stopStaleProductRender('before-product-message-' + i)) return;
+      transaction.frameWindow.postMessage(payload.messages[i], '*');
       console.log('[CC] bn-product-add pos=' + product.position +
         ' ratio=' + product.ratio.toFixed(3) +
         ' baselineRatio=' + product.baselineRatio.toFixed(3));
       await sleep(60);
+      if (stopStaleProductRender('after-product-message-' + i)) return;
     }
+    if (stopStaleProductRender('products-complete')) return;
     if (typeof window._bnRenderProdList === 'function') window._bnRenderProdList(); // 刷新右側 UI
     updateProductModeLock();
     if (!options.skipThumbnail) scheduleActiveJobThumbnailUpdate(900);
@@ -2947,6 +3104,7 @@ async function postProductsToFrame(frameWindow, productFilenames, templateJson, 
     resolvedAssets: options.resolvedAssets || null,
     createId: (kind, index) => 'thumb_p_' + Date.now() + '_' + index,
   });
+  applyJobManualRenderStateToPayload(options.job || null, payload);
   console.log('[CC][thumb] products mode', label, payload.type);
   for (const message of payload.messages) {
     frameWindow.postMessage(message, '*');
@@ -3008,7 +3166,7 @@ async function generateJobThumbnail(job, renderContext = getActiveRenderContext(
     await postLogosToFrame(frame.contentWindow, job.logoFilenames || [], label);
     if (job.logoFilenames?.length) await sleep(240);
     const resolvedAssets = await buildThumbnailResolvedAssets(job);
-    await postProductsToFrame(frame.contentWindow, job.productFilenames || [], templateJson, label, { resolvedAssets });
+    await postProductsToFrame(frame.contentWindow, job.productFilenames || [], templateJson, label, { resolvedAssets, job });
     if (job.productFilenames?.length) await sleep(420);
     await applyJobLayoutStateToFrame(job, frame.contentWindow, savedLayoutState, { skipRequest: true });
     await waitForFrameImages(frame.contentWindow, 6000);
@@ -3355,6 +3513,7 @@ async function selectTemplate(id, options = {}) {
     const savedLayoutState = getJobLayoutStateStrict(selectedJob, layoutKey);
     setMainFrameLayoutTarget(selectedJob, layoutKey);
     const loadSeq = loadCanvas(activeTemplate._templatePath, selectedJob?.styleId || '01');
+    const frameWindow = el.frame.contentWindow;
     // 若有 active job，ready 後送素材
     const job = jobs.find(j => j.id === activeJobId);
     if (job) {
@@ -3362,7 +3521,11 @@ async function selectTemplate(id, options = {}) {
         if (loadSeq !== canvasLoadSeq) return;
         await applyLogosToCanvas(job.logoFilenames || []);
         if (loadSeq !== canvasLoadSeq) return;
-        await applyProductsToCanvas(job.productFilenames || []);
+        await applyProductsToCanvas(job.productFilenames || [], isThreeProductJob(job) ? {
+          job,
+          loadSeq,
+          frameWindow,
+        } : {});
         if (loadSeq !== canvasLoadSeq) return;
         await applyQrCodeToCanvas(job);
         if (loadSeq !== canvasLoadSeq) return;
@@ -3575,7 +3738,7 @@ async function renderSingleJob(job) {
     // 3. 商品圖
     if (job.productFilenames.length) {
       const resolvedAssets = await buildBatchResolvedAssets(job);
-      await postProductsToFrame(el.frame.contentWindow, job.productFilenames, templateJson, job.jobId || String(job.id), { resolvedAssets });
+      await postProductsToFrame(el.frame.contentWindow, job.productFilenames, templateJson, job.jobId || String(job.id), { resolvedAssets, job });
       await sleep(900);
       if (loadSeq !== canvasLoadSeq) throw new Error('render interrupted');
     }
@@ -4382,6 +4545,23 @@ window.addEventListener('message', event => {
   if (event.source !== el.frame.contentWindow) return;
   if (type === 'bn-single-product-geometry') {
     singleProductGeometry = event.data.visible === false ? null : event.data;
+    const pending = pendingManualSingleRenderCapture;
+    if (pending && pending.job?.id !== activeJobId) {
+      pendingManualSingleRenderCapture = null;
+    } else if (pending && singleProductGeometry) {
+      const manual = pending.job?._manualRenderState?.singleProduct;
+      const currentSrc = el.frame.contentWindow?.document
+        ?.querySelector('#bn-zone-singleprod .bn-single-product-box img')?.src;
+      if (manual?.filename === pending.filename && currentSrc === manual.src) {
+        const width = Number(singleProductGeometry.width);
+        const height = Number(singleProductGeometry.height);
+        if (width > 0 && height > 0) {
+          manual.displayW = width;
+          manual.displayH = height;
+          pendingManualSingleRenderCapture = null;
+        }
+      }
+    }
     updateSingleProductDragOverlay();
   }
   if (type === 'bn-layout-state' && suppressLayoutStateWrites) {
