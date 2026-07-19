@@ -6,6 +6,7 @@ Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
 
+- **Upload Panel stale hint rendering 修正（UI Bug Fix，Commit `e44f658`）**：移除 `updateMutualExclusion()` 對已不存在之 Products／1人＋1品提示容器的 sibling lookup 與文字／顏色寫入，避免覆寫商品清單與「恢復預設位置」按鈕。商品排序、角色判斷、Reset 與雙向互斥行為不變；Browser Validation 與 Jamie Manual Validation PASS。
 - **三商品前後順序（z-order）與角色身份解耦（Bug Fix，Commit `ff1d97b`）**：右側商品圖清單改為依前後順序（Layer／堆疊順序）排列顯示；每一列的角色標籤（主品／左配品／右配品）仍固定依該商品實際角色顯示，不隨列的顯示順序改變。詳見下方商品圖區塊小節與 CHANGELOG。
 - **QR Code（Completed，功能 Commit `79de045`、Tag `v0.5.2`）**：控制台右側欄新增 QRCode 區塊，固定順序為主標／副標／小字之後、Logo 之前；包含標題、網址輸入框、檢查網址連結、狀態訊息（固定保留於輸入框下方，有狀態時顯示文字、無狀態時保持空白）；不提供縮圖、位置／尺寸資訊、拖曳、縮放、旋轉或樣式設定。詳見下方 Right Panel 小節與 CHANGELOG。
 - **去背失敗獨立分類（Bug Fix）**：Review Workspace 新增第三個 Filter 分頁「去背失敗」與 Navigator 標籤；去背失敗素材的 Decision Area 改顯示提示文字取代三顆按鈕；Completion Screen 新增去背失敗計數，但不影響完成判定；Recovery Banner 不再顯示「部分素材處理失敗」。詳見下方相關小節與 CHANGELOG。
@@ -173,6 +174,8 @@ Toolbar 顯示：
 - 商品圖標題：`商品圖（最多3張）`；Upload Box：`＋ 點擊或拖曳上傳商品圖`。
 - 1人＋1品標題：`1人＋1品`；Upload Box：`＋ 點擊或拖曳上傳圖片`。
 
+Products 與 1人＋1品 Upload Box 下方不建立或保留提示文字占位；後續清單與「恢復預設位置」按鈕自然接續排列。互斥狀態只調整既有 Upload Box 與 Reset button 狀態，不得以 sibling lookup 寫入商品清單或 Reset button 文字。
+
 ### QRCode 區塊（Completed）
 
 固定順序：主標／副標／小字之後、Logo 之前；不是 Accordion，恆常展開，也不參與素材互鎖判斷。
@@ -209,6 +212,7 @@ Accordion 規則：
 - 清單列的顯示順序依前後順序（Layer／堆疊順序）排列，由前到後。
 - 每一列的角色標籤（主品／左配品／右配品）固定依該商品實際角色顯示，不隨列在清單中的顯示順序改變。
 - ▲／▼ 只調整該商品在堆疊順序中的前後位置（誰蓋住誰），不改變其角色、預設大小或預設位置。
+- 商品上傳後，商品列及其編輯、移除、▲／▼操作必須持續顯示，不得由 Upload Panel 的提示文字更新覆寫。
 
 ## Dialog
 

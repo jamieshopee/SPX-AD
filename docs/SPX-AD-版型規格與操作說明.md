@@ -6,6 +6,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 
 ## What's New
 
+- **Upload Panel stale hint rendering 修正（UI Bug Fix，Commit `e44f65879e3140ba87ecb4c49f5171d291d5e98d`）**：Products／1人＋1品的提示文字容器已移除，但舊 sibling lookup 仍會把商品清單與 Reset button 誤認為提示區並覆寫內容；現已只移除失效的提示文字與顏色寫入。商品排序、角色判斷、Upload、Reset 與雙向互斥均維持原行為，Browser Validation 與 Jamie Manual Validation PASS。
 - **手動換圖跨 Job 保留（Bug Fix，Commit `4ff252f`）**：Products、Person、Single Product 使用相同完整檔名手動換圖後，切換到其他 Job 再切回，仍顯示手動換入的圖片；既有大小、位置、旋轉與前後順序依原本 Job layout state 正確保留。快速切換 Job 時可能等待目前 Render 完成，但完成後不會再被原始或 processed 圖片覆蓋。此修正只作用於目前頁面 session，不新增重新整理後的永久保存。
 - **SPX Helper Runtime Productization Phase 3 macOS Packaging（Completed）**：macOS 正式產品由 PKG 安裝至 `/Applications/SPX Helper.app`，安裝後立即啟動，之後登入時透過 LaunchAgent 自動啟動；也可從 Applications 手動開啟。Menu Bar 提供 Running、Open SPX BN Generator、About、Version `0.5.4`、Restart 與 Quit；App 不顯示 Dock Icon，也不開啟 Terminal Window。Jamie Manual Validation 全部 PASS。Developer ID signing／Notarization 尚未驗證。
 - **Phase 3 macOS Packaging 安裝後啟動 Bug Fix（Commit `781df79c232a9644cc0bd69653e390ef70d12964`）**：PKG 安裝完成後改由 LaunchAgent bootstrap + kickstart 啟動 Helper，不再由 installer 直接 `open` App，因此不會繼承已刪除的 PackageKit temp environment。Jamie 已以正式 5 筆工單／22 個素材重驗 GitHub Pages → Helper → Photoshop → Processed PNG PASS；使用者操作、Menu Bar Quit 與 Login Startup 行為不變。
@@ -202,11 +203,15 @@ CSV 欄位：
 
 視覺排列由 `layout-runtime.js` 依 Template 控制。使用者可拖曳、縮放、旋轉，也可以調整前後順序（▲／▼，誰蓋住誰），也可以恢復預設位置。恢復預設位置會清除 user transform，重新套用 Template 初始排版。
 
+商品圖 Upload Box 下方不顯示「01 主品置中最大；02 左側配品；03 右側配品。未編號時依上傳順序。」；不保留提示文字空白。商品上傳後，商品列表與編輯／移除／▲／▼操作正常保留，「恢復預設位置」按鈕與 1人＋1品雙向互斥行為不變。
+
 調整前後順序不會改變商品的角色身份（主品／左配品／右配品固定不變），只改變視覺堆疊順序；右側商品清單依前後順序顯示，角色標籤仍依實際角色顯示。前後順序會隨其他調整一起保存於工單，下載單張暫存或完整專案後重新匯入時會正確還原（Bug Fix，Commit `ff1d97b`）。
 
 手動換圖：拖曳一張與既有商品完整檔名（含副檔名）相符的新圖片到商品圖區塊，會視為取代該商品，商品角色身份、id 與前後順序皆不變，僅更新圖片內容與檔名；Canvas 立即更新，並整組重新套用排版，換圖後比例、間距、overlap 與商品區域 fit（不超出邊界）皆與其餘兩張商品一致。下載單張暫存並重新開啟後，換圖結果維持一致（Bug Fix，Commit `3269b67`）。同一頁面 session 中切換到其他 Job 再切回，手動換入的圖片與原本大小、位置、旋轉、前後順序仍會保留；快速切換完成後也不會被原始或 processed 圖片覆蓋（Bug Fix，Commit `4ff252f`）。
 
 ## 1人＋1品
+
+1人＋1品 Upload Box 下方不顯示「檔名需包含『*人』或『*品』；同角色會替換。」；不保留提示文字空白。「恢復預設位置」按鈕維持原文字與 enabled／disabled 行為，`*人`／`*品` 角色判斷、Upload、Reset 及與商品圖的雙向互斥不變。
 
 Person：
 

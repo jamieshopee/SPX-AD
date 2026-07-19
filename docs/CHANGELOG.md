@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## Upload Panel stale hint rendering 修正 - 2026-07-19
+
+Status：**Completed — Browser Validation／Jamie Manual Validation PASS**
+Code Commit：`e44f65879e3140ba87ecb4c49f5171d291d5e98d`
+Commit subject：`fix: remove stale upload panel hint rendering`
+
+- Root Cause：Products 與 1人＋1品的提示文字 DOM 容器先前已移除，但 `updateMutualExclusion()` 仍分別以 `prodDrop.nextElementSibling`、`ppDrop.nextElementSibling` 尋找 `prodHint`／`ppHint`。實際 sibling 已變成 `#bn-prod-list` 與「恢復預設位置」Reset button；後續 `textContent` 寫入因此覆寫商品清單 DOM 與 Reset button 文字。
+- Fix：只移除失效的 `prodHint`／`ppHint` lookup、文字與顏色寫入；未修改商品排序、商品角色判斷、`*人`／`*品` 角色判斷、Upload、Reset、雙向互斥或其他架構。
+- UI Result：商品上傳後，商品列表與編輯／移除／▲／▼排序操作正常保留；Products 與 1人＋1品的舊提示文字不再顯示，且不保留額外空白；兩區「恢復預設位置」按鈕與雙向互斥維持正常。
+- Validation：`node --check js/bn-editor-plugin.js` PASS、`git diff --check` PASS、Browser Console errors 0、Codex Browser Validation PASS、Jamie Manual Validation PASS。
+- Boundary：本次是 UI Bug Fix，不新增功能、不修改 Architecture；Code Commit 只修改 `js/bn-editor-plugin.js`。
+
 ## 手動換圖跨 Job 保留與 Products Render Race 修正 - 2026-07-19
 
 Status：**Completed — Browser Validation／Jamie Manual Validation PASS**
