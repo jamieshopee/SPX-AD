@@ -1,13 +1,14 @@
 # Architecture
 
 Version: v0.5.5（Product Host `0.5.4`；Runtime Productization Phase 3 macOS Packaging Completed；Next: Phase 4 — Update + Uninstall）
-Last Updated: 2026-07-18
+Last Updated: 2026-07-19
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界、新增 Style 流程，以及 SPX Helper / Photoshop Automation / AI Workflow / QR Code 架構。
 
 SPX Helper Core（功能 Commit `9a71794`）、Runtime Productization Phase 1 Foundation（功能 Commit `51c4828`）、Phase 2 Windows Packaging（功能 Commit `9240504`）與 Phase 3 macOS Packaging（功能 Commit `ee55dd527a00361f1155ba45713ff2ce3957b06c`）均已完成。Phase 3 以 PyInstaller 建立 `SPX Helper.app`，並由 PKG 固定安裝到 `/Applications/SPX Helper.app`；LaunchAgent 提供登入自動啟動。macOS local build／install 與 Jamie Manual Validation 已完成，正式 GitHub Pages → SPX Helper → Photoshop → Processed PNG PASS。Developer ID signing 與 Apple Notarization 因缺少 credentials 尚未驗證。下一步為尚未開始的 Phase 4 Update + Uninstall；Phase 5 Final Validation 亦尚未開始。
 
 ## What's New
 
+- **手動換圖跨 Job 保留與 Products Render Race 修正（Bug Fix，Commit `4ff252f`）**：`src/app.js` 以 Job-scoped、runtime-only `_manualRenderState` 保存 Products／Person／Single Product 同 filename、同 role／slot 的最終手動 render source；既有 Approved processed → original asset lookup、classifier、Template defaults 與 payload build 全部完成後才套用最小 overlay，最後仍由既有 `layoutStates` 恢復 transform。三商品 `applyProductsToCanvas()` 另外固定綁定 render 開始時的 `job`、`loadSeq`、`frameWindow`，每個 `await` 後及 globals／Canvas message 寫入前拒絕 stale transaction。未修改 Project State schema、Approved Asset Resolver、Render Context、Template defaults 或 Photoshop Pipeline。
 - **SPX Helper Runtime Productization Phase 2 Windows Packaging — Completed（功能 Commit `9240504`）**：以 PyInstaller 建立 executable bundle，並以 WiX Toolset SDK 5.0.2 建立 per-machine MSI。Fresh Install、安裝後立即啟動、Login Startup、Start Menu、Apps & Features、System Tray 與正式 Windows Happy Path 均已實機 PASS。
 - **SPX Helper Runtime Productization Phase 3 macOS Packaging — Completed（功能 Commit `ee55dd527a00361f1155ba45713ff2ce3957b06c`）**：以 PyInstaller 建立正式 `SPX Helper.app`，由 macOS PKG 安裝至 `/Applications`，並以 LaunchAgent 提供 Login Startup。Static／Build／Install Validation 與 Jamie Manual Validation 均 PASS；Developer ID／Notarization 是尚未驗證的 Credential-dependent validation。下一步為 Phase 4 — Update + Uninstall（Not Started）。
 - **SPX Helper Runtime Productization Phase 1 Foundation — Completed（功能 Commit `51c4828`）**：新增 `spx_helper_product.py` Product Host、Running／Working／Attention、單一 Helper Instance、固定 Tray／Menu Bar、Open、About、Version、Restart 與 Quit。Browser／Platform Validation 與 Jamie Manual Validation 均 PASS。
@@ -650,6 +651,8 @@ apply text
   ↓
 apply asset payload
   ↓
+overlay 該 Job 的 manual render state（若存在）
+  ↓
 wait images
   ↓
 apply layoutStates[current placement|template]
@@ -670,6 +673,8 @@ capture / thumbnail / export
 - DOM 重建後 id 可能改變。
 - `position` 永遠代表商品角色身份（主品／左配品／右配品），不受前後順序（`zOrder`／堆疊順序）調整影響；`zOrder` 只控制視覺堆疊順序（誰蓋住誰），與 `position` 為互相獨立、不互相覆寫的欄位（Bug Fix，Commit `ff1d97b`，見 `docs/CHANGELOG.md`）。
 - filename 為 Batch Restore 的穩定身份；手動同檔名換圖（拖曳完整檔名相符的新圖片取代既有商品）同樣以完整檔名比對，原地更新既有商品的圖片來源與 id，不 remove／不 re-add（Bug Fix，Commit `3269b67`，見 `docs/CHANGELOG.md`）。Person／Single Product 手動換圖同樣原地更新既有 DOM（不清空、不重建），並會呼叫 `window._bnInvalidateApprovedAssetForManualReplace()` 精確失效化 Approved Asset Pipeline 內對應角色的舊 record，避免下載單張暫存重新匯入後被舊 record 蓋過（Bug Fix，Commit `c390a61`，見 `docs/CHANGELOG.md`）。
+- 手動換圖完成時，同一 Job 另以 runtime-only `_manualRenderState` 保存相同 filename、role／slot 的最終 render source。切換回該 Job 時，系統先完成原有 Approved processed → original asset lookup、classifier、Template defaults 與 payload build，再套用 manual overlay；`layoutStates` 仍是位置、尺寸、旋轉與 z-order 的唯一既有來源。此 state 不改 `job.productFilenames`、filename identity、分類、slot 或 Project State schema，也不承諾重新整理頁面後永久保存（Bug Fix，Commit `4ff252f`）。
+- 三商品 Main Canvas render 是綁定 `job`／`loadSeq`／`frameWindow` 的 transaction。任何非同步階段完成後若 Job、load sequence 或 iframe window 已改變，stale transaction 必須在清空／重建 `_bnProducts` 或送出 `bn-product-add` 前停止，避免快速 Job 切換時舊 payload 覆寫目前 Canvas（Bug Fix，Commit `4ff252f`）。
 - Batch Render、Restore、Project State Restore 不可只依 position 或 array index 對應商品。
 
 重要限制：
