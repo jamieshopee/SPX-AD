@@ -791,30 +791,20 @@
 
         var ppDrop  = document.getElementById('bn-pp-drop');
         var ppInp   = document.getElementById('bn-pp-inp');
-        var ppHint  = ppDrop ? ppDrop.nextElementSibling : null;
         var ppReset = document.getElementById('bn-pp-reset-btn');
         if(ppDrop){
           ppDrop.style.opacity       = hasProd ? '0.35' : '1';
           ppDrop.style.pointerEvents = hasProd ? 'none'  : '';
           ppDrop.style.cursor        = hasProd ? 'not-allowed' : 'pointer';
-          if(ppHint) ppHint.textContent = hasProd
-            ? '⚠ 已使用商品圖模式，移除商品後才可使用'
-            : '檔名需包含「_人」或「_品」；同角色會替換。';
-          if(ppHint) ppHint.style.color = hasProd ? '#f5a623' : '';
         }
         if(ppReset) ppReset.disabled = !window._bnSingleProd;
 
         var prodDrop = document.getElementById('bn-prod-drop');
-        var prodHint = prodDrop ? prodDrop.nextElementSibling : null;
         var prodReset = document.getElementById('bn-prod-reset-btn');
         if(prodDrop){
           prodDrop.style.opacity       = hasPP ? '0.35' : '1';
           prodDrop.style.pointerEvents = hasPP ? 'none'  : '';
           prodDrop.style.cursor        = hasPP ? 'not-allowed' : 'pointer';
-          if(prodHint) prodHint.style.color = hasPP ? '#f5a623' : '';
-          if(prodHint) prodHint.textContent = hasPP
-            ? '⚠ 已使用1人+1品模式，清除後才可使用'
-            : '01 主品置中最大；02 左側配品；03 右側配品。未編號時依上傳順序。';
         }
         if(prodReset) prodReset.disabled = !(window._bnProducts && window._bnProducts.length);
       }
