@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## Logo／商品圖素材列編輯按鈕移除 - 2026-07-19
+
+Status：**Completed — Browser Validation／Jamie Manual Validation PASS**
+Code Commit：`4a65c1981187ca38784a35cf9b004e0fd284ae2b`
+Commit subject：`fix: remove logo and product edit buttons`
+
+- UI：移除右側欄 Logo 與商品圖素材項目的「編輯」按鈕。
+- Boundary：Editor 程式與圖片處理能力完整保留；未修改 Upload、手動換圖、商品排序、素材移除、Job Restore、Download、Render、Runtime、State、資料結構或其他圖片流程。
+
 ## Upload Panel stale hint rendering 修正 - 2026-07-19
 
 Status：**Completed — Browser Validation／Jamie Manual Validation PASS**
