@@ -298,7 +298,6 @@
         /* 恢復圓邊狀態 */
         if(lg.round){ img.dataset.bnLogoRound='1'; img.style.borderRadius='50%'; }
 
-        /* 編輯按鈕：點了彈出四個選項 */
         /* ◀ ▶ 換位置箭頭 */
         var moveWrap=document.createElement('div');
         moveWrap.style.cssText='display:flex;flex-direction:column;gap:2px;flex-shrink:0;';
@@ -329,12 +328,6 @@
 
         moveWrap.appendChild(upLogo); moveWrap.appendChild(dnLogo);
 
-        var editBtn=document.createElement('button');editBtn.textContent='編輯';
-        editBtn.addEventListener('click',(function(lid, imgRef){return function(e){
-          e.stopPropagation();
-          showLogoMenu(lid, imgRef, editBtn);
-        };})(lg.id, img));
-
         var btn=document.createElement('button');btn.textContent='移除';
         btn.addEventListener('click',(function(lid){return function(){
           window._bnLogos=window._bnLogos.filter(function(x){return x.id!==lid;});
@@ -343,7 +336,7 @@
           broadcast({type:'bn-logo-remove',id:lid});
           broadcast({type:'bn-logos',logos:window._bnLogos});
         };})(lg.id));
-        row.appendChild(img);row.appendChild(name);row.appendChild(moveWrap);row.appendChild(editBtn);row.appendChild(btn);
+        row.appendChild(img);row.appendChild(name);row.appendChild(moveWrap);row.appendChild(btn);
         list.appendChild(row);
       });
       /* drop 按鈕狀態 */
@@ -1047,12 +1040,6 @@
         infoWrap.appendChild(name);
         infoWrap.appendChild(posLabel);
 
-        var editBtn=document.createElement('button');editBtn.textContent='編輯';
-        editBtn.title='裁切・去背・擦除・影子';
-        editBtn.addEventListener('click',(function(pid){return function(){
-          openProductEditor(pid);
-        };})(p.id));
-
         var rmBtn=document.createElement('button');rmBtn.textContent='移除';rmBtn.className='rm';
         rmBtn.addEventListener('click',function(){
           /* 同步清除 _slotted / _unslotted，避免重新上傳同名檔時舊圖殘留 */
@@ -1104,7 +1091,7 @@
         moveWrap.appendChild(upBtn);
         moveWrap.appendChild(downBtn);
 
-        row.appendChild(img);row.appendChild(infoWrap);row.appendChild(moveWrap);row.appendChild(editBtn);row.appendChild(rmBtn);
+        row.appendChild(img);row.appendChild(infoWrap);row.appendChild(moveWrap);row.appendChild(rmBtn);
         list.appendChild(row);
       });
       /* 商品清單更新後同步互鎖狀態 */
