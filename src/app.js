@@ -118,6 +118,7 @@ let thumbnailTargetId = null;
 let thumbnailQueueRunning = false;
 let thumbnailQueueTimer   = null;
 const thumbnailQueue      = [];
+const JOB_LIST_THUMBNAILS_ENABLED = false;
 const HIDDEN_FRAME_READY_TIMEOUT = 5000;
 const HIDDEN_CAPTURE_TIMEOUT     = 30000;
 const PLACEMENT_DISPLAY_ORDER = [
@@ -224,6 +225,7 @@ function updateAssetReviewControls() {
 }
 
 function scheduleActiveJobThumbnailUpdate(delay = 650) {
+  if (!JOB_LIST_THUMBNAILS_ENABLED) return;
   if (thumbnailPaused || !frameReady || !activeJobId) return;
   thumbnailTargetId = activeJobId;
   clearTimeout(thumbnailTimer);
@@ -683,6 +685,7 @@ function idleDelay(ms = 80) {
 }
 
 function enqueueThumbnail(jobId, priority = false, renderContext = null) {
+  if (!JOB_LIST_THUMBNAILS_ENABLED) return;
   const job = jobs.find(j => j.id === jobId);
   const context = normalizeRenderContext(renderContext || getActiveRenderContext(job?.styleId || '01'), job?.styleId || '01');
   const template = getTemplateForRenderContext(job, context);
@@ -705,6 +708,7 @@ function enqueueThumbnail(jobId, priority = false, renderContext = null) {
 }
 
 function enqueueAllThumbnails(priorityJobId = null) {
+  if (!JOB_LIST_THUMBNAILS_ENABLED) return;
   if (!jobs.length) return;
   console.log('[CC][thumb] enqueue all jobs', jobs.map(job => job.jobId || job.id).join(','), 'priority=', jobs.find(j => j.id === priorityJobId)?.jobId || priorityJobId || 'none');
   const visibleIds = getVisibleJobIds();
@@ -2261,6 +2265,7 @@ function shortText(value, max) {
 }
 
 function assignQuickThumbnail(job, renderContext = getActiveRenderContext(job?.styleId || '01')) {
+  if (!JOB_LIST_THUMBNAILS_ENABLED) return;
   if (!job) return;
   job.quickThumbnail = createQuickThumbnail(job, getTemplateForRenderContext(job, renderContext));
   if (!job.thumbnail) job.thumbnailStatus = 'quick';
@@ -2351,23 +2356,6 @@ function renderJobList() {
     card.className = 'job-card' + (job.id === activeJobId ? ' active' : '');
     card.dataset.jobId = job.id;
 
-    const thumb = document.createElement('div');
-    thumb.className = 'job-card-thumb';
-    const thumbSrc = displayThumbnailForJob(job);
-    if (thumbSrc) {
-      const img = document.createElement('img');
-      img.src = thumbSrc; img.alt = '';
-      thumb.appendChild(img);
-    } else {
-      const ph = document.createElement('span');
-      ph.className = 'job-card-thumb-placeholder' + (job.thumbnailStatus === 'loading' ? ' loading' : '');
-      ph.textContent = job.thumbnailStatus === 'loading' ? '' : '🖼';
-      thumb.appendChild(ph);
-    }
-    const dot = document.createElement('span');
-    dot.className = 'job-valid-dot ' + (job.validation?.status || 'pending');
-    thumb.appendChild(dot);
-
     const body = document.createElement('div');
     body.className = 'job-card-body';
     const num = document.createElement('div');
@@ -2387,13 +2375,14 @@ function renderJobList() {
     del.textContent = '✕';
     del.addEventListener('click', e => { e.stopPropagation(); deleteJob(job.id); });
 
-    card.append(thumb, body, del);
+    card.append(body, del);
     card.addEventListener('click', () => selectJob(job.id));
     el.jobList.appendChild(card);
   });
 }
 
 function updateJobListThumbnail(jobId, dataUrl) {
+  if (!JOB_LIST_THUMBNAILS_ENABLED) return;
   const card = el.jobList.querySelector(`.job-card[data-job-id="${jobId}"]`);
   if (!card) {
     console.log('[CC][thumb] DOM update skipped', jobId, 'card not rendered');

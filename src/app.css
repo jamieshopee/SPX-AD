@@ -389,7 +389,7 @@ body {
 .job-card-body { flex: 1; min-width: 0; }
 .job-card-num  { font-size: 10px; color: var(--text-tertiary); margin-bottom: 1px; }
 .job-card-headline { font-size: 12px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.job-card-sub  { font-size: 10px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+.job-card-sub  { font-size: 12px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
 
 .job-card-del {
   flex: 0 0 auto; opacity: 0;
