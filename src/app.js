@@ -2381,6 +2381,66 @@ function renderJobList() {
   });
 }
 
+function isJobKeyboardNavigationControl(target) {
+  if (!(target instanceof Element)) return false;
+  if (target.isContentEditable) return true;
+  return !!target.closest('input, textarea, select, button, [role="button"]');
+}
+
+function isVisibleJobNavigationOverlay(node) {
+  return !!node && !node.hidden && node.getClientRects().length > 0;
+}
+
+function isJobKeyboardNavigationBlocked() {
+  if (document.activeElement === el.frame) return true;
+  if (isVisibleJobNavigationOverlay(el.resetModal)) return true;
+  if (isVisibleJobNavigationOverlay(el.batchModal)) return true;
+  if (document.getElementById('smart-layout-modal')) return true;
+  if (document.querySelector('.asset-review-modal')) return true;
+  if (document.getElementById('hbnProductEditorPlugin')?.classList.contains('open')) return true;
+  if (document.getElementById('logoCropModal')?.classList.contains('open')) return true;
+  if (document.getElementById('bn-prod-modal')?.classList.contains('show')) return true;
+  if (document.getElementById('bn-bg-modal')?.classList.contains('show')) return true;
+  if (document.getElementById('logoMenuV14')?.classList.contains('show')) return true;
+  if (isVisibleJobNavigationOverlay(document.getElementById('_bn_logo_inline_menu'))) return true;
+  return Array.from(document.querySelectorAll('[role="dialog"][aria-modal="true"]'))
+    .some(isVisibleJobNavigationOverlay);
+}
+
+function keepActiveJobCardVisible(jobId) {
+  requestAnimationFrame(() => {
+    if (!el.jobList || activeJobId !== jobId) return;
+    const card = Array.from(el.jobList.querySelectorAll('.job-card'))
+      .find(node => node.dataset.jobId === String(jobId));
+    if (!card) return;
+    const listRect = el.jobList.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    if (cardRect.top < listRect.top) {
+      el.jobList.scrollTop += cardRect.top - listRect.top;
+    } else if (cardRect.bottom > listRect.bottom) {
+      el.jobList.scrollTop += cardRect.bottom - listRect.bottom;
+    }
+  });
+}
+
+function handleJobArrowNavigation(event) {
+  if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+  if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+  if (isJobKeyboardNavigationControl(event.target) || isJobKeyboardNavigationBlocked()) return;
+  if (jobs.length <= 1) return;
+  const currentIndex = jobs.findIndex(job => job.id === activeJobId);
+  if (currentIndex < 0) return;
+  const targetIndex = currentIndex + (event.key === 'ArrowUp' ? -1 : 1);
+  if (targetIndex < 0 || targetIndex >= jobs.length || targetIndex === currentIndex) return;
+  const targetJob = jobs[targetIndex];
+  if (!targetJob || targetJob.id === activeJobId) return;
+  event.preventDefault();
+  selectJob(targetJob.id)
+    .then(() => keepActiveJobCardVisible(targetJob.id))
+    .catch(error => console.warn('[CC] keyboard job navigation failed:', error));
+}
+
 function updateJobListThumbnail(jobId, dataUrl) {
   if (!JOB_LIST_THUMBNAILS_ENABLED) return;
   const card = el.jobList.querySelector(`.job-card[data-job-id="${jobId}"]`);
@@ -4520,9 +4580,12 @@ el.batchModal?.addEventListener('click', e => {
 });
 
 document.addEventListener('keydown', e => {
-  if (e.key !== 'Escape') return;
-  if (el.resetModal && el.resetModal.style.display !== 'none') closeResetModal();
-  if (el.batchModal && el.batchModal.style.display !== 'none') closeBatchModal();
+  if (e.key === 'Escape') {
+    if (el.resetModal && el.resetModal.style.display !== 'none') closeResetModal();
+    if (el.batchModal && el.batchModal.style.display !== 'none') closeBatchModal();
+    return;
+  }
+  handleJobArrowNavigation(e);
 });
 
 // ── postMessage 接收 ──────────────────────────────────
