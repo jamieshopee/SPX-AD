@@ -1,13 +1,14 @@
 # UI Design Guideline
 
-Version: 2026.07.20-job-keyboard
+Version: 2026.07.20-single-state
 Last Updated: 2026-07-20
 Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
 
+- **下載單張暫存精簡（Commit `2c7dca0`）**：single-state JSON 不再包含左側 Job List 使用的 `jobs[].thumbnail`，也不再為此執行 on-demand Canvas capture；JSON 與單張 PNG 使用相同 basename，只將副檔名改為 `.json`。真正的暫存內容與還原能力完整保留；此變更不是 Project State 改版，也未影響完整專案、Batch 或 Thumbnail 共用流程。Browser Validation 與 Jamie Manual Validation PASS。
 - **左側 Job List 鍵盤導航（Commit `b6d2b8f`）**：一般控制台可用 `ArrowUp`／`ArrowDown` 依 Job List 順序切換上一個／下一個 Job，首尾不循環並沿用既有 `selectJob()`；active Job Card 只在左側列表容器內自動捲動。輸入控制項、Main Canvas iframe、Modal、Editor、Review Workspace 與 Crop／Eraser等模式均有 guard；素材審核選單開啟時仍可切換，按鈕取得焦點時則不切換。Browser Validation 與 Jamie Manual Validation PASS。
-- **左側 Job List 縮圖移除（Commit `b67604b`）**：Job Card 不再顯示縮圖、placeholder、loading shimmer 或縮圖內 validation dot，一般操作也不再於背景排程或生成只供左側列表使用的縮圖。三行文字資料與 Job 操作維持不變；單張暫存、完整專案／Batch 與 Project State 所需的 thumbnail 行為及資料結構仍保留。Browser Validation 與 Jamie Manual Validation PASS。
+- **左側 Job List 縮圖移除（Commit `b67604b`）**：Job Card 不再顯示縮圖、placeholder、loading shimmer 或縮圖內 validation dot，一般操作也不再於背景排程或生成只供左側列表使用的縮圖。三行文字資料與 Job 操作維持不變；該次 Commit 保留既有 thumbnail 行為及資料結構，後續 single-state thumbnail 已由 Commit `2c7dca0` 獨立移除，完整專案／Batch 與 Project State 的既有行為仍保留。Browser Validation 與 Jamie Manual Validation PASS。
 - **Upload Panel stale hint rendering 修正（UI Bug Fix，Commit `e44f658`）**：移除 `updateMutualExclusion()` 對已不存在之 Products／1人＋1品提示容器的 sibling lookup 與文字／顏色寫入，避免覆寫商品清單與「恢復預設位置」按鈕。商品排序、角色判斷、Reset 與雙向互斥行為不變；Browser Validation 與 Jamie Manual Validation PASS。
 - **三商品前後順序（z-order）與角色身份解耦（Bug Fix，Commit `ff1d97b`）**：右側商品圖清單改為依前後順序（Layer／堆疊順序）排列顯示；每一列的角色標籤（主品／左配品／右配品）仍固定依該商品實際角色顯示，不隨列的顯示順序改變。詳見下方商品圖區塊小節與 CHANGELOG。
 - **QR Code（Completed，功能 Commit `79de045`、Tag `v0.5.2`）**：控制台右側欄新增 QRCode 區塊，固定順序為主標／副標／小字之後、Logo 之前；包含標題、網址輸入框、檢查網址連結、狀態訊息（固定保留於輸入框下方，有狀態時顯示文字、無狀態時保持空白）；不提供縮圖、位置／尺寸資訊、拖曳、縮放、旋轉或樣式設定。詳見下方 Right Panel 小節與 CHANGELOG。
@@ -150,7 +151,7 @@ Header 固定四個一般使用者入口：
 
 工單列表不顯示縮圖、placeholder、loading shimmer 或縮圖內 validation dot。每張 Job Card 保留原本三行文字資料：第一行樣式不變；第三行使用 `12px`、`var(--text-primary)` 與一般字重，不同步第二行的粗體。Job 點擊、active 狀態、排序、刪除與 `selectJob()` 行為維持不變；缺少素材的 validation panel 仍保留。
 
-一般操作不得在背景排程或生成只供左側 Job List 使用的 Quick Thumbnail、Active Job Thumbnail 或 Hidden iframe Thumbnail Queue，也不得更新已移除的 Thumbnail DOM。這不代表整套 Thumbnail 系統已刪除：單張暫存的 on-demand thumbnail、完整專案／Batch 正式 PNG 建立的 `job.thumbnail`、Project State thumbnail 欄位與 import 相容仍保留。
+一般操作不得在背景排程或生成只供左側 Job List 使用的 Quick Thumbnail、Active Job Thumbnail 或 Hidden iframe Thumbnail Queue，也不得更新已移除的 Thumbnail DOM。這不代表整套 Thumbnail 系統已刪除：完整專案／Batch 正式 PNG 建立的 `job.thumbnail`、Project State thumbnail 欄位與 import 相容仍保留。下載單張暫存不再執行 on-demand thumbnail capture，且輸出 JSON 不包含 `jobs[].thumbnail`；素材與版面等真正暫存資料仍完整保留。
 
 Active 狀態使用藍色外框與深色底。切換工單時不得造成 Canvas 閃爍。
 

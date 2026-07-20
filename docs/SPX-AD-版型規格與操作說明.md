@@ -1,13 +1,14 @@
 # SPX AD 版型規格與操作說明
 
-Version: 2026.07.20-job-keyboard
+Version: 2026.07.20-single-state
 Last Updated: 2026-07-20
 Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數規格與操作流程。
 
 ## What's New
 
+- **下載單張暫存精簡（Commit `2c7dca06146b414ec23f29df94d190d8d09d457d`）**：single-state JSON 不再包含 `jobs[].thumbnail`，也不再為縮圖執行 on-demand Canvas capture；檔名改為與單張 PNG 相同 basename、僅使用 `.json` 副檔名。素材 data URL、processed asset、版面、手動換圖及圖片編輯結果均維持可還原。Browser Validation 與 Jamie Manual Validation PASS。
 - **左側 Job List 鍵盤導航（Commit `b6d2b8f41015d56f1fd207dcba1145b40ede96ca`）**：一般控制台按 `ArrowUp`／`ArrowDown` 可切換上一個／下一個 Job，首尾不循環；切換沿用既有 `selectJob()`，active Job Card 只在左側列表內自動捲動。輸入控制項、Main Canvas iframe、Modal、Editor、Review Workspace 與 Crop／Eraser等模式中不切換；素材審核選單開啟時仍可切換，按鈕取得焦點時則不切換。Jamie Manual Validation PASS。
-- **左側 Job List 縮圖移除（Commit `b67604b037f553fb1ac76d7e320acaa9a6afd970`）**：Job Card 不再顯示縮圖、placeholder、loading shimmer 或縮圖內 validation dot，一般操作也不再背景生成只供左側列表使用的縮圖。原本三行文字資料與 Job 點擊、active 狀態、排序、刪除及切換行為均保留；第三行改為 `12px`、主要文字色與一般字重。缺少素材的 validation panel，以及單張暫存、完整專案／Batch、Project State 所需的 thumbnail 行為仍保留。Jamie Manual Validation PASS。
+- **左側 Job List 縮圖移除（Commit `b67604b037f553fb1ac76d7e320acaa9a6afd970`）**：Job Card 不再顯示縮圖、placeholder、loading shimmer 或縮圖內 validation dot，一般操作也不再背景生成只供左側列表使用的縮圖。原本三行文字資料與 Job 點擊、active 狀態、排序、刪除及切換行為均保留；第三行改為 `12px`、主要文字色與一般字重。該次 Commit 保留既有 thumbnail 行為，後續 single-state thumbnail 已由 Commit `2c7dca0` 獨立移除；缺少素材的 validation panel，以及完整專案／Batch、Project State 的既有行為仍保留。Jamie Manual Validation PASS。
 - **Upload Panel stale hint rendering 修正（UI Bug Fix，Commit `e44f65879e3140ba87ecb4c49f5171d291d5e98d`）**：Products／1人＋1品的提示文字容器已移除，但舊 sibling lookup 仍會把商品清單與 Reset button 誤認為提示區並覆寫內容；現已只移除失效的提示文字與顏色寫入。商品排序、角色判斷、Upload、Reset 與雙向互斥均維持原行為，Browser Validation 與 Jamie Manual Validation PASS。
 - **手動換圖跨 Job 保留（Bug Fix，Commit `4ff252f`）**：Products、Person、Single Product 使用相同完整檔名手動換圖後，切換到其他 Job 再切回，仍顯示手動換入的圖片；既有大小、位置、旋轉與前後順序依原本 Job layout state 正確保留。快速切換 Job 時可能等待目前 Render 完成，但完成後不會再被原始或 processed 圖片覆蓋。此修正只作用於目前頁面 session，不新增重新整理後的永久保存。
 - **SPX Helper Runtime Productization Phase 3 macOS Packaging（Completed）**：macOS 正式產品由 PKG 安裝至 `/Applications/SPX Helper.app`，安裝後立即啟動，之後登入時透過 LaunchAgent 自動啟動；也可從 Applications 手動開啟。Menu Bar 提供 Running、Open SPX BN Generator、About、Version `0.5.4`、Restart 與 Quit；App 不顯示 Dock Icon，也不開啟 Terminal Window。Jamie Manual Validation 全部 PASS。Developer ID signing／Notarization 尚未驗證。
@@ -428,7 +429,9 @@ ZIP 內包含：
 
 ### single-state Restore
 
-`single-state.json` 用於保存單張工單。匯入後會恢復該工單需要的 processed image，因此不需要保留原素材資料夾或 processed folder。
+下載單張暫存用於保存單張工單；輸出檔名與該 Job 的單張 PNG 使用相同 basename，只將副檔名改為 `.json`（例如 `Banner_A.png` 對應 `Banner_A.json`，空 `outputFilename` 使用 `banner.json`）。JSON 不包含僅供舊左側 Job List 縮圖使用的 `jobs[].thumbnail`，也不執行 on-demand thumbnail capture。
+
+匯入後仍會恢復該工單需要的 assets data URL、processed image、`layoutState`／`layoutStates`、手動換圖、Crop、Eraser、Shadow 與其他既有資料，因此不需要保留原素材資料夾或 processed folder。此修正不變更 Project State schema，也不影響完整專案、Batch Download 或單張 PNG。
 
 ### Review Workspace Restore
 
