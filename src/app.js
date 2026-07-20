@@ -4185,15 +4185,15 @@ async function exportSingleState() {
     hasLayoutStates: !!job.layoutStates,
     keys: Object.keys(job.layoutStates || {}),
   });
-  if (!job.thumbnail && frameReady) {
-    await waitForFrameImages(el.frame.contentWindow, 6000);
-    const dataUrl = await captureFromCanvasFrame(12000);
-    if (dataUrl) job.thumbnail = await captureThumb(dataUrl);
-  }
   try {
     setStatus('產生單張暫存 JSON 中…');
     const state = await buildProjectState([job], 'single');
-    downloadJson(state, 'single-state.json');
+    for (const item of state.jobs || []) delete item.thumbnail;
+    const pngFilename = job.outputFilename || 'banner.png';
+    const stateFilename = /\.[^./\\]+$/.test(pngFilename)
+      ? pngFilename.replace(/\.[^./\\]+$/, '.json')
+      : `${pngFilename}.json`;
+    downloadJson(state, stateFilename);
     setStatus('單張暫存下載完成。', 'success');
   } catch (error) {
     console.error(error);
