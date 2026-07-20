@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 左側 Job List 縮圖移除 - 2026-07-20
+
+Status：**Completed — Browser Validation／Jamie Manual Validation PASS**
+Code Commit：`b67604b037f553fb1ac76d7e320acaa9a6afd970`
+Commit subject：`feat: remove job list thumbnails`
+
+- UI：左側 Job Card 不再顯示縮圖、placeholder、loading shimmer 或縮圖內 validation dot；保留原本三行文字資料、Job 點擊、active 狀態、排序、刪除與 `selectJob()` 行為。第一行樣式不變；第三行改為 `12px`、`var(--text-primary)` 與一般字重。
+- Runtime：一般操作不再執行只供左側 Job List 使用的 Quick Thumbnail、Active Job Thumbnail Canvas capture、Hidden iframe Thumbnail Queue、Thumbnail DOM 更新與因此觸發的列表重建。
+- Preserved：保留 `captureThumb()`、`exportSingleState()` 的 on-demand thumbnail、`batchRender()` 由正式輸出 PNG 建立 `job.thumbnail`、Project State thumbnail 欄位與 import 相容、`generateJobThumbnail()` 函式及既有 cache 資料結構。缺少素材的 validation panel 仍保留；只有縮圖內 validation dot 隨縮圖移除。
+- Boundary：未刪除整套 Thumbnail 系統，未處理或宣稱縮小單張暫存／完整專案；未實作鍵盤上下鍵切換 Job。Main Canvas、Resolver、Render Context、`layoutStates`、Project State schema、正式下載輸出、Batch Render 與 Photoshop Pipeline 均未修改。
+
 ## Logo／商品圖素材列編輯按鈕移除 - 2026-07-19
 
 Status：**Completed — Browser Validation／Jamie Manual Validation PASS**

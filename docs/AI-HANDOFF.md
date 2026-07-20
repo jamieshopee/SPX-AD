@@ -78,7 +78,7 @@ main
 - Project State Phase：Completed。Project State v4 保存 Asset Pipeline metadata 與 Review decision，已達成可恢復工作區核心目標。
 - Project Persistence：Project State v5、single-state restore、project.zip restore 與 Download Complete Project 已完成。Project Save = Workspace Save，會保存 latest processed image，不需要保留素材資料夾或 processed folder。
 - Control Center UI Upgrade：Header 已簡化為一般使用者入口，隱藏 Photoshop / Manifest / Processed Folder 等技術術語，版位下拉只調整 display order。
-- Thumbnail System：quickThumbnail 與 hidden iframe 正式縮圖流程。
+- Thumbnail Boundary：左側 Job List 已移除縮圖 UI，且一般操作不再排程或生成只供該列表使用的 quickThumbnail／active thumbnail／hidden iframe thumbnail；`captureThumb()`、單張暫存的 on-demand thumbnail、完整專案／Batch 由正式 PNG 建立的 `job.thumbnail`、Project State thumbnail 欄位與 import 相容仍保留，不得誤認為整套 Thumbnail 系統已刪除。功能 Commit `b67604b`，Browser Validation 與 Jamie Manual Validation PASS。
 - LayoutState Restore：依 `placementId|templateId` 保存與恢復 transform。
 - Product identity restore by filename：三商品 restore 使用 `id → filename → position`。
 - Approved Asset Resolver：Main Canvas / Thumbnail / Batch 共用 `BNAssetResolver` 與 Render Context。
@@ -324,6 +324,8 @@ layoutStates 不保存 Photoshop job、review decision 或 processed asset runti
 Thumbnail 是 render projection。
 
 Thumbnail 可以讀指定 job 的素材、template、style、layoutStates，但不可污染或回寫 layoutStates。
+
+左側 Job List 不顯示 thumbnail、placeholder、loading shimmer 或 thumbnail 內 validation dot，一般操作也不再執行只服務該列表的 Quick Thumbnail、Active Job Thumbnail capture、Hidden iframe Thumbnail Queue 或 Thumbnail DOM 更新。缺少素材的 validation panel 仍保留。下載單張暫存的 on-demand thumbnail、完整專案／Batch 的正式 PNG thumbnail、Project State thumbnail 欄位與 import 相容仍是既有流程；本次未縮小暫存或完整專案，也未實作鍵盤上下鍵切換 Job。
 
 ### Batch Render
 
