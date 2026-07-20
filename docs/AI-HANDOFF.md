@@ -79,6 +79,7 @@ main
 - Project Persistence：Project State v5、single-state restore、project.zip restore 與 Download Complete Project 已完成。Project Save = Workspace Save，會保存 latest processed image，不需要保留素材資料夾或 processed folder。
 - Control Center UI Upgrade：Header 已簡化為一般使用者入口，隱藏 Photoshop / Manifest / Processed Folder 等技術術語，版位下拉只調整 display order。
 - Thumbnail Boundary：左側 Job List 已移除縮圖 UI，且一般操作不再排程或生成只供該列表使用的 quickThumbnail／active thumbnail／hidden iframe thumbnail；`captureThumb()`、單張暫存的 on-demand thumbnail、完整專案／Batch 由正式 PNG 建立的 `job.thumbnail`、Project State thumbnail 欄位與 import 相容仍保留，不得誤認為整套 Thumbnail 系統已刪除。功能 Commit `b67604b`，Browser Validation 與 Jamie Manual Validation PASS。
+- Job List 鍵盤導航：功能 Commit `b6d2b8f41015d56f1fd207dcba1145b40ede96ca`（`feat: add keyboard job navigation`）。一般控制台以 `ArrowUp`／`ArrowDown` 依 `jobs` array 順序呼叫既有 `selectJob()`，首尾不循環；active Card 只調整 `el.jobList.scrollTop`。輸入控制項、Main Canvas iframe、Modal、Editor、Review Workspace、Crop／Eraser等模式均保留 guard；素材審核選單開啟時仍可導航，按鈕取得焦點時則由 button guard 阻止。原有 Escape 與其他快捷鍵不變。Browser Console errors 0，Browser Validation、`node --check`、`git diff --check` 與 Jamie Manual Validation PASS。不得擴大為快捷鍵系統或新增快捷鍵設定。
 - LayoutState Restore：依 `placementId|templateId` 保存與恢復 transform。
 - Product identity restore by filename：三商品 restore 使用 `id → filename → position`。
 - Approved Asset Resolver：Main Canvas / Thumbnail / Batch 共用 `BNAssetResolver` 與 Render Context。
@@ -325,7 +326,7 @@ Thumbnail 是 render projection。
 
 Thumbnail 可以讀指定 job 的素材、template、style、layoutStates，但不可污染或回寫 layoutStates。
 
-左側 Job List 不顯示 thumbnail、placeholder、loading shimmer 或 thumbnail 內 validation dot，一般操作也不再執行只服務該列表的 Quick Thumbnail、Active Job Thumbnail capture、Hidden iframe Thumbnail Queue 或 Thumbnail DOM 更新。缺少素材的 validation panel 仍保留。下載單張暫存的 on-demand thumbnail、完整專案／Batch 的正式 PNG thumbnail、Project State thumbnail 欄位與 import 相容仍是既有流程；本次未縮小暫存或完整專案，也未實作鍵盤上下鍵切換 Job。
+左側 Job List 不顯示 thumbnail、placeholder、loading shimmer 或 thumbnail 內 validation dot，一般操作也不再執行只服務該列表的 Quick Thumbnail、Active Job Thumbnail capture、Hidden iframe Thumbnail Queue 或 Thumbnail DOM 更新。缺少素材的 validation panel 仍保留。下載單張暫存的 on-demand thumbnail、完整專案／Batch 的正式 PNG thumbnail、Project State thumbnail 欄位與 import 相容仍是既有流程；縮圖移除本身未縮小暫存或完整專案。鍵盤上下鍵切換 Job 已由獨立功能 Commit `b6d2b8f` 完成，並不依賴 Thumbnail 系統。
 
 ### Batch Render
 

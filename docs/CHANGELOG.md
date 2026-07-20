@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 左側 Job List 鍵盤導航 - 2026-07-20
+
+Status：**Completed — Browser Validation／Jamie Manual Validation PASS**
+Code Commit：`b6d2b8f41015d56f1fd207dcba1145b40ede96ca`
+Commit subject：`feat: add keyboard job navigation`
+
+- Navigation：一般控制台按 `ArrowUp`／`ArrowDown` 會依 `jobs` array 順序切換上一個／下一個 Job，沿用既有 `selectJob()` 與 Canvas load transaction；首尾不循環，沒有 Job、只有一個 Job 或 active Job 無效時不執行。
+- Scroll：真正切換後只調整 `el.jobList.scrollTop`，讓 active Job Card 留在左側 Job List 可視範圍內，不捲動整個頁面。
+- Guards：input、textarea、select、button、`role=button`、contenteditable、Main Canvas iframe，以及既有 Modal、Editor、Review Workspace、Crop／Eraser等模式不切換控制台 Job。素材審核選單開啟時仍可切換；素材審核按鈕取得焦點時由 button guard 保護。原有 Escape 與其他快捷鍵不變。
+- Validation：一般導航、首尾邊界、大量 Job 左側局部捲動、快速連按後 active Job／欄位／Main Canvas 一致均 PASS；Browser Console errors 0、`node --check src/app.js` 與 `git diff --check` PASS，Jamie Manual Validation PASS。
+- Boundary：本次不是新的快捷鍵系統，未新增快捷鍵設定或其他快捷鍵；未修改 Job 排序、Project State、`layoutStates`、Main Canvas Render、Thumbnail、下載、Batch Render 或 Photoshop Pipeline。
+
 ## 左側 Job List 縮圖移除 - 2026-07-20
 
 Status：**Completed — Browser Validation／Jamie Manual Validation PASS**
@@ -9,7 +21,7 @@ Commit subject：`feat: remove job list thumbnails`
 - UI：左側 Job Card 不再顯示縮圖、placeholder、loading shimmer 或縮圖內 validation dot；保留原本三行文字資料、Job 點擊、active 狀態、排序、刪除與 `selectJob()` 行為。第一行樣式不變；第三行改為 `12px`、`var(--text-primary)` 與一般字重。
 - Runtime：一般操作不再執行只供左側 Job List 使用的 Quick Thumbnail、Active Job Thumbnail Canvas capture、Hidden iframe Thumbnail Queue、Thumbnail DOM 更新與因此觸發的列表重建。
 - Preserved：保留 `captureThumb()`、`exportSingleState()` 的 on-demand thumbnail、`batchRender()` 由正式輸出 PNG 建立 `job.thumbnail`、Project State thumbnail 欄位與 import 相容、`generateJobThumbnail()` 函式及既有 cache 資料結構。缺少素材的 validation panel 仍保留；只有縮圖內 validation dot 隨縮圖移除。
-- Boundary：未刪除整套 Thumbnail 系統，未處理或宣稱縮小單張暫存／完整專案；未實作鍵盤上下鍵切換 Job。Main Canvas、Resolver、Render Context、`layoutStates`、Project State schema、正式下載輸出、Batch Render 與 Photoshop Pipeline 均未修改。
+- Boundary：未刪除整套 Thumbnail 系統，未處理或宣稱縮小單張暫存／完整專案；該次 Commit 未實作鍵盤上下鍵切換 Job，後續已由 Commit `b6d2b8f` 獨立完成。Main Canvas、Resolver、Render Context、`layoutStates`、Project State schema、正式下載輸出、Batch Render 與 Photoshop Pipeline 均未修改。
 
 ## Logo／商品圖素材列編輯按鈕移除 - 2026-07-19
 
