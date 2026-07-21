@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 1人＋1品手動換圖後商品圖 Accordion 誤展開修正 - 2026-07-21
+
+Status：**Completed — Jamie Manual Validation PASS**
+
+- Root Cause：`handlePersonProductFiles()` 完成 Person／Single Product 手動換圖後，最後一次呼叫 `updateTemplateModeLabel()` 未帶入 `person_product` mode；Plugin 隨後以預設 accordion mode 再套用共用 defaults，覆寫先前正確的 1人＋1品狀態並誤將商品圖區域展開。
+- Fix：只將該函式結尾改為 `updateTemplateModeLabel('person_product')`，讓手動換圖完成後仍維持 1人＋1品模式的既有 accordion defaults：商品圖收合、1人＋1品展開。
+- Boundary：未修改手動換圖、`_manualRenderState`、autoTrim、Shadow、Canvas broadcast、Approved Asset invalidation、Job 切換／restore、三商品流程或共用 accordion 架構。
+- Validation：初始載入、Person 手動換圖、Single Product 手動換圖、Job 切換與三商品版型均由 Jamie Manual Validation 確認 PASS。
+
 ## 匯入暫存支援多選 JSON 與 Atomic Append - 2026-07-21
 
 Status：**Completed — Jamie Manual Validation PASS**

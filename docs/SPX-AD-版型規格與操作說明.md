@@ -6,6 +6,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 
 ## What's New
 
+- **1人＋1品手動換圖後商品圖區域維持收合（UI Bug Fix）**：修正 Person／Single Product 手動換圖完成後，無 mode 的 accordion defaults 將商品圖區域誤展開。現在初始載入、手動換圖及 Job 切換後，1人＋1品模式下的商品圖區域均維持收合；三商品版型行為不變。Jamie Manual Validation PASS。
 - **下載單張暫存精簡（Commit `2c7dca06146b414ec23f29df94d190d8d09d457d`）**：single-state JSON 不再包含 `jobs[].thumbnail`，也不再為縮圖執行 on-demand Canvas capture；檔名改為與單張 PNG 相同 basename、僅使用 `.json` 副檔名。素材 data URL、processed asset、版面、手動換圖及圖片編輯結果均維持可還原。Browser Validation 與 Jamie Manual Validation PASS。
 - **左側 Job List 鍵盤導航（Commit `b6d2b8f41015d56f1fd207dcba1145b40ede96ca`）**：一般控制台按 `ArrowUp`／`ArrowDown` 可切換上一個／下一個 Job，首尾不循環；切換沿用既有 `selectJob()`，active Job Card 只在左側列表內自動捲動。輸入控制項、Main Canvas iframe、Modal、Editor、Review Workspace 與 Crop／Eraser等模式中不切換；素材審核選單開啟時仍可切換，按鈕取得焦點時則不切換。Jamie Manual Validation PASS。
 - **左側 Job List 縮圖移除（Commit `b67604b037f553fb1ac76d7e320acaa9a6afd970`）**：Job Card 不再顯示縮圖、placeholder、loading shimmer 或縮圖內 validation dot，一般操作也不再背景生成只供左側列表使用的縮圖。原本三行文字資料與 Job 點擊、active 狀態、排序、刪除及切換行為均保留；第三行改為 `12px`、主要文字色與一般字重。該次 Commit 保留既有 thumbnail 行為，後續 single-state thumbnail 已由 Commit `2c7dca0` 獨立移除；缺少素材的 validation panel，以及完整專案／Batch、Project State 的既有行為仍保留。Jamie Manual Validation PASS。
@@ -215,6 +216,8 @@ CSV 欄位：
 ## 1人＋1品
 
 1人＋1品 Upload Box 下方不顯示「檔名需包含『*人』或『*品』；同角色會替換。」；不保留提示文字空白。「恢復預設位置」按鈕維持原文字與 enabled／disabled 行為，`*人`／`*品` 角色判斷、Upload、Reset 及與商品圖的雙向互斥不變。
+
+1人＋1品模式下，右側「商品圖」區域維持收合，「1人＋1品」區域維持展開。Person 或 Single Product 手動換圖完成後仍沿用 `person_product` mode，不會自動展開商品圖區域；Job 切換及三商品版型原有 accordion 行為不變。
 
 Person：
 

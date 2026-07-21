@@ -6,6 +6,7 @@ Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
 
+- **1人＋1品 Accordion 手動換圖修正（UI Bug Fix）**：1人＋1品模式初始載入及 Person／Single Product 手動換圖完成後，商品圖區域均維持收合；修正只補齊 `person_product` mode，不改圖片處理、素材 state、Job restore 或其他版型。Jamie Manual Validation PASS。
 - **下載單張暫存精簡（Commit `2c7dca0`）**：single-state JSON 不再包含左側 Job List 使用的 `jobs[].thumbnail`，也不再為此執行 on-demand Canvas capture；JSON 與單張 PNG 使用相同 basename，只將副檔名改為 `.json`。真正的暫存內容與還原能力完整保留；此變更不是 Project State 改版，也未影響完整專案、Batch 或 Thumbnail 共用流程。Browser Validation 與 Jamie Manual Validation PASS。
 - **左側 Job List 鍵盤導航（Commit `b6d2b8f`）**：一般控制台可用 `ArrowUp`／`ArrowDown` 依 Job List 順序切換上一個／下一個 Job，首尾不循環並沿用既有 `selectJob()`；active Job Card 只在左側列表容器內自動捲動。輸入控制項、Main Canvas iframe、Modal、Editor、Review Workspace 與 Crop／Eraser等模式均有 guard；素材審核選單開啟時仍可切換，按鈕取得焦點時則不切換。Browser Validation 與 Jamie Manual Validation PASS。
 - **左側 Job List 縮圖移除（Commit `b67604b`）**：Job Card 不再顯示縮圖、placeholder、loading shimmer 或縮圖內 validation dot，一般操作也不再於背景排程或生成只供左側列表使用的縮圖。三行文字資料與 Job 操作維持不變；該次 Commit 保留既有 thumbnail 行為及資料結構，後續 single-state thumbnail 已由 Commit `2c7dca0` 獨立移除，完整專案／Batch 與 Project State 的既有行為仍保留。Browser Validation 與 Jamie Manual Validation PASS。
@@ -206,6 +207,7 @@ Accordion 規則：
 - 收合只影響 UI 顯示，不改變資料。
 - 互鎖 disabled 狀態仍依素材模式判斷。
 - 切換工單時依該工單模式套用預設展開。
+- 1人＋1品模式下，商品圖區域預設收合、1人＋1品區域展開；Person 或 Single Product 手動換圖完成後仍必須維持此狀態，不得以缺少 mode 的共用 defaults 將商品圖誤展開。
 
 恢復預設位置按鈕放在對應素材區塊內：
 
