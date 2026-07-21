@@ -80,6 +80,7 @@ let pendingRecord   = null;
 let layoutStateTarget = null;
 let pendingLayoutStateRequest = null;
 let canvasLoadSeq = 0;
+let activeCanvasTransactionPromise = null;
 let suppressLayoutStateWrites = false;
 
 // 單品拖曳 overlay（仿 template-controls.js）
@@ -1807,6 +1808,7 @@ function saveJobManualRenderState(job, filename, slot, role) {
     nextState.products[String(Number(slot))] = {
       filename: identity.filename,
       src: product.src,
+      manualReplaceRawSrc: product.manualReplaceRawSrc,
       ratio: product.ratio,
       baselineRatio: product.baselineRatio,
     };
@@ -1849,6 +1851,7 @@ function applyJobManualRenderStateToPayload(job, payload) {
       const manual = state.products?.[String(Number(product.position))];
       if (!manual || manual.filename !== product.filename || !manual.src) return;
       product.src = manual.src;
+      product.manualReplaceRawSrc = manual.manualReplaceRawSrc;
       product.ratio = manual.ratio;
       product.baselineRatio = manual.baselineRatio;
       const message = (payload.messages || []).find(item =>
@@ -2556,6 +2559,20 @@ function deleteJob(id) {
   renderValidationPanel();
 }
 
+function isCanvasTransactionCurrent(transaction) {
+  return !!transaction
+    && transaction.job?.id === activeJobId
+    && transaction.loadSeq === canvasLoadSeq
+    && transaction.frameWindow === el.frame?.contentWindow;
+}
+
+function staleCanvasTransactionError(transaction, stage) {
+  const error = new Error(`canvas transaction stale: ${stage}`);
+  error.code = 'BN_STALE_CANVAS_TRANSACTION';
+  error.transaction = transaction;
+  return error;
+}
+
 async function selectJob(id, options = {}) {
   if (!options.skipSync) await syncActiveLayoutState();
   activeJobId = id;
@@ -2599,6 +2616,7 @@ async function selectJob(id, options = {}) {
   updateTemplateModeLabel(jobMaterialMode);
   resetMaterialAccordionsForJob(jobMaterialMode);
   // 重載 canvas（乾淨狀態），ready 後自動送文字 + 素材
+  let canvasTransactionPromise = null;
   if (!activeTemplate && activePlacement?.templates?.length) {
     selectTemplate(activePlacement.templates[0].id, { skipSync: true });
   } else if (activeTemplate?._templatePath) {
@@ -2608,32 +2626,52 @@ async function selectJob(id, options = {}) {
     setMainFrameLayoutTarget(job, layoutKey);
     const loadSeq = loadCanvas(activeTemplate._templatePath, job.styleId || '01');
     const frameWindow = el.frame.contentWindow;
-    waitForFrameReady(15000).then(async () => {
-      if (loadSeq !== canvasLoadSeq) return;
-      await applyLogosToCanvas(job.logoFilenames || []);
-      if (loadSeq !== canvasLoadSeq) return;
-      await applyProductsToCanvas(job.productFilenames || [], isThreeProductJob(job) ? {
+    const transaction = { job, loadSeq, frameWindow, layoutKey };
+    const requireCurrentTransaction = stage => {
+      if (!isCanvasTransactionCurrent(transaction)) throw staleCanvasTransactionError(transaction, stage);
+    };
+    canvasTransactionPromise = waitForFrameReady(15000).then(async () => {
+      requireCurrentTransaction('frame-ready');
+      await applyLogosToCanvas(job.logoFilenames || [], transaction);
+      requireCurrentTransaction('logos-ready');
+      await applyProductsToCanvas(job.productFilenames || [], {
         job,
         loadSeq,
         frameWindow,
-      } : {});
-      if (loadSeq !== canvasLoadSeq) return;
-      await applyQrCodeToCanvas(job);
-      if (loadSeq !== canvasLoadSeq) return;
-      await waitForFrameImages(el.frame.contentWindow, 3000);
+      });
+      requireCurrentTransaction('products-ready');
+      await applyQrCodeToCanvas(job, transaction);
+      requireCurrentTransaction('qrcode-ready');
+      await waitForFrameImages(frameWindow, 3000);
       await sleep(180);
-      if (loadSeq !== canvasLoadSeq) return;
-      const layoutToApply = await resolveSmartProductLayoutForMainCanvas(job, layoutKey, savedLayoutState, el.frame.contentWindow, renderContext);
-      if (loadSeq !== canvasLoadSeq) return;
+      requireCurrentTransaction('images-ready');
+      const layoutToApply = await resolveSmartProductLayoutForMainCanvas(job, layoutKey, savedLayoutState, frameWindow, renderContext);
+      requireCurrentTransaction('layout-resolved');
       if (layoutToApply) {
         setJobLayoutState(job, layoutToApply, layoutKey);
-        await applyJobLayoutStateToFrame(job, el.frame.contentWindow, layoutToApply, {
+        await applyJobLayoutStateToFrame(job, frameWindow, layoutToApply, {
           skipRequest: !!options.skipLayoutStateRequest,
         });
+        requireCurrentTransaction('layout-applied');
       }
-    }).catch(err => console.warn('[CC] selectJob waitForFrameReady:', err));
+      return transaction;
+    });
+    activeCanvasTransactionPromise = canvasTransactionPromise;
+    if (options.awaitCanvasTransaction) {
+      await canvasTransactionPromise;
+    } else {
+      canvasTransactionPromise.catch(err => {
+        if (err?.code !== 'BN_STALE_CANVAS_TRANSACTION') {
+          console.warn('[CC] selectJob waitForFrameReady:', err);
+        }
+      });
+    }
   }
   if (!job.thumbnail) enqueueThumbnail(job.id, true);
+  if (options.awaitCanvasTransaction) {
+    if (!canvasTransactionPromise) throw new Error('canvas transaction unavailable');
+    return canvasTransactionPromise;
+  }
 }
 
 function saveCurrentJobData() {
@@ -2777,9 +2815,8 @@ async function importFile(file) {
 // ══════════════════════════════════════════════════════
 //  16. Logo → bn-logos（直接送 canvas iframe）
 // ══════════════════════════════════════════════════════
-async function applyLogosToCanvas(logoFilenames) {
+async function applyLogosToCanvas(logoFilenames, transaction = null) {
   if (!logoFilenames.length) return;
-  window._bnLogos = [];              // 先清空 plugin 狀態
   let payload;
   try {
     payload = await window.BNAssetRenderPayload.buildLogoPayload({
@@ -2793,6 +2830,8 @@ async function applyLogosToCanvas(logoFilenames) {
     console.error('[CC] logo 讀取失敗:', e);
     return;
   }
+  if (transaction && !isCanvasTransactionCurrent(transaction)) return;
+  window._bnLogos = [];              // 先清空 plugin 狀態
   payload.missing.forEach(filename => console.warn('[CC] logo 找不到:', filename));
   payload.errors.forEach(item => console.error('[CC] logo 讀取失敗:', item.filename, item.error));
   payload.logos.forEach((logo, index) => {
@@ -2801,8 +2840,9 @@ async function applyLogosToCanvas(logoFilenames) {
     console.log('[CC] logo ' + (index + 1) + ' trim 完成 ratio=' + logo.ratio.toFixed(3));
   });
   if (!payload.message) return;
+  if (transaction && !isCanvasTransactionCurrent(transaction)) return;
   if (typeof window._bnRenderLogoList === 'function') window._bnRenderLogoList(); // 刷新右側 UI
-  el.frame.contentWindow.postMessage(payload.message, '*');
+  (transaction?.frameWindow || el.frame.contentWindow).postMessage(payload.message, '*');
   console.log('[CC] bn-logos 送出', payload.logos.length, '個');
   scheduleActiveJobThumbnailUpdate(900);
 }
@@ -2812,11 +2852,13 @@ async function applyLogosToCanvas(logoFilenames) {
 //  docs/proposals/QR-Code-Product-Proposal.md：網址驅動、即時產生，
 //  固定版位（由 template.json 的 qrZone 決定），不接受動態位置/大小。
 // ══════════════════════════════════════════════════════
-async function applyQrCodeToCanvas(job) {
-  if (!el.frame?.contentWindow) return;
+async function applyQrCodeToCanvas(job, transaction = null) {
+  const frameWindow = transaction?.frameWindow || el.frame?.contentWindow;
+  if (!frameWindow) return;
+  if (transaction && !isCanvasTransactionCurrent(transaction)) return;
   const normalized = window.BNQrCodeUrl?.normalize(job?.qrCodeUrl);
   if (!normalized) {
-    el.frame.contentWindow.postMessage({ type: 'bn-qrcode-clear' }, '*');
+    frameWindow.postMessage({ type: 'bn-qrcode-clear' }, '*');
     return;
   }
   try {
@@ -2826,10 +2868,13 @@ async function applyQrCodeToCanvas(job) {
         color: { dark: '#000000ff', light: '#ffffffff' },
       }, (err, url) => (err ? reject(err) : resolve(url)));
     });
-    el.frame.contentWindow.postMessage({ type: 'bn-qrcode-set', src }, '*');
+    if (transaction && !isCanvasTransactionCurrent(transaction)) return;
+    frameWindow.postMessage({ type: 'bn-qrcode-set', src }, '*');
   } catch (error) {
     console.error('[CC] QRCode 產生失敗:', error);
-    el.frame.contentWindow.postMessage({ type: 'bn-qrcode-clear' }, '*');
+    if (!transaction || isCanvasTransactionCurrent(transaction)) {
+      frameWindow.postMessage({ type: 'bn-qrcode-clear' }, '*');
+    }
   }
 }
 
@@ -2896,6 +2941,7 @@ async function applyProductsToCanvas(productFilenames, options = {}) {
       window._bnProducts.push({
         id: product.id,
         src: product.src,
+        manualReplaceRawSrc: product.manualReplaceRawSrc,
         ratio: product.ratio,
         baselineRatio: product.baselineRatio,
         name: product.name,
@@ -2920,16 +2966,19 @@ async function applyProductsToCanvas(productFilenames, options = {}) {
 
   } else {
     // person + single product
+    const frameWindow = transaction?.frameWindow || el.frame.contentWindow;
+    if (stopStaleProductRender('before-person-product-state')) return;
     updateTemplateModeLabel('person_product');
     clearThreeProductState(false);
     for (const message of payload.messages) {
+      if (stopStaleProductRender('before-person-product-message')) return;
       if (message.type === 'bn-person-add' && payload.person) {
         window._bnPerson = {
           src: payload.person.src,
           displayWidth: payload.person.displayWidth,
           objectFit: payload.person.objectFit,
         };
-        el.frame.contentWindow.postMessage(message, '*');
+        frameWindow.postMessage(message, '*');
         console.log('[CC] bn-person-add fitWidth=' + payload.person.displayWidth);
         await sleep(150);
       } else if (message.type === 'bn-single-product-add' && payload.singleProduct) {
@@ -2941,10 +2990,11 @@ async function applyProductsToCanvas(productFilenames, options = {}) {
           zoneHeight: payload.singleProduct.zoneHeight,
           objectFit: payload.singleProduct.objectFit,
         };
-        el.frame.contentWindow.postMessage(message, '*');
+        frameWindow.postMessage(message, '*');
         console.log('[CC] bn-single-product-add ratio=' + payload.singleProduct.ratio.toFixed(3));
         await sleep(150);
       }
+      if (stopStaleProductRender('after-person-product-message')) return;
     }
     if (info.ignored?.length) showPersonProductFilenameHint();
     updateProductModeLock();
@@ -3651,17 +3701,49 @@ function addProcessedEntriesToZip(zip, processedEntries, folderName = 'processed
   });
 }
 
+async function waitForBatchCanvasTransaction(transaction, timeout = 8000) {
+  if (!isCanvasTransactionCurrent(transaction)) {
+    throw staleCanvasTransactionError(transaction, 'batch-wait-start');
+  }
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeout) {
+    if (!isCanvasTransactionCurrent(transaction)) {
+      throw staleCanvasTransactionError(transaction, 'batch-wait-images');
+    }
+    const images = Array.from(transaction.frameWindow.document.images || [])
+      .filter(image => image.currentSrc || image.getAttribute('src'));
+    if (images.every(image => image.complete && image.naturalWidth > 0)) return;
+    await sleep(100);
+  }
+  throw new Error('canvas images timeout');
+}
+
+function batchOutputFilenames(job, index) {
+  const pngFilename = safeZipSegment(job.outputFilename || `${job.jobId || index + 1}.png`);
+  const jsonFilename = /\.[^./\\]+$/.test(pngFilename)
+    ? pngFilename.replace(/\.[^./\\]+$/, '.json')
+    : `${pngFilename}.json`;
+  return { pngFilename, jsonFilename };
+}
+
 async function batchRender() {
+  saveCurrentJobData();
   const validJobs = jobs.filter(j => j.headline);
   if (!validJobs.length) { setStatus('沒有可用工單', 'error'); return; }
   const activeBeforeBatch = activeJob();
+  const activeJobIdBeforeBatch = activeJobId;
   const activeBatchKey = stableLayoutStateKeyForJob(activeBeforeBatch);
   batchTraceState('BATCH_TRACE_1_SYNC', 'before-sync-active-job-state', activeBeforeBatch, activeBatchKey, getJobLayoutState(activeBeforeBatch, activeBatchKey));
   traceLayoutState('batch:before-sync-active-job-state', activeBeforeBatch, activeBatchKey, getJobLayoutState(activeBeforeBatch, activeBatchKey));
+  if (activeCanvasTransactionPromise) {
+    const activeTransaction = await activeCanvasTransactionPromise;
+    await waitForBatchCanvasTransaction(activeTransaction);
+  }
   await syncActiveLayoutState();
   batchTraceState('BATCH_TRACE_1_SYNC', 'after-sync-active-job-state', activeBeforeBatch, activeBatchKey, getJobLayoutState(activeBeforeBatch, activeBatchKey));
   traceLayoutState('batch:after-sync-active-job-state', activeBeforeBatch, activeBatchKey, getJobLayoutState(activeBeforeBatch, activeBatchKey));
 
+  const thumbnailPausedBeforeBatch = thumbnailPaused;
   thumbnailPaused = true;
   clearTimeout(thumbnailTimer);
   clearTimeout(thumbnailQueueTimer);
@@ -3670,57 +3752,83 @@ async function batchRender() {
   el.batchJobLog.innerHTML = '';
   setBatchProgress(0, validJobs.length, `共 ${validJobs.length} 筆，準備中…`);
 
-  const pngFiles = [];
+  const completedPairs = [];
   let done = 0, okCount = 0, errCount = 0;
 
-  for (const job of validJobs) {
-    if (batchCancelled) { addBatchLog('已取消', 'skip'); break; }
-    setBatchProgress(done, validJobs.length, `[${done + 1}/${validJobs.length}] ${job.jobId || job.headline}`);
-    try {
-      const jobKey = stableLayoutStateKeyForJob(job);
-      batchTraceState('BATCH_TRACE_2_STATE', 'before-render-job-state', job, jobKey, getJobLayoutState(job, jobKey));
-      traceLayoutState('batch:before-render-job-state', job, jobKey, getJobLayoutState(job, jobKey));
-      const dataUrl = await renderSingleJob(job);
-      if (dataUrl) {
-        const filename = job.outputFilename || `${job.jobId || done + 1}.png`;
-        pngFiles.push({ name: filename, dataUrl });
-        job.thumbnail = await captureThumb(dataUrl);
-        job.thumbnailContextKey = thumbnailContextKeyForJob(job);
-        renderJobList();
-        addBatchLog(filename, 'ok');
+  try {
+    for (const job of validJobs) {
+      if (batchCancelled) { addBatchLog('已取消', 'skip'); break; }
+      setBatchProgress(done, validJobs.length, `[${done + 1}/${validJobs.length}] ${job.jobId || job.headline}`);
+      try {
+        const transaction = await selectJob(job.id, {
+          skipSync: true,
+          skipLayoutStateRequest: true,
+          awaitCanvasTransaction: true,
+        });
+        if (!isCanvasTransactionCurrent(transaction)) {
+          throw staleCanvasTransactionError(transaction, 'batch-selected');
+        }
+        await waitForBatchCanvasTransaction(transaction);
+        if (!isCanvasTransactionCurrent(transaction)) {
+          throw staleCanvasTransactionError(transaction, 'batch-before-layout-sync');
+        }
+        await syncActiveLayoutState();
+        if (!isCanvasTransactionCurrent(transaction)) {
+          throw staleCanvasTransactionError(transaction, 'batch-before-capture');
+        }
+        const pngDataUrl = await captureFromCanvasFrame(18000);
+        if (!pngDataUrl) throw new Error('截圖失敗');
+        if (!isCanvasTransactionCurrent(transaction)) {
+          throw staleCanvasTransactionError(transaction, 'batch-before-state');
+        }
+        const state = await buildProjectState([job], 'single');
+        if (!isCanvasTransactionCurrent(transaction)) {
+          throw staleCanvasTransactionError(transaction, 'batch-after-state');
+        }
+        if (state.jobs?.length !== 1) throw new Error('單張暫存格式不正確');
+        delete state.jobs[0].thumbnail;
+        const json = JSON.stringify(state, null, 2);
+        const { pngFilename, jsonFilename } = batchOutputFilenames(job, done);
+        completedPairs.push({ pngFilename, pngDataUrl, jsonFilename, json });
+        addBatchLog(pngFilename, 'ok');
         okCount++;
-      } else {
-        addBatchLog(job.outputFilename || job.jobId || `job-${done + 1}`, 'err', '截圖失敗');
+      } catch (e) {
+        addBatchLog(job.outputFilename || job.jobId || `job-${done + 1}`, 'err', e.message);
         errCount++;
       }
-    } catch (e) {
-      addBatchLog(job.outputFilename || job.jobId || `job-${done + 1}`, 'err', e.message);
-      errCount++;
+      done++;
+      setBatchProgress(done, validJobs.length, `已完成 ${done}/${validJobs.length}（成功 ${okCount}，失敗 ${errCount}）`);
     }
-    done++;
-    setBatchProgress(done, validJobs.length, `已完成 ${done}/${validJobs.length}（成功 ${okCount}，失敗 ${errCount}）`);
+
+    if (completedPairs.length) {
+      setBatchProgress(validJobs.length, validJobs.length, '打包完整專案 ZIP 中…');
+      const zip = new JSZip();
+      completedPairs.forEach(pair => {
+        const b64 = dataUrlBase64(pair.pngDataUrl);
+        if (!b64) throw new Error(`${pair.pngFilename} PNG 資料無效`);
+        zip.file(pair.pngFilename, b64, { base64: true });
+        zip.file(pair.jsonFilename, pair.json);
+      });
+      const blob = await zip.generateAsync({ type: 'blob' });
+      downloadBlob(blob, `project_${new Date().toISOString().slice(0, 10)}.zip`);
+    }
+  } finally {
+    thumbnailPaused = thumbnailPausedBeforeBatch;
+    if (activeJobIdBeforeBatch && jobs.some(job => job.id === activeJobIdBeforeBatch)) {
+      try {
+        const restoreTransaction = await selectJob(activeJobIdBeforeBatch, {
+          skipSync: true,
+          skipLayoutStateRequest: true,
+          awaitCanvasTransaction: true,
+        });
+        await waitForBatchCanvasTransaction(restoreTransaction);
+      } catch (error) {
+        console.warn('[CC][batch] restore active job failed:', error);
+      }
+    }
+    if (!thumbnailPaused && thumbnailQueue.length) startThumbnailQueue();
   }
 
-  if (pngFiles.length) {
-    setBatchProgress(validJobs.length, validJobs.length, '打包完整專案 ZIP 中…');
-    const zip = new JSZip();
-    pngFiles.forEach(({ name, dataUrl }) => {
-      const b64 = dataUrlBase64(dataUrl);
-      if (b64) zip.file(safeZipSegment(name), b64, { base64: true });
-    });
-    const state = await exportProjectState(validJobs);
-    const projectZip = window.BNProjectPersistence?.prepareProjectZipState?.(state) || { state, processedEntries: [] };
-    zip.file('project-state.json', JSON.stringify(projectZip.state, null, 2));
-    addProcessedEntriesToZip(zip, projectZip.processedEntries, 'processed');
-    const blob = await zip.generateAsync({ type: 'blob' });
-    downloadBlob(blob, `project_${new Date().toISOString().slice(0, 10)}.zip`);
-  }
-
-  thumbnailPaused = false;
-  if (activeJobId) {
-    await selectJob(activeJobId, { skipSync: true });
-  }
-  if (thumbnailQueue.length) startThumbnailQueue();
   setBatchProgress(validJobs.length, validJobs.length,
     batchCancelled
       ? `已取消。成功 ${okCount} 筆。`
@@ -4570,6 +4678,7 @@ el.resetModal?.addEventListener('click', e => {
 
 // 關閉批次 Modal
 function closeBatchModal() {
+  batchCancelled = true;
   if (el.batchModal) el.batchModal.style.display = 'none';
 }
 el.batchCancelBtn?.addEventListener('click', closeBatchModal);
