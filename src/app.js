@@ -3679,6 +3679,7 @@ async function selectStyle(styleId) {
   if (!job || !activeTemplate) return;
   await syncActiveLayoutState();
   job.styleId = normalizeStyleId(styleId);
+  if (job._importedRenderContext) job._importedRenderContext.styleId = job.styleId;
   renderStyleOptions(job.styleId);
   try {
     const styleJson = await fetchJsonNoStore(getStylePath(activeTemplate, job.styleId));
