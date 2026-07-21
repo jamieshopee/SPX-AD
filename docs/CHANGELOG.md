@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## Imported Job 切換後保留使用者最後選擇 Style - 2026-07-22
+
+Status：**Completed — Jamie Manual Validation PASS**
+Code Commit：`f19364d2fe4aa8f8652c36abbb7f8f2a851765ae`
+Commit subject：`fix: preserve imported job style selection`
+
+- Bug：從下載完整專案取得的 single-state JSON 匯入後，使用者更換 Style 雖會立即更新 selector 與 Canvas，但切換至其他 Job 再切回時，Style 會恢復成匯入當下的舊值。
+- Root Cause：Imported Job 同時保存目前 runtime `job.styleId` 與匯入快照 `job._importedRenderContext.styleId`；`selectStyle()` 原本只更新前者，而 `selectJob()` 切回時會重新使用後者，令舊 Style 覆寫使用者的新選擇。
+- Fix：`selectStyle()` 正規化並更新 `job.styleId` 後，若 Job 存在 `_importedRenderContext`，同步令其 `styleId` 等於目前 `job.styleId`。
+- Boundary：只修正 Imported Job 的 Style 保存；未修改 Placement、Template、Import schema、Render Context 架構、`layoutStates`、Download／Export 或普通 CSV Job。
+- Validation：Imported Job 更換 Style、切換 Job 再切回、Style selector、Canvas Style 與不恢復舊 Style均 PASS；普通 CSV Job 流程正常。Jamie Manual Validation PASS。
+
 ## 1人＋1品手動換圖後商品圖 Accordion 誤展開修正 - 2026-07-21
 
 Status：**Completed — Jamie Manual Validation PASS**

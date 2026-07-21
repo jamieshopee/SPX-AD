@@ -6,6 +6,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 
 ## What's New
 
+- **Imported Job 切換後保留最後選擇 Style（Bug Fix，Commit `f19364d2fe4aa8f8652c36abbb7f8f2a851765ae`）**：從完整專案取出的 single-state JSON 匯入後，使用者更換 Style，再切換其他 Job 並返回時，Style selector 與 Canvas 都會保留最後選擇，不再恢復成匯入當下的舊 Style。普通 CSV Job 行為不變，Jamie Manual Validation PASS。
 - **1人＋1品手動換圖後商品圖區域維持收合（UI Bug Fix）**：修正 Person／Single Product 手動換圖完成後，無 mode 的 accordion defaults 將商品圖區域誤展開。現在初始載入、手動換圖及 Job 切換後，1人＋1品模式下的商品圖區域均維持收合；三商品版型行為不變。Jamie Manual Validation PASS。
 - **下載單張暫存精簡（Commit `2c7dca06146b414ec23f29df94d190d8d09d457d`）**：single-state JSON 不再包含 `jobs[].thumbnail`，也不再為縮圖執行 on-demand Canvas capture；檔名改為與單張 PNG 相同 basename、僅使用 `.json` 副檔名。素材 data URL、processed asset、版面、手動換圖及圖片編輯結果均維持可還原。Browser Validation 與 Jamie Manual Validation PASS。
 - **左側 Job List 鍵盤導航（Commit `b6d2b8f41015d56f1fd207dcba1145b40ede96ca`）**：一般控制台按 `ArrowUp`／`ArrowDown` 可切換上一個／下一個 Job，首尾不循環；切換沿用既有 `selectJob()`，active Job Card 只在左側列表內自動捲動。輸入控制項、Main Canvas iframe、Modal、Editor、Review Workspace 與 Crop／Eraser等模式中不切換；素材審核選單開啟時仍可切換，按鈕取得焦點時則不切換。Jamie Manual Validation PASS。
@@ -428,6 +429,8 @@ ZIP 根目錄不包含單一 Project JSON，也不建立 Assets、Processed、Th
 - Review decision、Approved processed assets 與 Review Workspace 最後一次 Save 的 processed result。
 
 同批 JSON 依完整檔名 Natural Sort 後 append，既有 Job 不會被覆蓋或重排。匯入後不需要重新 Import Processed Folder。Main Canvas、Thumbnail 與 Batch 會使用各 Job JSON 內恢復的 latest processed image。
+
+Imported Job 匯入後若由使用者更換 Style，該 Job 會同步保存目前選擇；切換至其他 Job 再返回時，Style selector 與 Canvas 均維持最後選擇，不會重新套用 JSON 匯入當下的舊 Style。此修正不改變 Placement、Template 或普通 CSV Job 的既有行為。
 
 ### single-state Restore
 
