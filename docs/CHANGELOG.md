@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 匯入暫存支援多選 JSON 與 Atomic Append - 2026-07-21
+
+Status：**Completed — Jamie Manual Validation PASS**
+
+- Import：`匯入暫存` 現在支援單選或多選 JSON；每份檔案必須是只包含一個 Job 的 single-state，並各自建立一個新 Job。每批檔案先依完整檔名 Natural Sort，再 append 至既有 Job List 尾端，不覆蓋或重排既有 Workspace；完成後選取本批第一個新增 Job。
+- Restore：每份 JSON 的 Placement、Template、Style 會保存為該 imported Job 的 runtime-only context，並在 `selectJob()` 建立 Render Context 前套用；`layoutState`／`layoutStates` 仍沿用既有資料與查找規則，因此多個不同尺寸的 imported Jobs 可各自恢復下載當下狀態。普通 CSV Workspace／Job 維持原有 global context 行為。
+- Collision Preflight：匯入前會一併檢查本批與現有 Workspace 的 raw assets、processed assets、pipeline identity 與 embedded export filename；同 normalized filename 且同 data URL 可共用，同名但內容不同則拒絕整批，不覆蓋、不自動改名或建立 alias。
+- Atomicity：所有檔案完成排序、讀取、parse、schema/version、single-job、asset／pipeline staging 與 collision preflight 後才一次 append；任何一項失敗時，jobs、assets、pipeline state、active Job、Job List 與 Canvas 均不留下部分結果。
+- Boundary：只調整 JSON Import；未修改 JSON schema/version、Download／Export、Asset Pipeline module、Resolver、手動換圖、普通 CSV Import、Canvas Render 或 Photoshop Pipeline。
+- Validation：多批 append、Natural Sort、逐 Job Placement／Template／Style 與 `layoutStates` restore、collision reject、atomic failure、普通 CSV Workspace 保護均完成 Jamie Manual Validation，結果 PASS。
+
 ## 下載完整專案改為逐 Job PNG／Single State JSON 配對 - 2026-07-21
 
 Status：**Completed — Browser Validation／Jamie Manual Validation PASS**

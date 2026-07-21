@@ -74,9 +74,11 @@ main
 - Review Workspace UX Polish：Auto Next、Multi-pass Review、Review Progress Header、Smart Entry、Keyboard Shortcuts、Decision Guard、Remove Drag Tool。
 - Batch ZIP：下載完整專案逐 Job 輸出同 basename 的 PNG／version 5 single-state JSON 配對；不再輸出單一 Project JSON 或素材子資料夾。
 - Phase 2D-2C：Batch Approved Assets，Batch ZIP export 已使用 approved processed assets。
-- Project State：single-state.json / project-state.json 的既有 schema 與匯入相容保留；目前下載完整專案只輸出逐 Job single-state JSON。
+- Project State：single-state.json / project-state.json 的既有 schema 保留；目前下載完整專案只輸出逐 Job single-state JSON。
 - Project State Phase：Completed。Project State v4 保存 Asset Pipeline metadata 與 Review decision，已達成可恢復工作區核心目標。
-- Project Persistence：Project State v5、single-state restore 與既有 legacy project.zip import 相容已完成。Download Complete Project 目前將每個成功 Job 輸出為 PNG／single-state JSON 配對，每份 JSON 可由既有「匯入暫存」獨立還原，不需要另外保存素材資料夾或 processed folder。
+- Project Persistence：Project State v5 與 single-state restore 已完成。`匯入暫存` 為 JSON-only append：支援單檔／多檔，每份 JSON 必須只包含一個 Job；每批依完整檔名 Natural Sort 後 append，不覆蓋或重排既有 Job。Download Complete Project 將每個成功 Job 輸出為 PNG／single-state JSON 配對，每份 JSON 可由「匯入暫存」獨立還原，不需要另外保存素材資料夾或 processed folder。
+- Multi-state Import：每個 imported Job 以 runtime-only `_importedRenderContext` 保存來源 JSON 的 Placement／Template／Style，`selectJob()` 會先套用合法 context，再沿用既有 `layoutState`／`layoutStates` 與 Canvas restore。普通 CSV Job 不會被回填此欄位，既有 CSV Workspace 行為維持不變。
+- Import Safety：raw／processed asset、pipeline identity 與 embedded export filename 在 commit 前執行 Collision Preflight；同 normalized filename、同 data URL 可共用，同名不同內容則整批拒絕。匯入採 Atomic Append，任何檔案失敗時不得留下部分 Job、asset、pipeline 或 active state；不得以 runtime alias、自動改名或 Job-scoped Asset 架構繞過衝突。
 - Control Center UI Upgrade：Header 已簡化為一般使用者入口，隱藏 Photoshop / Manifest / Processed Folder 等技術術語，版位下拉只調整 display order。
 - Thumbnail Boundary：左側 Job List 已移除縮圖 UI，且一般操作不再排程或生成只供該列表使用的 quickThumbnail／active thumbnail／hidden iframe thumbnail；Project State thumbnail 欄位與 import 相容仍保留，不得誤認為整套 Thumbnail 系統已刪除。功能 Commit `b67604b`，Browser Validation 與 Jamie Manual Validation PASS。下載單張暫存及目前下載完整專案內逐 Job single-state JSON 均不輸出 `jobs[].thumbnail`。
 - Download Complete Project：功能 Commit `d16ffaa64d1bdae98bf76972de4077e0d2e92375`（`feat: export per-job state in project zip`）。ZIP 根目錄只包含每個成功 Job 同 basename 的 PNG／version 5 single-state JSON 配對；不再輸出單一 Project JSON，亦不建立 Assets、Processed、Thumbnail、Hidden、Manifest 或其他子資料夾。PNG／JSON 取自同一次 Canvas transaction；單一 Job 失敗不留下殘缺配對，完成或取消後恢復原 active Job。Browser Validation 與 Jamie Manual Validation PASS。

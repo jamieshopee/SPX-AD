@@ -291,6 +291,10 @@ Header 固定四個一般使用者入口：
 - 選擇素材資料夾
 - 素材審核
 
+「匯入暫存」只接受 JSON，支援一次選取一份或多份 single-state JSON。每份 JSON 必須只包含一個 Job；同一批檔案會先依完整檔名 Natural Sort（例如 `1.json`、`2.json`、`10.json`），再依序新增至左側 Job List 尾端。既有 Job 不會被覆蓋或重新排序，之後再次匯入的新批次也只會接續 append；整批完成後會選取本批第一個新增 Job。
+
+每個新增 Job 會分別恢復該 JSON 下載當下的 Placement、Template、Style、`layoutState`／`layoutStates` 與其他既有 single-state 資料。若同 normalized filename 對應不同素材內容，系統會在匯入前拒絕整批；任何檔案解析、格式或素材衝突失敗時，Workspace 不會留下部分新增結果。普通 CSV Workspace 的既有操作方式不變。
+
 左側 Job List 的每張 Job Card 只顯示原本三行文字資訊，不顯示縮圖、placeholder、loading shimmer 或縮圖內 validation dot。Job 點擊、active 狀態、排序、刪除與切換行為不變；缺少素材時仍由既有 validation panel 顯示。第三行與第二行同為 `12px` 及主要文字色，但維持一般字重。
 
 一般控制台可按 `ArrowUp`／`ArrowDown` 依目前 Job List 順序切換上一個／下一個 Job，第一筆與最後一筆不循環。切換使用既有 `selectJob()`；active Job Card 只在左側列表容器內自動捲動，整個頁面不會跟著捲動。焦點位於輸入控制項或按鈕時，以及 Main Canvas iframe、Modal、Editor、Review Workspace、Crop／Eraser等模式中，方向鍵不切換控制台 Job。素材審核選單開啟時仍可切換；素材審核按鈕取得焦點時不切換。
@@ -413,20 +417,20 @@ ZIP 根目錄不包含單一 Project JSON，也不建立 Assets、Processed、Th
 
 ### 匯入完整專案中的 Job 暫存
 
-從完整專案 ZIP 取出任一 Job 的 JSON，使用「匯入暫存」後會恢復：
+從完整專案 ZIP 取出一份或多份 Job JSON，可一次使用「匯入暫存」加入目前 Workspace；每份 JSON 對應一個新 Job，並恢復：
 
 - Jobs / 文字。
-- Template / Style。
-- `layoutStates`。
+- Placement / Template / Style。
+- `layoutState` / `layoutStates`。
 - Review decision、Approved processed assets 與 Review Workspace 最後一次 Save 的 processed result。
 
-匯入後不需要重新 Import Processed Folder。Main Canvas、Thumbnail 與 Batch 會使用該 Job JSON 內恢復的 latest processed image。
+同批 JSON 依完整檔名 Natural Sort 後 append，既有 Job 不會被覆蓋或重排。匯入後不需要重新 Import Processed Folder。Main Canvas、Thumbnail 與 Batch 會使用各 Job JSON 內恢復的 latest processed image。
 
 ### single-state Restore
 
 下載單張暫存用於保存單張工單；輸出檔名與該 Job 的單張 PNG 使用相同 basename，只將副檔名改為 `.json`（例如 `Banner_A.png` 對應 `Banner_A.json`，空 `outputFilename` 使用 `banner.json`）。JSON 不包含僅供舊左側 Job List 縮圖使用的 `jobs[].thumbnail`，也不執行 on-demand thumbnail capture。
 
-匯入後仍會恢復該工單需要的 assets data URL、processed image、`layoutState`／`layoutStates`、手動換圖、Crop、Eraser、Shadow 與其他既有資料，因此不需要保留原素材資料夾或 processed folder。此修正不變更 Project State schema，也不影響完整專案、Batch Download 或單張 PNG。
+匯入後仍會恢復該工單需要的 Placement、Template、Style、assets data URL、processed image、`layoutState`／`layoutStates`、手動換圖、Crop、Eraser、Shadow 與其他既有資料，因此不需要保留原素材資料夾或 processed folder。多選時每份 single-state 只建立一個 Job，並以 Atomic Append 加入既有 Workspace。此流程不變更 Project State schema，也不影響完整專案、Batch Download 或單張 PNG。
 
 ### Review Workspace Restore
 

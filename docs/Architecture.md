@@ -436,7 +436,11 @@ Project State v4（Completed / legacy metadata layer）：
 規則：
 
 - CSV 匯入會建立全新 Project State。
-- 暫存 JSON 匯入會恢復 Project State。
+- 暫存匯入只接受 JSON；支援單檔或多檔，每份 JSON 必須是只含一個 Job 的 single-state。
+- 每批 JSON 依完整檔名 Natural Sort 後 append 至既有 Job List 尾端，不執行 Workspace replace，也不重排既有 Job。
+- 每個 imported Job 以 runtime-only context 恢復來源 JSON 的 Placement、Template、Style，再沿用既有 `layoutState`／`layoutStates` restore；普通 CSV Job 維持既有 global context semantics。
+- Import commit 前會檢查 raw／processed assets、pipeline identity 與 embedded export filename collision；同 normalized filename、同 data URL 可共用，同名不同內容則整批拒絕。
+- Import 採 Atomic Append，所有檔案完成 parse、validation、staging 與 collision preflight 後才一次寫入；失敗時 Workspace 不留下部分結果。
 - 匯入暫存後不需要原素材資料夾。
 - 匯出暫存 JSON 需包含恢復畫面所需的素材 dataUrl。
 - `layoutStates` key 固定為 `placementId|templateId`。
@@ -462,7 +466,7 @@ Persistence Layer：
 
 - `js/project-persistence.js` 負責 processed assets persistence helper。
 - Export 時從 runtime `processedAssetIndex` 收集 latest processed image。
-- Import 時從 `single-state.json` 或既有 legacy project.zip 重建 runtime `processedAssetIndex`。
+- Import 時從每份 `single-state.json` 重建該新增 Job 所需的 runtime asset／processed asset state；不支援 ZIP Import。
 - Persistence Layer 不 Render、不操作 Canvas、不改 Resolver decision、不執行 Photoshop。
 
 Project State v5：
@@ -505,9 +509,11 @@ project_YYYY-MM-DD.zip
 Restore Flow：
 
 ```text
-Import single-state.json（含完整專案 ZIP 內逐 Job JSON）
+Import one or more single-state JSON（可由完整專案 ZIP 取出）
   ↓
-Restore jobs / assets / layoutStates / assetPipelineState
+Natural Sort current batch / validate / collision preflight
+  ↓
+Atomic append one Job per JSON / restore assets / layoutStates / assetPipelineState
   ↓
 Restore processedAssets into runtime processedAssetIndex
   ↓
@@ -637,7 +643,7 @@ State Boundary 定義哪些流程可以讀或寫 state。
 | Thumbnail | 指定 job 的文字、素材、Style、Template、`layoutStates` | `job.thumbnail`、`thumbnailStatus` | hidden iframe 只產縮圖，不寫 transform |
 | Batch Render | 依序切換並等待每個 job 的既有 Canvas transaction，讀取該 job 的文字、素材、approved processed assets、`styleId`、`layoutStates` | 每個成功 Job 同 basename 的 PNG／single-state JSON 配對 | PNG 與 JSON 取自同一次 transaction；任一方失敗不加入殘缺配對，完成或取消後恢復原 active Job |
 | Project State Export | jobs、assets、style、`layoutStates`、Asset Pipeline metadata、latest processed image metadata | `single-state.json`；Download Complete Project 逐 Job single-state JSON | v5 可保存 latest processed image；不保存 FileSystemHandle、object URL 或 runtime cache |
-| Project State Import | single-state JSON／既有 legacy project.zip | jobs、assets、style、`layoutStates`、Asset Pipeline metadata、runtime `processedAssetIndex` | 合法 replace workspace 邊界；v5 可直接恢復 processed source |
+| Project State Import | 一份或多份 single-state JSON | append jobs、assets、style、`layoutStates`、Asset Pipeline metadata、runtime `processedAssetIndex` | 每份 JSON 對應一個 Job；同批 Natural Sort、Collision Preflight、Atomic Append；v5 可直接恢復 processed source，普通 CSV Workspace 行為不變 |
 | Asset Payload | assets、template default layout | Canvas payload messages | 不碰 Project State |
 | Photoshop Pipeline | original / processed / approved assets | asset processing status、approved asset mapping | 不碰 Canvas transform |
 
