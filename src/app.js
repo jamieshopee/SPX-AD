@@ -82,6 +82,7 @@ let pendingLayoutStateRequest = null;
 let canvasLoadSeq = 0;
 let activeCanvasTransactionPromise = null;
 let suppressLayoutStateWrites = false;
+let importedWorkspaceReturnContext = null;
 
 // 單品拖曳 overlay（仿 template-controls.js）
 let previewScale          = 1;
@@ -2575,12 +2576,41 @@ function staleCanvasTransactionError(transaction, stage) {
 
 async function selectJob(id, options = {}) {
   if (!options.skipSync) await syncActiveLayoutState();
+  const previousJob = activeJob();
   activeJobId = id;
   const job = jobs.find(j => j.id === id);
   if (!job) return;
   ensureJobPlacementTemplate(job);
   fillFields(job);
   ensureWorkspaceReadyForJob();
+  const importedContext = job._importedRenderContext || null;
+  const importedPlacement = getPlacementById(importedContext?.placementId);
+  const importedTemplate = importedPlacement?.templates?.find(template => template.id === importedContext?.template) || null;
+  if (importedPlacement && importedTemplate) {
+    if (previousJob && !previousJob._importedRenderContext) {
+      importedWorkspaceReturnContext = {
+        placementId: activePlacement?.id || '',
+        template: activeTemplate?.id || '',
+        styleId: previousJob.styleId || '01',
+      };
+    }
+    activePlacement = importedPlacement;
+    activeTemplate = importedTemplate;
+    job.styleId = normalizeStyleId(importedContext.styleId || job.styleId || '01');
+    if (el.placement) el.placement.value = importedPlacement.id;
+    renderTemplateOptions(false);
+    if (el.template) el.template.value = importedTemplate.id;
+  } else if (previousJob?._importedRenderContext && importedWorkspaceReturnContext) {
+    const returnPlacement = getPlacementById(importedWorkspaceReturnContext.placementId);
+    const returnTemplate = returnPlacement?.templates?.find(template => template.id === importedWorkspaceReturnContext.template) || null;
+    if (returnPlacement && returnTemplate) {
+      activePlacement = returnPlacement;
+      activeTemplate = returnTemplate;
+      if (el.placement) el.placement.value = returnPlacement.id;
+      renderTemplateOptions(false);
+      if (el.template) el.template.value = returnTemplate.id;
+    }
+  }
   const renderContext = getActiveRenderContext(job.styleId || '01');
   const renderPlacement = getPlacementById(renderContext.placementId) || activePlacement;
   if (renderPlacement) {
@@ -4339,56 +4369,178 @@ async function exportProjectZip() {
   }
 }
 
-async function importState(file) {
-  if (!file) return;
-  if (!/\.(json|zip)$/i.test(file.name || '')) {
-    setStatus('不支援的暫存格式：請選擇 single-state.json、project-state.json 或 project.zip', 'error');
-    return;
-  }
-  try {
-    setStatus('匯入暫存中…');
-    let state;
-    if (/\.zip$/i.test(file.name || '')) {
-      try {
-        state = await window.BNProjectPersistence.extractProjectZipState(file, JSZip);
-      } catch (error) {
-        throw new Error('project.zip 解析失敗：' + error.message);
-      }
-    } else {
-      try {
-        state = JSON.parse(await file.text());
-      } catch (error) {
-        throw new Error('暫存 JSON 解析失敗');
-      }
-    }
-    if (state.schema !== 'spx-ad-project-state') throw new Error('不支援的暫存格式');
-    if (![2, 3, 4, 5].includes(Number(state.version))) throw new Error('暫存檔版本不相容');
-    if (!Array.isArray(state.jobs)) throw new Error('暫存格式不正確：找不到 jobs');
+function naturalSortStateFiles(fileList) {
+  const collator = new Intl.Collator('zh-Hant', { numeric: true, sensitivity: 'base' });
+  return Array.from(fileList || [])
+    .map((file, index) => ({ file, index }))
+    .sort((a, b) => collator.compare(a.file.name, b.file.name) || a.index - b.index)
+    .map(item => item.file);
+}
 
-    await resetWorkspaceState({ keepAssetsFolder: false });
-    assetIndex = {};
-    processedAssetIndex = {};
-    reviewWorkspaceRerunAssetKeys = [];
-    assetPipelineState = window.BNAssetPipelineState?.importAssetPipelineMetadata?.(state.assetPipelineState) || null;
-    if (Number(state.version) >= 5 && state.processedAssets) {
-      processedAssetIndex = window.BNProjectPersistence?.buildProcessedAssetIndex?.(state.processedAssets) || {};
+function normalizeImportedAssetKey(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function appendImportConflict(conflicts, type, filename, owners) {
+  const key = `${type}|${filename}|${owners.join('|')}`;
+  if (conflicts.some(item => item.key === key)) return;
+  conflicts.push({ key, type, filename, owners });
+}
+
+function formatImportConflicts(conflicts) {
+  return conflicts.slice(0, 8)
+    .map(item => `${item.filename}（${item.type}：${item.owners.join(' ↔ ')}）`)
+    .join('；');
+}
+
+function resolveImportedRenderContext(state, savedJob) {
+  const placement = [state?.activePlacementId, savedJob?.placementId]
+    .map(getPlacementById)
+    .find(Boolean);
+  if (!placement) return null;
+  const templateIds = [state?.activeTemplate, savedJob?.template, savedJob?.templateId]
+    .map(value => String(value || '').trim())
+    .filter(Boolean);
+  const template = templateIds
+    .map(id => placement.templates?.find(item => item.id === id))
+    .find(Boolean) || placement.templates?.[0] || null;
+  if (!template) return null;
+  const styleIds = [state?.activeStyle, savedJob?.style, savedJob?.styleId]
+    .map(value => String(value || '').trim())
+    .filter(Boolean)
+    .map(value => normalizeStyleId(value));
+  const styles = getStyleOptions(template);
+  const style = styleIds
+    .map(id => styles.find(item => item.id === id))
+    .find(Boolean) || styles[0] || { id: normalizeStyleId(savedJob?.style || savedJob?.styleId || '01') };
+  return {
+    placementId: placement.id,
+    template: template.id,
+    styleId: style.id,
+  };
+}
+
+async function stageStateImports(fileList) {
+  const files = naturalSortStateFiles(fileList);
+  if (!files.length) throw new Error('請選擇暫存 JSON');
+  const units = [];
+  const conflicts = [];
+  const rawSeen = new Map();
+  const processedSeen = new Map();
+  const pipelineSeen = new Map();
+  const runtimeAssetDataUrls = new Map();
+  const runtimeProcessedDataUrls = new Map();
+
+  Object.entries(assetPipelineState?.assets || {}).forEach(([assetKey, record]) => {
+    pipelineSeen.set(assetKey, { serialized: JSON.stringify(record), owner: '目前工作區' });
+  });
+
+  const readRuntimeAsset = async key => {
+    if (runtimeAssetDataUrls.has(key)) return runtimeAssetDataUrls.get(key);
+    const handle = assetIndex[key];
+    const dataUrl = handle ? await handleToDataUrl(handle) : '';
+    runtimeAssetDataUrls.set(key, dataUrl);
+    return dataUrl;
+  };
+  const readRuntimeProcessed = async key => {
+    if (runtimeProcessedDataUrls.has(key)) return runtimeProcessedDataUrls.get(key);
+    const dataUrl = await processedAssetEntryToDataUrl(processedAssetIndex[key]);
+    runtimeProcessedDataUrls.set(key, dataUrl);
+    return dataUrl;
+  };
+
+  for (const file of files) {
+    if (!/\.json$/i.test(file.name || '')) throw new Error(`${file.name || '未命名檔案'}：只支援 JSON`);
+    let state;
+    try {
+      state = JSON.parse(await file.text());
+    } catch (_) {
+      throw new Error(`${file.name}：暫存 JSON 解析失敗`);
     }
-    updateNeedsRerunButton();
-    assetFolderName = file.name.replace(/\.(json|zip)$/i, '');
-    assetSourceMode = 'state';
+    if (state?.schema !== 'spx-ad-project-state') throw new Error(`${file.name}：不支援的暫存格式`);
+    if (![2, 3, 4, 5].includes(Number(state.version))) throw new Error(`${file.name}：暫存檔版本不相容`);
+    if (!Array.isArray(state.jobs)) throw new Error(`${file.name}：暫存格式不正確，找不到 jobs`);
+    if (state.jobs.length !== 1) throw new Error(`${file.name}：每份暫存 JSON 必須只包含一個 Job`);
+
     const assetsById = new Map();
+    const stagedAssets = [];
     for (const asset of stateAssetList(state)) {
       if (!asset?.id || !asset.dataUrl) continue;
       const name = asset.name || asset.originalName || asset.id;
       const fileObj = await dataUrlToFile(asset.dataUrl, name, asset.type);
+      const keys = [...new Set([name, asset.originalName].map(normalizeImportedAssetKey).filter(Boolean))];
       assetsById.set(asset.id, { ...asset, file: fileObj, name });
-      indexMemoryAsset(asset.id, fileObj);
-      indexMemoryAsset(name, fileObj);
-      indexMemoryAsset(asset.originalName, fileObj);
+      stagedAssets.push({ keys, file: fileObj, dataUrl: asset.dataUrl, name });
+      for (const key of keys) {
+        if (assetIndex[key]) {
+          const existingDataUrl = await readRuntimeAsset(key);
+          if (existingDataUrl !== asset.dataUrl) {
+            appendImportConflict(conflicts, 'raw asset', name, ['目前工作區', file.name]);
+            appendImportConflict(conflicts, 'export key ambiguity', name, ['目前工作區', file.name]);
+          }
+        }
+        const seen = rawSeen.get(key);
+        if (seen && seen.dataUrl !== asset.dataUrl) {
+          appendImportConflict(conflicts, 'raw asset', name, [seen.owner, file.name]);
+          appendImportConflict(conflicts, 'export key ambiguity', name, [seen.owner, file.name]);
+        } else if (!seen) {
+          rawSeen.set(key, { dataUrl: asset.dataUrl, owner: file.name });
+        }
+      }
     }
 
-    jobs = state.jobs.map(saved => {
-      const job = createJob({
+    const stagedProcessed = [];
+    if (Number(state.version) >= 5) {
+      for (const [assetKey, item] of Object.entries(state.processedAssets || {})) {
+        if (!item?.filename || !item.dataUrl) continue;
+        const key = normalizeImportedAssetKey(item.filename);
+        if (processedAssetIndex[key]) {
+          const existingDataUrl = await readRuntimeProcessed(key);
+          if (existingDataUrl !== item.dataUrl) {
+            appendImportConflict(conflicts, 'processed asset', item.filename, ['目前工作區', file.name]);
+          }
+        }
+        const seen = processedSeen.get(key);
+        if (seen && seen.dataUrl !== item.dataUrl) {
+          appendImportConflict(conflicts, 'processed asset', item.filename, [seen.owner, file.name]);
+        } else if (!seen) {
+          processedSeen.set(key, { dataUrl: item.dataUrl, owner: file.name });
+        }
+        stagedProcessed.push({
+          key,
+          entry: {
+            dataUrl: item.dataUrl,
+            filename: item.filename,
+            lookupKey: key,
+            assetKey,
+            restoredFromProjectState: true,
+          },
+        });
+      }
+    }
+
+    const importedPipeline = window.BNAssetPipelineState?.importAssetPipelineMetadata?.(state.assetPipelineState) || null;
+    Object.entries(importedPipeline?.assets || {}).forEach(([assetKey, record]) => {
+      const serialized = JSON.stringify(record);
+      const seen = pipelineSeen.get(assetKey);
+      if (seen && seen.serialized !== serialized) {
+        const filename = record.originalFilename || record.originalAsset?.filename || assetKey;
+        appendImportConflict(conflicts, 'pipeline identity', filename, [seen.owner, file.name]);
+      } else if (!seen) {
+        pipelineSeen.set(assetKey, { serialized, owner: file.name });
+      }
+    });
+
+    const saved = state.jobs[0];
+    const importedRenderContext = resolveImportedRenderContext(state, saved);
+    units.push({
+      file,
+      state,
+      assets: stagedAssets,
+      processed: stagedProcessed,
+      pipeline: importedPipeline,
+      importedRenderContext,
+      jobData: {
         jobId: saved.jobId || '',
         template: saved.template || saved.templateId || 'template',
         templateId: saved.template || saved.templateId || 'template',
@@ -4404,40 +4556,94 @@ async function importState(file) {
         layoutState: saved.layoutState || null,
         layoutStates: saved.layoutStates || null,
         thumbnail: saved.thumbnail || null,
-      });
-      const importKey = stableLayoutStateKeyForJob(job);
-      traceLayoutState('importState:loaded-job-layoutState', job, importKey, job.layoutStates?.[importKey] || job.layoutState);
-      return job;
+      },
     });
-    activeJobId = jobs[0]?.id || null;
+  }
 
+  if (conflicts.length) throw new Error(`匯入衝突：${formatImportConflicts(conflicts)}`);
+  return units;
+}
+
+function mergeImportedPipelineState(units) {
+  let merged = assetPipelineState ? JSON.parse(JSON.stringify(assetPipelineState)) : null;
+  units.forEach(unit => {
+    const incoming = unit.pipeline;
+    if (!incoming) return;
+    if (!merged) {
+      merged = { ...incoming, assets: {}, unmatchedProcessedAssets: [] };
+    }
+    merged.assets = merged.assets || {};
+    Object.entries(incoming.assets || {}).forEach(([assetKey, record]) => {
+      if (!merged.assets[assetKey]) merged.assets[assetKey] = record;
+    });
+    const unmatched = merged.unmatchedProcessedAssets || [];
+    (incoming.unmatchedProcessedAssets || []).forEach(item => {
+      const serialized = JSON.stringify(item);
+      if (!unmatched.some(existing => JSON.stringify(existing) === serialized)) unmatched.push(item);
+    });
+    merged.unmatchedProcessedAssets = unmatched;
+  });
+  return merged;
+}
+
+async function importStateFiles(fileList) {
+  try {
+    setStatus('匯入暫存中…');
+    const units = await stageStateImports(fileList);
+    const nextAssetIndex = { ...assetIndex };
+    const nextProcessedAssetIndex = { ...processedAssetIndex };
+    units.forEach(unit => {
+      unit.assets.forEach(asset => {
+        asset.keys.forEach(key => {
+          if (!nextAssetIndex[key]) nextAssetIndex[key] = makeMemoryAssetHandle(asset.file);
+        });
+      });
+      unit.processed.forEach(item => {
+        if (!nextProcessedAssetIndex[item.key]) nextProcessedAssetIndex[item.key] = item.entry;
+      });
+    });
+    const nextPipelineState = mergeImportedPipelineState(units);
+    if (activeJobId) await syncActiveLayoutState();
+    const jobIdSeqBefore = jobIdSeq;
+    let importedJobs;
+    try {
+      importedJobs = units.map(unit => {
+        const job = createJob(unit.jobData);
+        if (unit.importedRenderContext) {
+          job._importedRenderContext = { ...unit.importedRenderContext };
+        }
+        return job;
+      });
+    } catch (error) {
+      jobIdSeq = jobIdSeqBefore;
+      throw error;
+    }
+
+    const hadJobs = jobs.length > 0;
+    if (!hadJobs) importedWorkspaceReturnContext = null;
+    jobs = jobs.concat(importedJobs);
+    assetIndex = nextAssetIndex;
+    processedAssetIndex = nextProcessedAssetIndex;
+    assetPipelineState = nextPipelineState;
+    if (!hadJobs || !assetFolderName) {
+      assetFolderName = units.length === 1
+        ? units[0].file.name.replace(/\.json$/i, '')
+        : `${units[0].file.name.replace(/\.json$/i, '')} 等 ${units.length} 份暫存`;
+      assetSourceMode = 'state';
+    }
+
+    const firstImportedJob = importedJobs[0];
+    importedJobs.forEach(job => {
+      const importKey = stableLayoutStateKeyForJob(job);
+      traceLayoutState('importStateFiles:loaded-job-layoutState', job, importKey, job.layoutStates?.[importKey] || job.layoutState);
+    });
     ensureWorkspaceReadyForJob();
-    const preferredPlacementId = state.activePlacementId || jobs[0]?.placementId || '';
-    if (preferredPlacementId && registry?.placements?.length) {
-      const foundPlacement = registry.placements.find(p => p.id === preferredPlacementId);
-      if (foundPlacement) {
-        activePlacement = foundPlacement;
-        el.placement.value = foundPlacement.id;
-        renderTemplateOptions(false);
-      }
-    }
-    const firstJob = activeJob();
-    if (firstJob && activePlacement?.templates?.length) {
-      const foundTemplate = activePlacement.templates.find(t => t.id === (firstJob.template || firstJob.templateId || 'template')) || activePlacement.templates[0];
-      activeTemplate = foundTemplate;
-      el.template.value = foundTemplate.id;
-      renderStyleOptions(firstJob.styleId || '01');
-      try {
-        const url = new URL(foundTemplate.editorUrl, location.href);
-        foundTemplate._templatePath = decodeURIComponent(url.searchParams.get('template') || '');
-      } catch (_) {}
-    }
-
-    setTopbarBadge(el.folderStatus, el.folderStatusText, `${assetFolderName}（${stateAssetList(state).length}）`);
+    updateNeedsRerunButton();
     validateAllJobs();
     renderJobList();
-    if (activeJobId) await selectJob(activeJobId, { skipSync: true, skipLayoutStateRequest: true });
-    setStatus(`暫存已匯入：${jobs.length} 筆工單。`, 'success');
+    setTopbarBadge(el.folderStatus, el.folderStatusText, `${assetFolderName}（${Object.keys(assetIndex).length}）`);
+    if (firstImportedJob) selectJob(firstImportedJob.id, { skipSync: true, skipLayoutStateRequest: true });
+    setStatus(`暫存已匯入：新增 ${importedJobs.length} 筆工單。`, 'success');
   } catch (error) {
     console.error(error);
     setStatus('匯入暫存失敗：' + error.message, 'error');
@@ -4573,8 +4779,9 @@ el.importFile.addEventListener('change', e => {
 });
 el.importStateBtn.addEventListener('click', () => el.importStateFile.click());
 el.importStateFile.addEventListener('change', e => {
-  if (e.target.files[0]) importState(e.target.files[0]);
+  const files = Array.from(e.target.files || []);
   e.target.value = '';
+  if (files.length) importStateFiles(files);
 });
 
 // 素材資料夾
