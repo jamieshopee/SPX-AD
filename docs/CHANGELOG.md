@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 下載完整專案改為逐 Job PNG／Single State JSON 配對 - 2026-07-21
+
+Status：**Completed — Browser Validation／Jamie Manual Validation PASS**
+Code Commit：`d16ffaa64d1bdae98bf76972de4077e0d2e92375`
+Commit subject：`feat: export per-job state in project zip`
+
+- Export：下載完整專案不再建立一份多 Job Project JSON；每個成功 Job 會輸出同 basename 的 PNG 與 version 5 single-state JSON，例如 `AD_01.png`／`AD_01.json`。每份 JSON 只包含該 Job、可直接使用既有「匯入暫存」開啟，且不包含 `jobs[].thumbnail`。
+- ZIP：根目錄只包含成功完成的 PNG／JSON 配對，不建立 Assets、Processed、Thumbnail、Hidden、Manifest 或其他子資料夾，也不再輸出日期命名或 `project-state.json` 的單一 Project JSON。
+- Transaction：每組 PNG 與 JSON 來自同一次已完成的 Canvas transaction；單一 Job 的 PNG 或 JSON 任一失敗時不加入殘缺配對，其餘 Job 繼續處理，完成或取消後恢復下載前的 active Job。
+- Compatibility：每份 JSON 沿用既有 single-state schema、素材與還原資料；未修改 JSON schema/version、正式「下載單張暫存」、匯入暫存、Asset Resolver、Crop／Eraser／Shadow 或 Photoshop Pipeline。
+- Validation：ZIP 結構、逐 Job single-state、同檔名不同內容隔離、素材／layout 還原、失敗／取消與 active Job 恢復均通過 Browser Validation；Jamie Manual Validation PASS。
+
 ## 下載單張暫存移除縮圖資料與同步輸出檔名 - 2026-07-20
 
 Status：**Completed — Browser Validation／Jamie Manual Validation PASS**

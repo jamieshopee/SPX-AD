@@ -396,36 +396,31 @@ Project Persistence 的使用原則是：Project Save = Workspace Save。
 
 ```text
 project_YYYY-MM-DD.zip
-├── JOB-1.png
-├── JOB-2.png
-├── project-state.json
-└── processed/
-    ├── 商品A.png
-    └── ...
+├── AD_01.png
+├── AD_01.json
+├── AD_02.png
+├── AD_02.json
+├── AD_03.png
+└── AD_03.json
 ```
-
-Naming Contract（Locked by Jamie，全域唯一規則）：`processed/` 內檔名固定為「原始素材 basename ＋ `.png`」（例如 `商品A.jpg` / `商品A.webp` 都對應 `商品A.png`），與 AI Workflow、人工備援流程（匯出處理檔／匯入處理結果）輸出的檔名規則完全一致；assetKey 只作為內部 metadata（`project-state.json` 內 `processedAssets` 的物件 key）使用，不會進入這裡的實體檔名。Project Persistence 沒有另外一套命名規則，`processed/` 的檔名就是直接沿用 Asset Pipeline State 裡 `processedAsset.filename` 的值。
 
 ZIP 內包含：
 
-- 所有輸出 PNG。
-- `project-state.json`。
-- Review Workspace 最後一次 Save 的 latest processed image。
+- 每個成功 Job 的最終 PNG。
+- 與該 PNG 同 basename 的 version 5 single-state JSON；每份 JSON 只包含一個 Job、不包含 `jobs[].thumbnail`，並保存該 Job 既有的完整還原資料。
 
-使用者不需要另外保存素材資料夾或 Photoshop processed folder，匯入 `project.zip` 後即可恢復工作區。
+ZIP 根目錄不包含單一 Project JSON，也不建立 Assets、Processed、Thumbnail、Hidden、Manifest 或其他子資料夾。使用者可從 ZIP 取出任一 JSON，直接使用既有「匯入暫存」重新開啟對應 Job。
 
-### Import Project ZIP
+### 匯入完整專案中的 Job 暫存
 
-匯入 `project.zip` 後會恢復：
+從完整專案 ZIP 取出任一 Job 的 JSON，使用「匯入暫存」後會恢復：
 
 - Jobs / 文字。
 - Template / Style。
 - `layoutStates`。
-- Review decision。
-- Approved processed assets。
-- Review Workspace 最後一次 Save 的 processed result。
+- Review decision、Approved processed assets 與 Review Workspace 最後一次 Save 的 processed result。
 
-匯入後不需要重新 Import Processed Folder。Main Canvas、Thumbnail 與 Batch 會使用 ZIP 內恢復的 latest processed image。
+匯入後不需要重新 Import Processed Folder。Main Canvas、Thumbnail 與 Batch 會使用該 Job JSON 內恢復的 latest processed image。
 
 ### single-state Restore
 
@@ -435,7 +430,7 @@ ZIP 內包含：
 
 ### Review Workspace Restore
 
-匯入 single-state 或 project.zip 後，Review Workspace 開啟時會顯示最後一次 Save 的 processed result。
+匯入 single-state（包含從完整專案 ZIP 取出的逐 Job JSON）後，Review Workspace 開啟時會顯示最後一次 Save 的 processed result。
 
 Approved asset 仍可重新進入 Review Workspace 編輯。Crop / Eraser Save 後會覆蓋目前 processed image，不建立版本歷史。
 

@@ -72,13 +72,14 @@ main
 - Photoshop Adapter Phase 2B：Photoshop manifest runner、remove background prototype、run report。
 - Review Workspace Phase 2C：processed assets 檢視與 approved / needs_rerun decision。
 - Review Workspace UX Polish：Auto Next、Multi-pass Review、Review Progress Header、Smart Entry、Keyboard Shortcuts、Decision Guard、Remove Drag Tool。
-- Batch ZIP：批次產圖與 ZIP 內 project-state.json。
+- Batch ZIP：下載完整專案逐 Job 輸出同 basename 的 PNG／version 5 single-state JSON 配對；不再輸出單一 Project JSON 或素材子資料夾。
 - Phase 2D-2C：Batch Approved Assets，Batch ZIP export 已使用 approved processed assets。
-- Project State：single-state.json / project-state.json 匯出與匯入。
+- Project State：single-state.json / project-state.json 的既有 schema 與匯入相容保留；目前下載完整專案只輸出逐 Job single-state JSON。
 - Project State Phase：Completed。Project State v4 保存 Asset Pipeline metadata 與 Review decision，已達成可恢復工作區核心目標。
-- Project Persistence：Project State v5、single-state restore、project.zip restore 與 Download Complete Project 已完成。Project Save = Workspace Save，會保存 latest processed image，不需要保留素材資料夾或 processed folder。
+- Project Persistence：Project State v5、single-state restore 與既有 legacy project.zip import 相容已完成。Download Complete Project 目前將每個成功 Job 輸出為 PNG／single-state JSON 配對，每份 JSON 可由既有「匯入暫存」獨立還原，不需要另外保存素材資料夾或 processed folder。
 - Control Center UI Upgrade：Header 已簡化為一般使用者入口，隱藏 Photoshop / Manifest / Processed Folder 等技術術語，版位下拉只調整 display order。
-- Thumbnail Boundary：左側 Job List 已移除縮圖 UI，且一般操作不再排程或生成只供該列表使用的 quickThumbnail／active thumbnail／hidden iframe thumbnail；完整專案／Batch 由正式 PNG 建立的 `job.thumbnail`、Project State thumbnail 欄位與 import 相容仍保留，不得誤認為整套 Thumbnail 系統已刪除。功能 Commit `b67604b`，Browser Validation 與 Jamie Manual Validation PASS。下載單張暫存則已由 Commit `2c7dca0` 移除 on-demand thumbnail capture 與 `jobs[].thumbnail` 輸出，兩者邊界不得混用。
+- Thumbnail Boundary：左側 Job List 已移除縮圖 UI，且一般操作不再排程或生成只供該列表使用的 quickThumbnail／active thumbnail／hidden iframe thumbnail；Project State thumbnail 欄位與 import 相容仍保留，不得誤認為整套 Thumbnail 系統已刪除。功能 Commit `b67604b`，Browser Validation 與 Jamie Manual Validation PASS。下載單張暫存及目前下載完整專案內逐 Job single-state JSON 均不輸出 `jobs[].thumbnail`。
+- Download Complete Project：功能 Commit `d16ffaa64d1bdae98bf76972de4077e0d2e92375`（`feat: export per-job state in project zip`）。ZIP 根目錄只包含每個成功 Job 同 basename 的 PNG／version 5 single-state JSON 配對；不再輸出單一 Project JSON，亦不建立 Assets、Processed、Thumbnail、Hidden、Manifest 或其他子資料夾。PNG／JSON 取自同一次 Canvas transaction；單一 Job 失敗不留下殘缺配對，完成或取消後恢復原 active Job。Browser Validation 與 Jamie Manual Validation PASS。
 - Single-state export：Bug Fix Commit `2c7dca06146b414ec23f29df94d190d8d09d457d`（`fix: remove thumbnail from single state export`）。`exportSingleState()` 的 JSON 不含 `jobs[].thumbnail`，檔名與單張 PNG 使用相同 basename 並改為 `.json`；`assets.*[].dataUrl`、processed asset data、`layoutState`／`layoutStates`、手動換圖、Crop、Eraser、Shadow 及其他還原資料不變。只修改 single-state 最終輸出，未修改共用 serializer、Project State schema、匯入、完整專案、Batch 或單張 PNG。Browser Validation 與 Jamie Manual Validation PASS，Browser Console errors 0。
 - Job List 鍵盤導航：功能 Commit `b6d2b8f41015d56f1fd207dcba1145b40ede96ca`（`feat: add keyboard job navigation`）。一般控制台以 `ArrowUp`／`ArrowDown` 依 `jobs` array 順序呼叫既有 `selectJob()`，首尾不循環；active Card 只調整 `el.jobList.scrollTop`。輸入控制項、Main Canvas iframe、Modal、Editor、Review Workspace、Crop／Eraser等模式均保留 guard；素材審核選單開啟時仍可導航，按鈕取得焦點時則由 button guard 阻止。原有 Escape 與其他快捷鍵不變。Browser Console errors 0，Browser Validation、`node --check`、`git diff --check` 與 Jamie Manual Validation PASS。不得擴大為快捷鍵系統或新增快捷鍵設定。
 - LayoutState Restore：依 `placementId|templateId` 保存與恢復 transform。
@@ -468,7 +469,7 @@ Review Workspace UX Polish。完成 Auto Next、Multi-pass Review、Review Progr
 v0.4.3
 ```
 
-Project Persistence。完成 Project State v5、Persistence Layer、single-state processed image restore、project.zip restore 與 Download Complete Project；Project Save = Workspace Save，latest processed image 可隨專案恢復。
+Project Persistence。完成 Project State v5、Persistence Layer、single-state processed image restore 與既有 project.zip restore 相容；Download Complete Project 現輸出逐 Job PNG／single-state JSON 配對，latest processed image 可隨各 Job JSON 恢復。
 
 ```text
 v0.4.4
