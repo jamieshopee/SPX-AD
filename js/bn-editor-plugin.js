@@ -907,7 +907,7 @@
           }
         }
         updateMutualExclusion();
-        updateTemplateModeLabel();
+        updateTemplateModeLabel('person_product');
         markStateDirty();
       }
 
