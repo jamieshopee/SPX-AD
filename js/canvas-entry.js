@@ -204,6 +204,71 @@
     }
   }
 
+  function bindPersonVerticalDrag(personZone, personImg) {
+    if (!personZone || !personImg || personImg.dataset.bnPersonVerticalDragBound === '1') return;
+    if (personZone.dataset.bnPersonInitialTop === undefined) {
+      var initialTop = parseFloat(personZone.style.top);
+      personZone.dataset.bnPersonInitialTop = String(Number.isFinite(initialTop) ? initialTop : (personZone.offsetTop || 0));
+    }
+    personImg.dataset.bnPersonVerticalDragBound = '1';
+    personImg.draggable = false;
+    personImg.style.pointerEvents = 'auto';
+    personImg.style.touchAction = 'none';
+    personImg.style.cursor = 'ns-resize';
+    personImg.addEventListener('dragstart', function (event) {
+      event.preventDefault();
+    });
+
+    var drag = null;
+
+    function finishDrag(event) {
+      if (!drag || (event.pointerId !== undefined && event.pointerId !== drag.pointerId)) return;
+      var moved = drag.moved;
+      var pointerId = drag.pointerId;
+      drag = null;
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', finishDrag);
+      document.removeEventListener('pointercancel', finishDrag);
+      if (personImg.hasPointerCapture && personImg.hasPointerCapture(pointerId)) {
+        personImg.releasePointerCapture(pointerId);
+      }
+      if (moved && global._bnNotifyLayoutState) global._bnNotifyLayoutState();
+    }
+
+    function onPointerMove(event) {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      event.preventDefault();
+      var nextTop = Math.max(
+        drag.initialTop,
+        drag.startTop + ((event.clientY - drag.startClientY) / drag.scaleY)
+      );
+      if (nextTop !== drag.startTop) drag.moved = true;
+      personZone.style.top = nextTop + 'px';
+    }
+
+    personImg.addEventListener('pointerdown', function (event) {
+      if (drag || event.button !== 0 || event.isPrimary === false) return;
+      event.preventDefault();
+      var canvas = document.getElementById('canvas');
+      var canvasRect = canvas && canvas.getBoundingClientRect();
+      var scaleY = canvasRect && canvasRect.height && canvas.offsetHeight
+        ? canvasRect.height / canvas.offsetHeight
+        : 1;
+      drag = {
+        pointerId: event.pointerId,
+        startClientY: event.clientY,
+        startTop: parseFloat(personZone.style.top) || personZone.offsetTop || 0,
+        initialTop: Number(personZone.dataset.bnPersonInitialTop) || 0,
+        scaleY: scaleY || 1,
+        moved: false
+      };
+      if (personImg.setPointerCapture) personImg.setPointerCapture(event.pointerId);
+      document.addEventListener('pointermove', onPointerMove, { passive: false });
+      document.addEventListener('pointerup', finishDrag);
+      document.addEventListener('pointercancel', finishDrag);
+    });
+  }
+
   function bindPersonProduct() {
     global.addEventListener('message', function (event) {
       if (!event.data) return;
@@ -213,11 +278,14 @@
       }
       if (data.type === 'bn-person-add') {
         var personZone = document.getElementById('bn-zone-person');
+        var existingPerson = personZone.querySelector('img.bn-pp-img');
+        var preservedTop = existingPerson ? personZone.style.top : null;
         var personConfig = ((global.__BN_TEMPLATE__ || {}).productZones || {}).person || {};
         var personDefaults = personConfig.defaultLayout || {};
         if (personDefaults.sizingMode === 'zone' || personDefaults.resetZoneOnUpload) {
           applyStyle(personZone, personConfig.style || {});
         }
+        if (preservedTop !== null && !data.manualReplace) personZone.style.top = preservedTop;
         personZone.innerHTML = '';
         var person = document.createElement('img');
         person.className = 'bn-pp-img';
@@ -228,10 +296,15 @@
           : 'auto';
         person.style.objectFit = data.objectFit || personDefaults.objectFit || 'contain';
         person.style.display = 'block';
-        person.style.pointerEvents = 'none';
         person.style.marginLeft = (data.marginLeft || 0) + 'px';
         person.style.marginTop = (data.marginTop || 0) + 'px';
         personZone.appendChild(person);
+        bindPersonVerticalDrag(personZone, person);
+        if (data.manualReplace) {
+          var manualReplaceInitialTop = Number(personZone.dataset.bnPersonInitialTop);
+          if (Number.isFinite(manualReplaceInitialTop)) personZone.style.top = manualReplaceInitialTop + 'px';
+          if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
+        }
         personZone.style.display = 'block';
       }
       if (data.type === 'bn-person-remove') {
@@ -436,6 +509,14 @@
           transformBox.dataset.rotation = String(Number(data.rotation) || 0);
           transformBox.style.transform = Number(data.rotation) ? 'rotate(' + Number(data.rotation) + 'deg)' : '';
           syncSingleProductGeometry(transformBox, transformZone);
+          if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
+        }
+      }
+      if (data.type === 'bn-reset-person-position') {
+        var resetPersonZone = document.getElementById('bn-zone-person');
+        var resetPersonInitialTop = resetPersonZone && Number(resetPersonZone.dataset.bnPersonInitialTop);
+        if (resetPersonZone && Number.isFinite(resetPersonInitialTop)) {
+          resetPersonZone.style.top = resetPersonInitialTop + 'px';
           if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
         }
       }

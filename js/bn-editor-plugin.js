@@ -790,7 +790,7 @@
           ppDrop.style.pointerEvents = hasProd ? 'none'  : '';
           ppDrop.style.cursor        = hasProd ? 'not-allowed' : 'pointer';
         }
-        if(ppReset) ppReset.disabled = !window._bnSingleProd;
+        if(ppReset) ppReset.disabled = !hasPP;
 
         var prodDrop = document.getElementById('bn-prod-drop');
         var prodReset = document.getElementById('bn-prod-reset-btn');
@@ -826,13 +826,16 @@
       });
       if(ppResetBtn){
         ppResetBtn.addEventListener('click', function(){
-          if(!window._bnSingleProd) return;
-          console.log('[reset] button clicked singleProduct');
-          window._bnSingleProd.offsetX = 0;
-          window._bnSingleProd.offsetY = 0;
-          window._bnSingleProd.transform = null;
-          if(typeof window._bnResetCurrentLayoutState === 'function') window._bnResetCurrentLayoutState('singleProduct');
-          broadcast({type:'bn-reset-single-product'});
+          if(!window._bnPerson && !window._bnSingleProd) return;
+          if(window._bnSingleProd){
+            console.log('[reset] button clicked singleProduct');
+            window._bnSingleProd.offsetX = 0;
+            window._bnSingleProd.offsetY = 0;
+            window._bnSingleProd.transform = null;
+            if(typeof window._bnResetCurrentLayoutState === 'function') window._bnResetCurrentLayoutState('singleProduct');
+            broadcast({type:'bn-reset-single-product'});
+          }
+          if(window._bnPerson) broadcast({type:'bn-reset-person-position'});
           markStateDirty();
           setTimeout(function(){ broadcast({type:'bn-layout-state-request'}); }, 80);
         });
@@ -862,7 +865,7 @@
           if(isPerson){
             var fitW = personDefaults.fitWidth;
             window._bnPerson = {src:src, displayWidth:fitW, objectFit:'contain'};
-            broadcast({type:'bn-person-add', src:src, displayWidth:fitW, objectFit:'contain'});
+            broadcast({type:'bn-person-add', src:src, displayWidth:fitW, objectFit:'contain', manualReplace:true});
             /* 一人一品 Bug Fix：手動換圖後沿用三商品既有的 Asset Pipeline
                record 失效化機制（window._bnInvalidateApprovedAssetForManualReplace，
                不新增第二套邏輯），避免下載單張暫存並重新匯入後，Approved
