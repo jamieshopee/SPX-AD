@@ -223,7 +223,10 @@ CSV 欄位：
 Person：
 
 - 由 Template 的 `person.fitWidth` 控制。
-- 不支援手動 transform。
+- 可在中央 Canvas 上下微調位置；X 軸固定，不可左右拖曳。
+- 不支援縮放或旋轉，也不顯示 Transform handles。
+- Template 原始預設 top 是可上移的最上界；可由預設位置向下移動，並可向上移回預設位置，但不可超過該位置。
+- 點擊 1人＋1品區塊的「恢復預設位置」會回到 Template 預設 top；拖曳完成與 Reset 均沿用既有 layout state 保存 Person 位置。
 
 SingleProduct：
 
@@ -231,7 +234,7 @@ SingleProduct：
 - 是否加陰影由 `singleProduct.autoShadow` 控制。
 - 支援拖曳、縮放、旋轉與恢復預設位置。
 
-手動換圖（Person／Single Product 皆適用）：拖曳與既有圖片檔名同角色（含 `_人`／`_品`）的新圖片，會視為取代該角色，原地更新圖片內容，不重建 Canvas 元素；Single Product 換圖後會依既有尺寸規則、依新圖比例重新調整大小，換圖前的位置與旋轉角度維持不變，仍可繼續拖曳、縮放、旋轉；Shadow 依 `singleProduct.autoShadow` 正確套用。下載單張暫存並重新開啟後，換圖結果維持一致，不會還原成換圖前的舊圖（Bug Fix，Commit `c390a61`）。同一頁面 session 中切換到其他 Job 再切回，Person 與 Single Product 仍使用各自 Job 的手動換入圖片；Single Product 尺寸不會重新放大（Bug Fix，Commit `4ff252f`）。
+手動換圖（Person／Single Product 皆適用）：拖曳與既有圖片檔名同角色（含 `_人`／`_品`）的新圖片，會視為取代該角色並更新圖片內容。Person 仍沿用既有 autoTrim、尺寸、比例與適配方式，換圖完成後位置回到 Template 預設 top，不保留換圖前的垂直微調位置；Single Product 則維持既有尺寸規則，依新圖比例重新調整大小，換圖前的位置與旋轉角度維持不變，仍可繼續拖曳、縮放、旋轉；Shadow 依 `singleProduct.autoShadow` 正確套用。下載單張暫存並重新開啟後，換圖結果維持一致，不會還原成換圖前的舊圖（Bug Fix，Commit `c390a61`）。同一頁面 session 中切換到其他 Job 再切回，Person 與 Single Product 仍使用各自 Job 的手動換入圖片；Person 的目前 Y 位置沿用既有 layout state，Single Product 尺寸不會重新放大（Bug Fix，Commit `4ff252f`、Person 位置控制 Commit `f890e73`）。
 
 ## 商品角色命名
 

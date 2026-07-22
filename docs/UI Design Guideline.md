@@ -6,6 +6,7 @@ Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
 
+- **1人＋1品 Person 垂直位置控制（Commit `f890e73`）**：Person 僅提供 Y 軸上下微調，X 軸固定，不顯示 Transform handles，也不提供縮放或旋轉；上移不得超過 Template 預設 top。1人＋1品「恢復預設位置」會將 Person top 回復至 Template 預設值，手動換 Person 圖片後亦回到同一預設位置。Single Product 與既有圖片處理行為不變，Jamie Manual Validation PASS。
 - **1人＋1品 Accordion 手動換圖修正（UI Bug Fix）**：1人＋1品模式初始載入及 Person／Single Product 手動換圖完成後，商品圖區域均維持收合；修正只補齊 `person_product` mode，不改圖片處理、素材 state、Job restore 或其他版型。Jamie Manual Validation PASS。
 - **下載單張暫存精簡（Commit `2c7dca0`）**：single-state JSON 不再包含左側 Job List 使用的 `jobs[].thumbnail`，也不再為此執行 on-demand Canvas capture；JSON 與單張 PNG 使用相同 basename，只將副檔名改為 `.json`。真正的暫存內容與還原能力完整保留；此變更不是 Project State 改版，也未影響完整專案、Batch 或 Thumbnail 共用流程。Browser Validation 與 Jamie Manual Validation PASS。
 - **左側 Job List 鍵盤導航（Commit `b6d2b8f`）**：一般控制台可用 `ArrowUp`／`ArrowDown` 依 Job List 順序切換上一個／下一個 Job，首尾不循環並沿用既有 `selectJob()`；active Job Card 只在左側列表容器內自動捲動。輸入控制項、Main Canvas iframe、Modal、Editor、Review Workspace 與 Crop／Eraser等模式均有 guard；素材審核選單開啟時仍可切換，按鈕取得焦點時則不切換。Browser Validation 與 Jamie Manual Validation PASS。
@@ -212,7 +213,15 @@ Accordion 規則：
 恢復預設位置按鈕放在對應素材區塊內：
 
 - 商品圖區塊：重設三商品。
-- 1人＋1品區塊：只重設 SingleProduct。
+- 1人＋1品區塊：Person 回到 Template 預設 top；Single Product 維持既有 transform reset。Person 或 Single Product 任一存在時按鈕可用。
+
+1人＋1品 Person 互動規格：
+
+- 僅允許 Y 軸上下微調，X 軸固定。
+- 不提供縮放、旋轉或 Transform handles。
+- Template 預設 top 是可上移的最上界；不新增下方限制。
+- 手動換 Person 圖片後回到 Template 預設 top，不保留換圖前的垂直微調位置。
+- Reset 與手動換圖只改變 Person top，不得改變圖片來源、透明裁切、尺寸、比例或適配方式。
 
 商品圖區塊清單前後順序（▲／▼）：
 

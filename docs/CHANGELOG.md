@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 1人＋1品 Person 垂直位置微調與重設 - 2026-07-22
+
+Status：**Completed — Jamie Manual Validation PASS**
+Code Commit：`f890e73d8372dd2736a7e2eac48486901aa0ca2e`
+Commit subject：`fix: add person vertical position controls`
+
+- Interaction：1人＋1品 Person 可在 Canvas 上下微調；X 軸固定，不提供縮放、旋轉或 Transform handles。人物不得向上超過 Template 原始預設 top，往下移動不新增限制。
+- Reset：右側 1人＋1品「恢復預設位置」現在同時支援 Person 與既有 Single Product；Person 只重設 `top` 至 Template 預設位置，Single Product 原有 reset 行為不變。
+- Manual Replace：手動更換 Person 圖片仍沿用既有 autoTrim、尺寸、比例與適配方式；換圖後人物回到 Template 預設 top，不保留換圖前的垂直微調位置。
+- Persistence：Person 拖曳完成、Reset 與手動換圖重設後均同步既有 layout state；Job 切換、下載與暫存匯入沿用既有 Person `left`／`top` 還原資料，不新增 schema。
+- Boundary：未修改 Single Product 行為、JSON schema、Render Context、Download、autoTrim、人物圖片來源／尺寸／比例或 Template JSON。
+- Validation：人物初始位置、Y-only 移動、上方限制、X 軸固定、Reset、手動換圖後重設、Job 切換、尺寸／比例／透明裁切與其他操作均由 Jamie Manual Validation 確認 PASS。
+
 ## Imported Job 切換後保留使用者最後選擇 Style - 2026-07-22
 
 Status：**Completed — Jamie Manual Validation PASS**
