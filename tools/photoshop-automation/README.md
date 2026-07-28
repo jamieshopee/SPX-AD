@@ -105,11 +105,14 @@ condition does not meet this project's no-additional-cost packaging requirement.
 macOS Packaging source is located in `packaging/macos/`. It uses PyInstaller to
 build the menu-bar-only `SPX Helper.app`, then `pkgbuild`／`productbuild` to create
 the PKG. Product Name is `SPX Helper`, bundle identifier is `com.spxad.helper`,
-package identifier is `com.spxad.helper.pkg`, and Product Version is `0.5.4`.
-Local app build, local PKG build, install validation, and Jamie Manual Validation
-passed, including the Phase 3 install-launch Bug Fix validation confirming that
-the installed Helper environment contains no `PKInstallSandbox` or installer
-variables and that the production Photoshop pipeline produces Processed PNG.
+package identifier is `com.spxad.helper.pkg`, and Product Version is `0.5.5`.
+The current local deliverable is `SPX Helper-0.5.5.pkg`. Local app build, local
+PKG build, installation, Helper startup, and Jamie Manual Validation passed,
+including Existing Transparency, JPG, opaque PNG, Logo copy, and Runtime Contract
+validation. Bundle ID, Package ID, LaunchAgent, Runtime, Adapter, and Packaging
+flow remain unchanged. The Phase 3 install-launch Bug Fix validation also remains
+valid: the installed Helper environment contains no `PKInstallSandbox` or
+installer variables and the production Photoshop pipeline produces Processed PNG.
 Release mode requires Developer ID Application／Installer identities and
 a notary profile, but those credential-dependent paths have not been validated.
 

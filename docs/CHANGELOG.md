@@ -13,7 +13,18 @@ Commit subject：`feat: skip background removal for existing transparency`
 - Cleanup：檢查只在不儲存的 duplicate document 上進行；selection、暫存 Channel 與 duplicate 均完成清理，不永久修改來源文件的圖層、尺寸、色彩或 Alpha。
 - Scope Boundary：只修改 `tools/photoshop/remove-background.jsx`；未修改 Browser、Python Runtime、macOS／Windows Adapters、Manifest／Runtime API、Review Workspace、Asset Resolver、Download、Import／Export、Render Context、Packaging 或 `qrcode-demo`。
 - Validation：透明 PNG `existingTransparency` PASS；JPG `removeBackground` PASS；不透明 PNG `removeBackground` PASS；Logo `copy` PASS；Processed PNG、Review Workspace、JSX Syntax 與 Jamie Manual Validation PASS；Runtime Contract 60/60 PASS。
-- Packaging Status：本次 Code Commit 未重新 Packaging SPX Helper；目前已安裝的 `/Applications/SPX Helper.app` 尚未包含新版 JSX，未來重新 Packaging 後才會帶入此功能。本次 Documentation Update 亦不執行 Packaging。
+- Packaging Status：後續已將 SPX Helper 正式版本更新為 `0.5.5`，重新完成 macOS Local Packaging，建立並安裝 `SPX Helper-0.5.5.pkg`。Repo、App Bundle 與 PKG Payload 內的 `remove-background.jsx` SHA-256 完全一致；Helper 啟動正常，Existing Transparency、JPG、不透明 PNG、Logo、Runtime Contract 與 Packaging Manual Validation 全部 PASS。
+
+## SPX Helper macOS Local Packaging 0.5.5 - 2026-07-28
+
+Status：**Completed — Local Packaging／Jamie Manual Validation PASS**
+
+- Version：SPX Helper 正式版本由 `0.5.4` 更新為 `0.5.5`；`CFBundleShortVersionString`、`CFBundleVersion` 與 PKG metadata 同步為 `0.5.5`。
+- Deliverables：重新建立 `SPX Helper.app` 與 `SPX Helper-0.5.5.pkg`，並完成安裝；Helper 啟動正常。
+- JSX Chain：Repo、App Bundle、PKG Payload 內的 `tools/photoshop/remove-background.jsx` SHA-256 均為 `467bb19a80850c6a63fe1a40d469727ea396b1d629019b934cffc7e905b3f8fc`。
+- Validation：Existing Transparency `existingTransparency` PASS；JPG PASS；Opaque PNG PASS；Logo copy PASS；Runtime Contract PASS；Local Packaging PASS；Jamie Manual Validation PASS。
+- Preserved Identity：Bundle Identifier `com.spxad.helper`、Package Identifier `com.spxad.helper.pkg` 與 `/Library/LaunchAgents/com.spxad.helper.plist` 均未改變。
+- Scope Boundary：未修改 Runtime、Adapter、Browser、Review Workspace、Workflow、UI、Installer Flow、Signing 或 Notarization；本次尚未 Push、建立新 Tag 或 GitHub Release。
 
 ## 1人＋1品 Person 垂直位置微調與重設 - 2026-07-22
 
@@ -264,8 +275,8 @@ Commit subject：`feat: add Phase 3 macOS packaging`
 - `DoJavaScriptFile()` 為已完成實機驗證且失敗的歷史方案，不再採用；未建立 Windows 專用 JSX 副本。
 - Windows Validation：PASS。Jamie Manual Validation：PASS。真實 Windows + Photoshop 2025 環境已成功產生 `photoshop-run-report.json` 與 Processed PNG。此項是當時的 JavaScript Entry 驗證；後續 Phase 2 Windows Packaging 狀態見本文件頂端。
 
-Version: v0.5.5（Product Host `0.5.4`；SPX Helper Runtime Productization Phase 3 macOS Packaging Completed；Next: Phase 4 — Update + Uninstall）
-Last Updated: 2026-07-18
+Version: v0.5.5（Product Host `0.5.5`；SPX Helper Runtime Productization Phase 3 macOS Packaging Completed；Next: Phase 4 — Update + Uninstall）
+Last Updated: 2026-07-28
 Scope: 專案版本紀錄與重要設計決策。此文件不是 Git commit log，而是維護者交接用版本紀錄。
 
 ## What's New
