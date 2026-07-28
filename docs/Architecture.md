@@ -1,6 +1,6 @@
 # Architecture
 
-Version: v0.5.5（Product Host `0.5.5`；Runtime Productization Phase 3 macOS Packaging Completed；Next: Phase 4 — Update + Uninstall）
+Version: v0.6.1（Product Host `0.6.1`；Runtime Productization Phase 3 macOS Packaging Completed；Next: Phase 4 — Update + Uninstall）
 Last Updated: 2026-07-28
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界、新增 Style 流程，以及 SPX Helper / Photoshop Automation / AI Workflow / QR Code 架構。
 
@@ -795,12 +795,12 @@ SPX Helper Core → RuntimeCore → macOS Adapter → Photoshop
   └─ RunAtLoad = true；無 KeepAlive
 ```
 
-- 正式產品資訊：Product Name `SPX Helper`、Bundle Identifier `com.spxad.helper`、Package Identifier `com.spxad.helper.pkg`、Product Version `0.5.5`。
+- 正式產品資訊：Product Name `SPX Helper`、Bundle Identifier `com.spxad.helper`、Package Identifier `com.spxad.helper.pkg`、Product Version `0.6.1`。原 `0.5.5` 與既有 GitHub Release 編號衝突，因此以新增修正 Commit 更正為 `0.6.1`，不改寫已 Push Git 歷史；目前最新既有 Release 為 `v0.6.0`，預計新 Tag／Release 為 `v0.6.1`。
 - PyInstaller 建立正式 `.app` bundle；`LSUIElement = true`，因此提供 Menu Bar 且不顯示 Dock Icon，`console = false`，不開啟 Terminal Window。Applications 提供手動啟動入口。
 - PKG 安裝位置固定為 `/Applications/SPX Helper.app`。Login Startup 位於 `/Library/LaunchAgents/com.spxad.helper.plist`；`RunAtLoad = true`，不使用 `KeepAlive`，所以安裝後立即啟動、後續登入自動啟動，但使用者 Quit 後不會在同一登入 Session 自動重啟。
 - Packaging source 位於 `tools/photoshop-automation/packaging/macos/`；`.venv`、`build`、`dist`、`__pycache__`、產生的 `.app`／`.pkg` 與本機檢查產物不納入版本控制。
 - Static／Build／Install Validation：macOS Packaging Static Validation、local app build、local PKG build 與 local installation validation 全部 PASS。
-- Jamie Manual Validation：既有 Fresh Install、安裝到 `/Applications/SPX Helper.app`、LaunchAgent、Package Receipt、Menu Bar、Running、Open SPX BN Generator、無 Dock Icon、無 Terminal Window、GitHub Pages → SPX Helper → Photoshop → Processed PNG、Restart、Quit、Login Startup 全部維持 PASS；新版 `0.5.5` 已完成 Local Packaging、安裝與啟動驗證，Existing Transparency、JPG、不透明 PNG、Logo、Runtime Contract 與 Packaging 全部 PASS。
+- Jamie Manual Validation：既有 Fresh Install、安裝到 `/Applications/SPX Helper.app`、LaunchAgent、Package Receipt、Menu Bar、Running、Open SPX BN Generator、無 Dock Icon、無 Terminal Window、GitHub Pages → SPX Helper → Photoshop → Processed PNG、Restart、Quit、Login Startup 全部維持 PASS；正式交付版本已修正為 `0.6.1` 並重新執行 Local Packaging，本輪不安裝新版 PKG；Existing Transparency、JPG、不透明 PNG、Logo、Runtime Contract 與 Packaging 驗證結果均維持 PASS。
 - PKG relocation Root Cause Fix：初次 Fresh Install 發現 PackageKit 將 App relocation 回 build staging。根因為 bundle relocation 行為；build pipeline 產生 component plist 並明確設定 `RootRelativeBundlePath = Applications/SPX Helper.app` 與 `BundleIsRelocatable = false`。在 staging App 保留的情況下重新驗證後，App 正確安裝至 `/Applications/SPX Helper.app`，relocation 不再發生，Fresh Install PASS。
 - 安裝完成啟動 Root Cause Fix：原 `postinstall` 以 `launchctl asuser ... /usr/bin/open` 直接啟動 App，使 Helper 繼承 PackageKit 的 `PKInstallSandbox`／installer environment。sandbox 刪除後，`POST /execute` 在 `_create_workspace()` 呼叫 `tempfile.mkdtemp()` 時因 cached temp path 不存在而拋出 `FileNotFoundError`，最終回傳 HTTP 400 `manifest_invalid`。Bug Fix 保留 LaunchAgent bootstrap，並以 `launchctl kickstart "gui/$CONSOLE_UID/com.spxad.helper"` 啟動已註冊 job；不使用 `kickstart -k`，不新增 `KeepAlive`。
 - Bug Fix Validation：local PKG build、Clean Install 與 Jamie Manual Validation PASS。安裝後 LaunchAgent job 為 running，Helper process／`127.0.0.1:8901` listener 各一，`/ready` 200；process environment 使用存在的正常使用者 `TMPDIR`，且不含 `PKInstallSandbox`、`INSTALLER_TEMP`、`INSTALLER_PAYLOAD_DIR`、`SCRIPT_NAME=postinstall` 或 installer `PWD`。正式 GitHub Pages → Helper → Photoshop → Processed PNG PASS。`RunAtLoad = true`、Menu Bar Quit 與 Login Startup lifecycle 不變。
@@ -877,7 +877,7 @@ processed PNG + photoshop-run-report.json（Runtime 隱藏 Workspace 內）
 - 判斷不成立或無法判斷時，完整沿用既有 `removeBackground` → `selectSubjectLayerMask` fallback 與 failure contract。Logo 不進入透明背景檢查，原有 `method: "copy"` 不變。
 - First Run 與 Needs Rerun 均經過相同 JSX control flow；Manifest、Upload、Runtime Result、Browser Fetch、`Processed/` 寫入、Matching、Review Workspace、Asset Resolver、Download、Import／Export 與 Render Context 均未略過或改版。
 - 判斷在不儲存的 duplicate document 上執行，selection、暫存 Channel 與 duplicate 皆清理，不永久修改來源文件。功能 Commit：`af30a4106b82e5661ae72d768f6af1141ad632fb`；Jamie Manual Validation PASS，Runtime Contract 60/60 PASS。
-- Existing Transparency Skip 功能本身未修改 Browser、Python Runtime、macOS／Windows Adapters、Manifest／Runtime API 或 Packaging Flow。後續已將 SPX Helper 正式版本更新為 `0.5.5`，重新完成 macOS Local Packaging、安裝與 Manual Validation；新版 App 與 `SPX Helper-0.5.5.pkg` 均包含此 JSX，Bundle ID、Package ID 與 LaunchAgent 不變。
+- Existing Transparency Skip 功能本身未修改 Browser、Python Runtime、macOS／Windows Adapters、Manifest／Runtime API 或 Packaging Flow。SPX Helper 正式交付版本已修正為 `0.6.1`，新版 App 與 `SPX Helper-0.6.1.pkg` 均包含此 JSX；本輪只重新執行 Local Packaging、不安裝新版 PKG。既有安裝與 Manual Validation 結果維持 PASS，Bundle ID、Package ID 與 LaunchAgent 不變。
 
 ### 邊界（Photoshop Automation，Locked）
 

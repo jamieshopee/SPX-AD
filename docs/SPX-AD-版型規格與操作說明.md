@@ -6,7 +6,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 
 ## What's New
 
-- **已有有效透明背景素材略過 Remove Background（Commit `af30a4106b82e5661ae72d768f6af1141ad632fb`）**：非 Logo 素材由 Photoshop 開啟後會檢查實際影像是否已有有效透明背景；命中時只略過 Remove Background 動作，仍儲存 Processed PNG、回報 success、自動匯入並進入 Matching 與 Review Workspace，Run Report method 為 `existingTransparency`。不依 PNG 副檔名判斷，不透明 PNG 與 JPG 仍正常去背；Logo copy、fallback 與 failure contract 不變。First Run／Needs Rerun、後續 Download、Render、Import／Export 均維持既有流程。Jamie Manual Validation PASS；新版 JSX 已隨 SPX Helper `0.5.5` 完成 macOS Local Packaging、安裝與驗證。
+- **已有有效透明背景素材略過 Remove Background（Commit `af30a4106b82e5661ae72d768f6af1141ad632fb`）**：非 Logo 素材由 Photoshop 開啟後會檢查實際影像是否已有有效透明背景；命中時只略過 Remove Background 動作，仍儲存 Processed PNG、回報 success、自動匯入並進入 Matching 與 Review Workspace，Run Report method 為 `existingTransparency`。不依 PNG 副檔名判斷，不透明 PNG 與 JPG 仍正常去背；Logo copy、fallback 與 failure contract 不變。First Run／Needs Rerun、後續 Download、Render、Import／Export 均維持既有流程。Jamie Manual Validation PASS；新版 JSX 已納入 SPX Helper `0.6.1` 的 macOS Local Packaging。
 - **Imported Job 切換後保留最後選擇 Style（Bug Fix，Commit `f19364d2fe4aa8f8652c36abbb7f8f2a851765ae`）**：從完整專案取出的 single-state JSON 匯入後，使用者更換 Style，再切換其他 Job 並返回時，Style selector 與 Canvas 都會保留最後選擇，不再恢復成匯入當下的舊 Style。普通 CSV Job 行為不變，Jamie Manual Validation PASS。
 - **1人＋1品手動換圖後商品圖區域維持收合（UI Bug Fix）**：修正 Person／Single Product 手動換圖完成後，無 mode 的 accordion defaults 將商品圖區域誤展開。現在初始載入、手動換圖及 Job 切換後，1人＋1品模式下的商品圖區域均維持收合；三商品版型行為不變。Jamie Manual Validation PASS。
 - **下載單張暫存精簡（Commit `2c7dca06146b414ec23f29df94d190d8d09d457d`）**：single-state JSON 不再包含 `jobs[].thumbnail`，也不再為縮圖執行 on-demand Canvas capture；檔名改為與單張 PNG 相同 basename、僅使用 `.json` 副檔名。素材 data URL、processed asset、版面、手動換圖及圖片編輯結果均維持可還原。Browser Validation 與 Jamie Manual Validation PASS。
@@ -14,7 +14,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 - **左側 Job List 縮圖移除（Commit `b67604b037f553fb1ac76d7e320acaa9a6afd970`）**：Job Card 不再顯示縮圖、placeholder、loading shimmer 或縮圖內 validation dot，一般操作也不再背景生成只供左側列表使用的縮圖。原本三行文字資料與 Job 點擊、active 狀態、排序、刪除及切換行為均保留；第三行改為 `12px`、主要文字色與一般字重。該次 Commit 保留既有 thumbnail 行為，後續 single-state thumbnail 已由 Commit `2c7dca0` 獨立移除；缺少素材的 validation panel，以及完整專案／Batch、Project State 的既有行為仍保留。Jamie Manual Validation PASS。
 - **Upload Panel stale hint rendering 修正（UI Bug Fix，Commit `e44f65879e3140ba87ecb4c49f5171d291d5e98d`）**：Products／1人＋1品的提示文字容器已移除，但舊 sibling lookup 仍會把商品清單與 Reset button 誤認為提示區並覆寫內容；現已只移除失效的提示文字與顏色寫入。商品排序、角色判斷、Upload、Reset 與雙向互斥均維持原行為，Browser Validation 與 Jamie Manual Validation PASS。
 - **手動換圖跨 Job 保留（Bug Fix，Commit `4ff252f`）**：Products、Person、Single Product 使用相同完整檔名手動換圖後，切換到其他 Job 再切回，仍顯示手動換入的圖片；既有大小、位置、旋轉與前後順序依原本 Job layout state 正確保留。快速切換 Job 時可能等待目前 Render 完成，但完成後不會再被原始或 processed 圖片覆蓋。此修正只作用於目前頁面 session，不新增重新整理後的永久保存。
-- **SPX Helper Runtime Productization Phase 3 macOS Packaging（Completed）**：macOS 正式產品由 PKG 安裝至 `/Applications/SPX Helper.app`，安裝後立即啟動，之後登入時透過 LaunchAgent 自動啟動；也可從 Applications 手動開啟。正式版本現為 `0.5.5`，交付檔為 `SPX Helper-0.5.5.pkg`；Menu Bar 提供 Running、Open SPX BN Generator、About、Version、Restart 與 Quit。App 不顯示 Dock Icon，也不開啟 Terminal Window。Local Packaging、安裝、Helper 啟動與 Jamie Manual Validation 全部 PASS；Bundle ID、Package ID 與 LaunchAgent 不變。Developer ID signing／Notarization 尚未驗證。
+- **SPX Helper Runtime Productization Phase 3 macOS Packaging（Completed）**：macOS 正式產品由 PKG 安裝至 `/Applications/SPX Helper.app`，安裝後立即啟動，之後登入時透過 LaunchAgent 自動啟動；也可從 Applications 手動開啟。正式版本現為 `0.6.1`，交付檔為 `SPX Helper-0.6.1.pkg`；原 `0.5.5` 與既有 GitHub Release 編號衝突，已用新增修正 Commit 更正而未改寫已 Push 歷史。Menu Bar 提供 Running、Open SPX BN Generator、About、Version、Restart 與 Quit。App 不顯示 Dock Icon，也不開啟 Terminal Window。本輪只重新 Local Packaging、不安裝新版 PKG；既有安裝、Helper 啟動與 Jamie Manual Validation 結果均維持 PASS。Bundle ID、Package ID 與 LaunchAgent 不變。Developer ID signing／Notarization 尚未驗證。
 - **Phase 3 macOS Packaging 安裝後啟動 Bug Fix（Commit `781df79c232a9644cc0bd69653e390ef70d12964`）**：PKG 安裝完成後改由 LaunchAgent bootstrap + kickstart 啟動 Helper，不再由 installer 直接 `open` App，因此不會繼承已刪除的 PackageKit temp environment。Jamie 已以正式 5 筆工單／22 個素材重驗 GitHub Pages → Helper → Photoshop → Processed PNG PASS；使用者操作、Menu Bar Quit 與 Login Startup 行為不變。
 - **一人一品（Person + Single Product）手動換圖修正（Bug Fix，Commit `c390a61`）**：手動換圖後下載單張暫存並重新開啟，正確保留換過的新圖（不再還原成舊圖）；Single Product 換圖後 Shadow 正確顯示；換圖前已拖曳／縮放／旋轉的位置與角度維持不變，仍可繼續正常拖曳、縮放、旋轉。詳見下方「1人＋1品」章節。
 - **三商品手動同檔名換圖保留 Product Identity（Bug Fix，Commit `3269b67`）**：拖曳與既有商品完整檔名（含副檔名）相符的新圖片，會視為取代該商品，原地更新圖片內容，商品角色身份與前後順序不變；Canvas 立即更新，整組比例、間距、overlap 與商品區域 fit 皆與其餘兩張商品一致；下載單張暫存並重新開啟後，換圖結果維持一致。詳見下方「三商品」章節。
@@ -284,7 +284,7 @@ templates/{size}/styles/17.json
 
 ## 控制台入口
 
-macOS 正式使用方式：安裝 SPX Helper PKG 後，Helper 位於 `/Applications/SPX Helper.app`。安裝完成會透過已註冊的 LaunchAgent 自動啟動；後續登入會自動啟動，也可從 Applications 手動開啟。Menu Bar 的「Open SPX BN Generator」可開啟正式 GitHub Pages 控制台。Quit 會停止目前登入 Session 的 Helper，且因 LaunchAgent 不使用 `KeepAlive`，不會立刻自動重啟；下次登入或從 Applications 手動開啟才會再次啟動。Product Version 為 `0.5.5`。
+macOS 正式使用方式：安裝 SPX Helper PKG 後，Helper 位於 `/Applications/SPX Helper.app`。安裝完成會透過已註冊的 LaunchAgent 自動啟動；後續登入會自動啟動，也可從 Applications 手動開啟。Menu Bar 的「Open SPX BN Generator」可開啟正式 GitHub Pages 控制台。Quit 會停止目前登入 Session 的 Helper，且因 LaunchAgent 不使用 `KeepAlive`，不會立刻自動重啟；下次登入或從 Applications 手動開啟才會再次啟動。Product Version 為 `0.6.1`。
 
 控制台名稱：
 

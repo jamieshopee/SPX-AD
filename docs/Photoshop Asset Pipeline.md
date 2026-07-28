@@ -2,7 +2,7 @@
 
 Version: 2026.07.28-existing-transparency-skip
 Last Updated: 2026-07-28
-Scope: Photoshop Asset Pipeline 的操作流程、內部資料契約、Runtime Contract、State Boundary 與 Troubleshooting。此文件描述目前實際行為：Photoshop Automation 與 AI Workflow 已完成；SPX Helper Core 已整合既有 RuntimeCore；Phase 2 Windows Packaging 與 Phase 3 macOS Packaging 均已完成。macOS 正式產品版本現為 `0.5.5`，已建立並安裝 `SPX Helper-0.5.5.pkg`；Helper 啟動、Existing Transparency、JPG、不透明 PNG、Logo、Runtime Contract 與 Local Packaging Manual Validation 均 PASS。Bundle ID、Package ID 與 LaunchAgent 不變；Developer ID／Notarization 為尚未驗證的 Credential-dependent validation。Phase 4 Update／Uninstall 與 Phase 5 Final Validation 尚未開始。Photoshop 實機結果不得延伸為支援所有 Photoshop 版本。
+Scope: Photoshop Asset Pipeline 的操作流程、內部資料契約、Runtime Contract、State Boundary 與 Troubleshooting。此文件描述目前實際行為：Photoshop Automation 與 AI Workflow 已完成；SPX Helper Core 已整合既有 RuntimeCore；Phase 2 Windows Packaging 與 Phase 3 macOS Packaging 均已完成。macOS 正式產品版本現為 `0.6.1`，Local PKG 為 `SPX Helper-0.6.1.pkg`；本輪只重新 Local Packaging、不安裝新版 PKG，既有 Helper 啟動、Existing Transparency、JPG、不透明 PNG、Logo、Runtime Contract 與 Local Packaging Manual Validation 結果均維持 PASS。原 `0.5.5` 與既有 GitHub Release 編號衝突，版本以新增修正 Commit 更正而未改寫已 Push 歷史。Bundle ID、Package ID 與 LaunchAgent 不變；Developer ID／Notarization 為尚未驗證的 Credential-dependent validation。Phase 4 Update／Uninstall 與 Phase 5 Final Validation 尚未開始。Photoshop 實機結果不得延伸為支援所有 Photoshop 版本。
 
 ## Quick Workflow
 
@@ -186,7 +186,7 @@ Manifest → Upload → Photoshop 開圖 →（命中時只 Skip Remove Backgrou
 
 功能 Commit：`af30a4106b82e5661ae72d768f6af1141ad632fb`。透明 PNG `existingTransparency`、JPG、不透明 PNG、Logo copy、Processed PNG、Review Workspace、Runtime Contract 60/60 與 Jamie Manual Validation 均 PASS。只修改 `tools/photoshop/remove-background.jsx`；Browser、Python Runtime、macOS／Windows Adapters、Manifest／Runtime API、Review Workspace、Asset Resolver、Download、Import／Export、Render Context 與 Packaging Flow 均未修改。
 
-後續已將 SPX Helper 正式版本更新為 `0.5.5`，重新完成 macOS Local Packaging，建立並安裝 `SPX Helper-0.5.5.pkg`。Repo、App Bundle 與 PKG Payload 內 JSX 的 SHA-256 均為 `467bb19a80850c6a63fe1a40d469727ea396b1d629019b934cffc7e905b3f8fc`；Helper 啟動正常，Existing Transparency、JPG、不透明 PNG、Logo、Runtime Contract 與 Packaging Manual Validation 全部 PASS。Bundle ID `com.spxad.helper`、Package ID `com.spxad.helper.pkg` 與 LaunchAgent 均未改變。本次尚未 Push、建立新 Tag 或 GitHub Release。
+後續已將 SPX Helper 正式交付版本修正為 `0.6.1`，重新完成 macOS Local Packaging 並建立 `SPX Helper-0.6.1.pkg`；本輪不安裝新版 PKG。Repo、App Bundle 與 PKG Payload 內 JSX 的 SHA-256 均為 `467bb19a80850c6a63fe1a40d469727ea396b1d629019b934cffc7e905b3f8fc`；既有 Helper 啟動、Existing Transparency、JPG、不透明 PNG、Logo、Runtime Contract 與 Packaging Manual Validation 結果均維持 PASS。Bundle ID `com.spxad.helper`、Package ID `com.spxad.helper.pkg` 與 LaunchAgent 均未改變。本次尚未 Push、建立 `v0.6.1` Tag 或 GitHub Release。
 
 ### Platform Adapter
 

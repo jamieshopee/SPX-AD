@@ -1,6 +1,6 @@
 # SPX AD 電子版位管理器
 
-Version: v0.5.5（Product Host `0.5.5`）
+Version: v0.6.1（Product Host `0.6.1`）
 Last Updated: 2026-07-28
 Scope: 專案總覽、啟動方式、目前架構、主要流程與維護入口。
 
@@ -74,7 +74,7 @@ Preview / Thumbnail / PNG Export
 
 啟動檔會開啟本機 HTTP server，避免直接用 file 開啟時遇到瀏覽器資源限制。
 
-SPX Helper Core、Runtime Productization Phase 1 Foundation、Phase 2 Windows Packaging 與 Phase 3 macOS Packaging 已完成。Foundation 新增正式 Product Host、Running／Working／Attention、單一 Helper Instance、固定 Tray／Menu Bar、Quit 與 Restart lifecycle，且未修改 Helper Core、Runtime Contract、Browser API 或 Frontend。Phase 2 以 PyInstaller 與 WiX Toolset SDK 5.0.2 建立 Windows per-machine MSI。Phase 3 以 PyInstaller 建立無 Dock Icon／無 Terminal Window 的 `SPX Helper.app`，並以 PKG 安裝到 `/Applications/SPX Helper.app`；`/Library/LaunchAgents/com.spxad.helper.plist` 使用 `RunAtLoad = true` 且不設定 `KeepAlive`，因此登入時自動啟動，但 Quit 後不會在同一登入 Session 自動重啟。Phase 3 Bug Fix Commit `781df79c232a9644cc0bd69653e390ef70d12964` 將安裝完成啟動改為 LaunchAgent bootstrap + kickstart，避免 Helper 繼承已刪除的 PackageKit sandbox temp path；Clean Install、正常 environment 與正式 Happy Path 已重驗 PASS。Product Host version 現為 `0.5.5`；已完成 macOS Local Packaging、建立並安裝 `SPX Helper-0.5.5.pkg`，Helper 啟動與 Existing Transparency／JPG／不透明 PNG／Logo／Runtime Contract Manual Validation 均 PASS。Bundle ID、Package ID 與 LaunchAgent 不變；本次尚未 Push、建立新 Tag 或 GitHub Release。Developer ID Application／Installer signing 與 Apple Notarization 仍是 Credential-dependent validation，不得視為 PASS。最新正式 Git Tag 仍為 `v0.5.5`。Phase 4 Update + Uninstall 與 Phase 5 Final Validation 尚未開始；舊的 `start-spx-ad-runtime.command` 與 `spx_helper_product.py` 仍保留為 Development 入口。詳見 `docs/AI-HANDOFF.md`、`docs/Architecture.md` 與 `tools/photoshop-automation/README.md`。
+SPX Helper Core、Runtime Productization Phase 1 Foundation、Phase 2 Windows Packaging 與 Phase 3 macOS Packaging 已完成。Foundation 新增正式 Product Host、Running／Working／Attention、單一 Helper Instance、固定 Tray／Menu Bar、Quit 與 Restart lifecycle，且未修改 Helper Core、Runtime Contract、Browser API 或 Frontend。Phase 2 以 PyInstaller 與 WiX Toolset SDK 5.0.2 建立 Windows per-machine MSI。Phase 3 以 PyInstaller 建立無 Dock Icon／無 Terminal Window 的 `SPX Helper.app`，並以 PKG 安裝到 `/Applications/SPX Helper.app`；`/Library/LaunchAgents/com.spxad.helper.plist` 使用 `RunAtLoad = true` 且不設定 `KeepAlive`，因此登入時自動啟動，但 Quit 後不會在同一登入 Session 自動重啟。Phase 3 Bug Fix Commit `781df79c232a9644cc0bd69653e390ef70d12964` 將安裝完成啟動改為 LaunchAgent bootstrap + kickstart，避免 Helper 繼承已刪除的 PackageKit sandbox temp path；Clean Install、正常 environment 與正式 Happy Path 已重驗 PASS。Product Host version 現為 `0.6.1`，Local PKG 為 `SPX Helper-0.6.1.pkg`。原 `0.5.5` 與既有 GitHub `v0.5.5` Release 編號衝突，且目前最新既有 Release 為 `v0.6.0`，因此以新增修正 Commit 更正為 `0.6.1`，不改寫已 Push Git 歷史。本次只重新執行 Local Packaging、不安裝新版 PKG；既有安裝、Helper 啟動與 Existing Transparency／JPG／不透明 PNG／Logo／Runtime Contract Manual Validation 均維持 PASS。Bundle ID、Package ID 與 LaunchAgent 不變；本次尚未 Push、建立 `v0.6.1` Tag 或 GitHub Release。Developer ID Application／Installer signing 與 Apple Notarization 仍是 Credential-dependent validation，不得視為 PASS。Phase 4 Update + Uninstall 與 Phase 5 Final Validation 尚未開始；舊的 `start-spx-ad-runtime.command` 與 `spx_helper_product.py` 仍保留為 Development 入口。詳見 `docs/AI-HANDOFF.md`、`docs/Architecture.md` 與 `tools/photoshop-automation/README.md`。
 
 ## 資料夾結構
 
