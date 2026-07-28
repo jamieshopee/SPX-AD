@@ -46,8 +46,8 @@ case "$MODE" in
     pass "Installed Product Host executable exists"
     [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Contents/Info.plist")" == "com.spxad.helper" ]] || fail "Installed application identity is correct"
     pass "Installed application identity is correct"
-    [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Contents/Info.plist")" == "0.5.5" ]] || fail "Installed application version is 0.5.5"
-    pass "Installed application version is 0.5.5"
+    [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Contents/Info.plist")" == "0.6.1" ]] || fail "Installed application version is 0.6.1"
+    pass "Installed application version is 0.6.1"
     /usr/bin/codesign --verify --deep --strict "$APP_PATH" >/dev/null 2>&1 || fail "Installed application signature is structurally valid"
     pass "Installed application signature is structurally valid"
     [[ -f "$APP_PATH/Contents/photoshop/run-photoshop-manifest.applescript" ]] || fail "Installed shared AppleScript exists"
@@ -64,8 +64,8 @@ case "$MODE" in
     pass "Login LaunchAgent is registered in the current session"
     receipt="$(/usr/sbin/pkgutil --pkg-info com.spxad.helper.pkg 2>/dev/null)" || fail "SPX Helper package receipt exists"
     pass "SPX Helper package receipt exists"
-    [[ "$receipt" == *"version: 0.5.5"* ]] || fail "SPX Helper package receipt version is 0.5.5"
-    pass "SPX Helper package receipt version is 0.5.5"
+    [[ "$receipt" == *"version: 0.6.1"* ]] || fail "SPX Helper package receipt version is 0.6.1"
+    pass "SPX Helper package receipt version is 0.6.1"
     assert_single_helper
     /usr/bin/curl --fail --silent --show-error \
       -H "Origin: https://jamieshopee.github.io" \
