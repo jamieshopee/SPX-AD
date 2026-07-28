@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 
 
 PRODUCT_NAME = "SPX Helper"
-PRODUCT_VERSION = "0.5.4"
+PRODUCT_VERSION = "0.5.5"
 BUNDLE_IDENTIFIER = "com.spxad.helper"
 PACKAGE_IDENTIFIER = "com.spxad.helper.pkg"
 LAUNCH_AGENT_LABEL = "com.spxad.helper"
@@ -80,7 +80,7 @@ def validate_build_inputs(packaging_dir, automation_dir):
 
     product_host = automation_dir / "spx_helper_product.py"
     check("Product Host exists", product_host.is_file())
-    check("Product Host version remains 0.5.4", read_product_version(product_host) == PRODUCT_VERSION)
+    check("Product Host version remains 0.5.5", read_product_version(product_host) == PRODUCT_VERSION)
     check(
         "Shared AppleScript exists",
         (automation_dir.parent / "photoshop" / "run-photoshop-manifest.applescript").is_file(),

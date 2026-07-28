@@ -72,8 +72,8 @@ app = BUNDLE(
     info_plist={
         "CFBundleDisplayName": "SPX Helper",
         "CFBundleName": "SPX Helper",
-        "CFBundleShortVersionString": "0.5.4",
-        "CFBundleVersion": "0.5.4",
+        "CFBundleShortVersionString": "0.5.5",
+        "CFBundleVersion": "0.5.5",
         "LSUIElement": True,
         "NSHumanReadableCopyright": "SPX AD",
         "NSAppleEventsUsageDescription": (
