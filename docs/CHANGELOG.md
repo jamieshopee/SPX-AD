@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 已有有效透明背景素材略過 Remove Background - 2026-07-28
+
+Status：**Completed — Jamie Manual Validation PASS**
+Code Commit：`af30a4106b82e5661ae72d768f6af1141ad632fb`
+Commit subject：`feat: skip background removal for existing transparency`
+
+- Behavior：非 Logo 素材由 Photoshop 開啟後，先以 Photoshop 原生 transparency selection、暫存 Alpha Channel 與 histogram 判斷是否已有有效透明背景；命中時只略過 Remove Background Quick Action 與 Select Subject + Layer Mask fallback，仍儲存對應 Processed PNG 並以 `status: "success"` 寫入 Run Report。
+- Detection：判斷依實際影像透明內容，不依副檔名。單一抗鋸齒像素、陰影或極少量半透明像素不足以命中；不透明 PNG 與 JPG 仍沿用既有去背流程。判斷不成立或無法判斷時，也沿用既有 Remove Background／Select Subject fallback 與 failure contract。
+- Run Report：有效透明背景使用 `background: { attempted: false, removed: false, method: "existingTransparency", error: "" }`；Logo 原有 `method: "copy"` 規則不變，普通去背仍為 `removeBackground` 或 `selectSubjectLayerMask`。
+- Preserved Flow：素材仍完整經過 Manifest → Upload → Photoshop 開圖 → Save PNG → Run Report success → Runtime Result → Browser Fetch → `Processed/` 寫入 → Matching → Review Workspace。First Run 與 Needs Rerun 共用相同行為，後續 Download、Render、Import／Export 不受影響。
+- Cleanup：檢查只在不儲存的 duplicate document 上進行；selection、暫存 Channel 與 duplicate 均完成清理，不永久修改來源文件的圖層、尺寸、色彩或 Alpha。
+- Scope Boundary：只修改 `tools/photoshop/remove-background.jsx`；未修改 Browser、Python Runtime、macOS／Windows Adapters、Manifest／Runtime API、Review Workspace、Asset Resolver、Download、Import／Export、Render Context、Packaging 或 `qrcode-demo`。
+- Validation：透明 PNG `existingTransparency` PASS；JPG `removeBackground` PASS；不透明 PNG `removeBackground` PASS；Logo `copy` PASS；Processed PNG、Review Workspace、JSX Syntax 與 Jamie Manual Validation PASS；Runtime Contract 60/60 PASS。
+- Packaging Status：本次 Code Commit 未重新 Packaging SPX Helper；目前已安裝的 `/Applications/SPX Helper.app` 尚未包含新版 JSX，未來重新 Packaging 後才會帶入此功能。本次 Documentation Update 亦不執行 Packaging。
+
 ## 1人＋1品 Person 垂直位置微調與重設 - 2026-07-22
 
 Status：**Completed — Jamie Manual Validation PASS**

@@ -1,7 +1,7 @@
 # Photoshop Adapter (remove-background.jsx)
 
-Version: 2026.07.12-naming-contract-fix  
-Scope: this is the JSX + AppleScript core that removes backgrounds for product / person / singleProduct assets, saves processed PNG files using `item.output.filename`, and writes `photoshop-run-report.json`. It reads a Manifest with the same shape as `photoshop-job-manifest.json`.
+Version: 2026.07.28-existing-transparency-skip
+Scope: this is the JSX + AppleScript core that inspects and removes backgrounds for product / person / singleProduct assets, saves processed PNG files using `item.output.filename`, and writes `photoshop-run-report.json`. It reads a Manifest with the same shape as `photoshop-job-manifest.json`.
 
 This same JSX (`remove-background.jsx`) is shared by two callers today:
 
@@ -60,6 +60,18 @@ Background removal runs only for:
 
 Logo assets are not background-removed. They are opened and saved as processed PNG copies so the output contract remains consistent.
 
+After Photoshop opens a non-Logo source, the JSX inspects the actual image content for effective existing transparency. It uses Photoshop's native transparency selection, temporary Alpha Channels, and channel histograms on a duplicate document; it does not infer transparency from the filename extension and does not run a large JSX per-pixel scan.
+
+The detector is intentionally conservative:
+
+- strong transparent pixels (Alpha 0–16): at least 1024 pixels or 0.5% of the image;
+- strong opaque pixels (Alpha 239–255): at least 1024 pixels or 1% of the image;
+- strong transparency in a 1%-of-short-side border band (clamped to 2–16 px): at least 64 pixels or 1% of border pixels.
+
+This prevents a single antialiasing pixel, shadow, or very small semitransparent region from skipping background removal. An opaque PNG is treated like any other opaque image. If inspection is negative or cannot be determined, the existing removal strategy and failure contract run unchanged.
+
+When effective transparency is found, only the Remove Background Quick Action and Select Subject + Layer Mask fallback are skipped. The item still runs `saveDocumentAsPng()`, receives a success Run Report entry, and continues through Runtime Result, Browser Fetch, `Processed/` write, Matching, and Review Workspace. First Run and Needs Rerun use this same path. Inspection selection, temporary channels, and the duplicate document are cleaned up without saving; the source document's layers, dimensions, color, and Alpha are not permanently changed.
+
 The JSX core is shared by macOS and Windows runners (via `tools/photoshop-automation/macos_adapter.py` / `windows_adapter.py`). The AppleScript file (`run-photoshop-manifest.applescript`) remains the macOS runner. Windows reads this same JSX as UTF-8, injects the three path arguments with `json.dumps()`, and sends the combined source through `win32com.client.DoJavaScript`; it does not use AppleScript or `DoJavaScriptFile()`.
 
 Primary target:
@@ -70,7 +82,7 @@ Best-effort compatibility:
 
 - Photoshop 2024
 
-Removal strategy:
+Removal strategy when effective existing transparency is not found:
 
 1. Try Photoshop Quick Action via Action Manager command `removeBackground`.
 2. If that fails, try Select Subject via `autoCutout`, then create a reveal-selection layer mask.
@@ -143,9 +155,21 @@ Example:
 
 `assetKey` in the run report is metadata only (identifies which internal record this item corresponds to); `outputFilename` is always the basename+.png value actually written to disk.
 
+`background.method` records which JSX path completed:
+
+- `existingTransparency`: non-Logo image already had effective transparency; `attempted: false`, `removed: false`, item `status: "success"`;
+- `copy`: Logo or another item excluded by the existing background-removal rule; Logo behavior is unchanged;
+- `removeBackground`: Photoshop Remove Background Quick Action succeeded;
+- `selectSubjectLayerMask`: the existing Select Subject + Layer Mask fallback succeeded.
+
+Inspection failure is not a new item failure: it falls through to the existing removal strategy. If both existing removal methods fail, the existing error Run Report contract remains unchanged.
+
 ## Current Status
 
 - Review / approve happens in Review Workspace (Control Center), not here.
 - No crop / trim / normalize in this script.
 - No direct Canvas integration — this script only produces processed PNG files and a run report.
 - Windows is implemented via `tools/photoshop-automation/windows_adapter.py` (pywin32 `DoJavaScript`), which invokes this exact same `remove-background.jsx` — not a separate `.bat` / PowerShell runner. Windows Validation and Jamie Manual Validation passed on a real Windows + Photoshop 2025 machine, producing `photoshop-run-report.json` and Processed PNG; macOS continues to use its existing validated flow unchanged.
+- Existing Transparency Skip is implemented by Code Commit `af30a4106b82e5661ae72d768f6af1141ad632fb`; transparent PNG, JPG, opaque PNG, Logo, Processed PNG, Review Workspace, Runtime Contract 60/60, and Jamie Manual Validation are PASS.
+- Scope Boundary: only `tools/photoshop/remove-background.jsx` changed. Browser, Python Runtime, macOS／Windows Adapters, Manifest／Runtime API, Review Workspace, Asset Resolver, Download, Import／Export, Render Context, and Packaging did not change.
+- `/Applications/SPX Helper.app` has not been repackaged since this JSX change, so the currently installed app bundle does not yet contain it. A future packaging run is required to include the new JSX; this Documentation Update does not perform packaging.

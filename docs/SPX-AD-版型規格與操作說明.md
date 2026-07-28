@@ -1,11 +1,12 @@
 # SPX AD 版型規格與操作說明
 
-Version: 2026.07.20-single-state
-Last Updated: 2026-07-20
+Version: 2026.07.28-existing-transparency-skip
+Last Updated: 2026-07-28
 Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數規格與操作流程。
 
 ## What's New
 
+- **已有有效透明背景素材略過 Remove Background（Commit `af30a4106b82e5661ae72d768f6af1141ad632fb`）**：非 Logo 素材由 Photoshop 開啟後會檢查實際影像是否已有有效透明背景；命中時只略過 Remove Background 動作，仍儲存 Processed PNG、回報 success、自動匯入並進入 Matching 與 Review Workspace。不依 PNG 副檔名判斷，不透明 PNG 與 JPG 仍正常去背；Logo copy、fallback 與 failure contract 不變。First Run／Needs Rerun、後續 Download、Render、Import／Export 均維持既有流程。Jamie Manual Validation PASS；目前已安裝的 SPX Helper.app 尚未重新 Packaging，因此未來重新 Packaging 後才會帶入新版 JSX。
 - **Imported Job 切換後保留最後選擇 Style（Bug Fix，Commit `f19364d2fe4aa8f8652c36abbb7f8f2a851765ae`）**：從完整專案取出的 single-state JSON 匯入後，使用者更換 Style，再切換其他 Job 並返回時，Style selector 與 Canvas 都會保留最後選擇，不再恢復成匯入當下的舊 Style。普通 CSV Job 行為不變，Jamie Manual Validation PASS。
 - **1人＋1品手動換圖後商品圖區域維持收合（UI Bug Fix）**：修正 Person／Single Product 手動換圖完成後，無 mode 的 accordion defaults 將商品圖區域誤展開。現在初始載入、手動換圖及 Job 切換後，1人＋1品模式下的商品圖區域均維持收合；三商品版型行為不變。Jamie Manual Validation PASS。
 - **下載單張暫存精簡（Commit `2c7dca06146b414ec23f29df94d190d8d09d457d`）**：single-state JSON 不再包含 `jobs[].thumbnail`，也不再為縮圖執行 on-demand Canvas capture；檔名改為與單張 PNG 相同 basename、僅使用 `.json` 副檔名。素材 data URL、processed asset、版面、手動換圖及圖片編輯結果均維持可還原。Browser Validation 與 Jamie Manual Validation PASS。
@@ -460,6 +461,8 @@ Approved asset 仍可重新進入 Review Workspace 編輯。Crop / Eraser Save �
 「AI Workflow」與「Photoshop Automation」皆已完成 Coding，並通過 macOS Development Manual Validation（Photoshop 2025，Stage 1–4 共 18 項 PASS）。Windows Development Validation 與 Jamie Manual Validation 亦已在 Photoshop 2025 實機 PASS。以下為目前實際使用者流程；其他 Photoshop 版本尚未驗證。
 
 核心原則：使用者只需在開始前自行開啟 Photoshop；通過 Photoshop Ready Check 後，不需要再操作 Photoshop，也不需要理解 Manifest、Runtime、Processed Folder 或其他技術流程。Photoshop 只是背景素材處理引擎，不是使用者日常操作介面。
+
+非 Logo 素材仍會完整送入 Photoshop 並開圖。若 Photoshop 判斷實際影像已有有效透明背景，只略過 Remove Background 動作，仍輸出 Processed PNG、回報成功、自動匯入並進入素材審閱；系統不會只因為檔案是 PNG 就略過，不透明 PNG 與 JPG 仍正常去背。Logo 原有 copy 規則、去背 fallback、失敗處理、First Run 與 Needs Rerun 流程均不變。
 
 ```text
 1. 使用者先自行開啟 Photoshop。

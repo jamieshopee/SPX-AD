@@ -854,9 +854,9 @@ macOS Adapter                Windows Adapter
 （macos_adapter.py，          （windows_adapter.py，
  AppleScript／osascript）      pywin32／win32com.client）
   ↓                              ↓
-既有 remove-background.jsx（去背核心、Logo copy、Run Report 未修改，兩平台共用同一個腳本；
-                            Naming Contract Consistency Fix 只修正了 output.filename 缺漏時
-                            的 fallback，改為 source basename + .png，不再組出 assetKey + "__processed.png"）
+共用 remove-background.jsx（非 Logo 素材開圖後檢查有效透明背景；命中時只略過
+                            Remove Background 動作，仍 Save PNG 並回報 success；
+                            Logo copy、Naming Contract 與 failure contract 不變）
   ↓
 processed PNG + photoshop-run-report.json（Runtime 隱藏 Workspace 內）
 ```
@@ -870,13 +870,22 @@ processed PNG + photoshop-run-report.json（Runtime 隱藏 Workspace 內）
 - `GET /executions/{executionId}/results/{assetId}` → 該筆 Processed PNG 的原始 `image/png` binary（非 JSON、非 base64）；尚未完成回 409，執行失敗回 404，已被清理回 410。
 - Runtime Workspace（暫存輸入／輸出）完全隱藏、自動建立與清理，不是使用者可見的 Run 資料夾；具備 Pending Execution Timeout（避免上傳中斷導致永久 busy）與啟動時的 stale Workspace 清理。
 
+### Existing Transparency Skip（Completed）
+
+- 非 Logo 素材仍先由 Photoshop 執行 `app.open(sourceFile)`；開圖後才以 Photoshop 原生 transparency selection、暫存 Alpha Channel 與 histogram 檢查實際影像內容。判斷不依副檔名，因此不透明 PNG 與 JPG 仍執行既有去背。
+- 有效透明背景命中時，只不呼叫 Remove Background Quick Action 與 Select Subject + Layer Mask fallback；仍使用既有輸出檔名儲存 Processed PNG，並以 `status: "success"`、`background.attempted: false`、`background.removed: false`、`background.method: "existingTransparency"` 寫入 Run Report。
+- 判斷不成立或無法判斷時，完整沿用既有 `removeBackground` → `selectSubjectLayerMask` fallback 與 failure contract。Logo 不進入透明背景檢查，原有 `method: "copy"` 不變。
+- First Run 與 Needs Rerun 均經過相同 JSX control flow；Manifest、Upload、Runtime Result、Browser Fetch、`Processed/` 寫入、Matching、Review Workspace、Asset Resolver、Download、Import／Export 與 Render Context 均未略過或改版。
+- 判斷在不儲存的 duplicate document 上執行，selection、暫存 Channel 與 duplicate 皆清理，不永久修改來源文件。功能 Commit：`af30a4106b82e5661ae72d768f6af1141ad632fb`；Jamie Manual Validation PASS，Runtime Contract 60/60 PASS。
+- 本次未修改 Browser、Python Runtime、macOS／Windows Adapters、Manifest／Runtime API 或 Packaging。已安裝的 `/Applications/SPX Helper.app` 尚未重新 Packaging，因此尚未包含新版 JSX；未來重新 Packaging 後才會帶入。
+
 ### 邊界（Photoshop Automation，Locked）
 
 - 前提：使用者已安裝並自行開啟 Photoshop；本 Phase 不自動安裝、自動啟動或自動關閉 Photoshop。
 - 只負責 Photoshop 端能力：Ready Contract、接收 Manifest、執行去背核心、輸出 processed assets、輸出狀態 Contract。
 - **不負責** Control Center Processing Mode UI、Control Center 自動 Import Processed Result、自動開啟 Review Workspace——這些是 AI Workflow 的責任（見下一節）。
 - 未修改：Review Workspace UI、Navigator、Dynamic Inspector、Decision Area、Completion Screen、Crop / Eraser、Canvas、Thumbnail、Batch、`layoutStates`、Approved Asset Resolver、Project State schema、Review Decision Model。
-- 未修改既有 Manifest schema 的核心概念、Photoshop Adapter Boundary、`remove-background.jsx` 的去背核心／Logo copy／Run Report。輸出命名一律為「原始 basename + `.png`」（見下方 Manifest Contract），不使用 `{assetKey}__processed.png`；`remove-background.jsx` 唯一被修改之處是 `output.filename` 缺漏時的 fallback（Naming Contract Consistency Fix，改為 source basename + `.png`，不再組出 `assetKey + "__processed.png"`），去背核心邏輯不受影響。
+- 未修改既有 Manifest schema、Photoshop Adapter Boundary、Logo copy、Run Report schema 或 failure contract。輸出命名一律為「原始 basename + `.png`」（見下方 Manifest Contract），不使用 `{assetKey}__processed.png`；`remove-background.jsx` 現在另包含上述 Existing Transparency Skip，但不改變任何未命中素材的去背流程。
 - Windows Adapter 使用 pywin32（`win32com.client`），由 Runtime 以 UTF-8 讀取共用 `remove-background.jsx`，以 `json.dumps()` 建立 `manifestPath`、`originalFolder`、`outputFolder` 參數物件，將 preamble 與完整 JSX 原始碼組成 `full_script`，再呼叫 `app.DoJavaScript(full_script)`。`DoJavaScriptFile()` 為實機驗證失敗的歷史方案，不再採用。Windows Validation 與 Jamie Manual Validation 已 PASS，並成功產生 `photoshop-run-report.json` 與 Processed PNG；macOS Adapter 與正式產品架構不變，兩平台維持單一共用 `remove-background.jsx`。
 
 ## AI Workflow Architecture（Completed）

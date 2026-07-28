@@ -1,7 +1,7 @@
 # Photoshop Asset Pipeline
 
-Version: 2026.07.18-macos-packaging-completed
-Last Updated: 2026-07-18
+Version: 2026.07.28-existing-transparency-skip
+Last Updated: 2026-07-28
 Scope: Photoshop Asset Pipeline 的操作流程、內部資料契約、Runtime Contract、State Boundary 與 Troubleshooting。此文件描述目前實際行為：Photoshop Automation 與 AI Workflow 已完成；SPX Helper Core 已整合既有 RuntimeCore；Phase 2 Windows Packaging 與 Phase 3 macOS Packaging 均已完成。macOS 正式產品安裝於 `/Applications/SPX Helper.app`，並已通過 GitHub Pages → Helper → Photoshop → Processed PNG；Developer ID／Notarization 為尚未驗證的 Credential-dependent validation。Phase 4 Update／Uninstall 與 Phase 5 Final Validation 尚未開始。Photoshop 實機結果不得延伸為支援所有 Photoshop 版本。
 
 ## Quick Workflow
@@ -145,9 +145,9 @@ macOS Adapter                    Windows Adapter
  AppleScript／osascript，          pywin32／win32com.client，
  已完成 macOS 實機驗證）            Windows 實機驗證 PASS）
   ↓                                  ↓
-既有 remove-background.jsx（去背核心／Logo copy／Run Report 未修改，兩平台共用同一個腳本；
-                            output.filename 缺漏時的 fallback 已改為 source basename + .png，
-                            見下方 Naming Contract）
+共用 remove-background.jsx（非 Logo 素材開圖後檢查有效透明背景；命中時只略過
+                            Remove Background 動作，仍 Save PNG 並回報 success；
+                            Logo copy、Naming Contract 與 failure contract 不變）
   ↓
 processed PNG + photoshop-run-report.json（寫入 Runtime 隱藏 Workspace）
 ```
@@ -156,9 +156,41 @@ Runtime Workspace（暫存輸入／輸出）完全隱藏、自動建立與清理
 
 Windows 正式產品以 PyInstaller 封裝既有 Product Host，並由 WiX Toolset SDK 5.0.2 建立 per-machine MSI。macOS 正式產品同樣封裝既有 Product Host，以 PyInstaller 建立 `SPX Helper.app`，由 PKG 安裝至 `/Applications/SPX Helper.app`，並透過 LaunchAgent 登入啟動。兩平台 Jamie Manual Validation 均已確認安裝後的 GitHub Pages → SPX Helper → Photoshop → Processed PNG 流程；Packaging 不改變上述 Pipeline、Runtime Contract、Platform Adapter 或共用 `remove-background.jsx`。macOS Developer ID signing 與 Apple Notarization 尚未驗證。
 
+### Existing Transparency Skip（Completed）
+
+非 Logo 素材仍完整進入 Manifest、Upload、Photoshop processing 與後續自動匯入流程。`processItem()` 在 `app.open(sourceFile)` 後、`removeBackgroundForDocument(doc)` 前，以 Photoshop 原生 transparency selection、暫存 Alpha Channel 與 histogram 檢查實際影像是否已有有效透明背景。此判斷不看副檔名；PNG 不等於透明素材，不透明 PNG 與 JPG 仍執行既有 Remove Background。
+
+有效透明背景採保守門檻：完整 Alpha histogram 必須同時具有足量強透明像素（Alpha 0–16，至少 1024 pixels 或總像素 0.5%）與強不透明像素（Alpha 239–255，至少 1024 pixels 或總像素 1%），且影像邊界帶必須有足量強透明區域（短邊 1%、clamp 2–16 px；至少 64 pixels 或邊界像素 1%）。這避免單一抗鋸齒像素、陰影或極少量半透明像素被視為已完成去背。檢查在不儲存的 duplicate document 上進行，selection、暫存 Channel 與 duplicate 均於完成或失敗時清理，不永久修改來源文件。
+
+命中時只略過 Remove Background Quick Action 與 Select Subject + Layer Mask fallback，仍執行 `saveDocumentAsPng()` 並寫入 success Run Report：
+
+```json
+{
+  "status": "success",
+  "background": {
+    "attempted": false,
+    "removed": false,
+    "method": "existingTransparency",
+    "error": ""
+  }
+}
+```
+
+判斷不成立或無法判斷時，完整沿用既有 `removeBackground` → `selectSubjectLayerMask` fallback 與 failure contract。Logo 不進入此檢查，仍為 `method: "copy"`。First Run 與 Needs Rerun 套用同一判斷，且兩種流程都保持：
+
+```text
+Manifest → Upload → Photoshop 開圖 →（命中時只 Skip Remove Background）
+→ Save PNG → Run Report success → Runtime Result → Browser Fetch
+→ 素材資料夾/Processed/ 寫入 → Matching → Review Workspace
+```
+
+功能 Commit：`af30a4106b82e5661ae72d768f6af1141ad632fb`。透明 PNG、JPG、不透明 PNG、Logo、Processed PNG、Review Workspace、Runtime Contract 60/60 與 Jamie Manual Validation 均 PASS。只修改 `tools/photoshop/remove-background.jsx`；Browser、Python Runtime、macOS／Windows Adapters、Manifest／Runtime API、Review Workspace、Asset Resolver、Download、Import／Export、Render Context 與 Packaging 均未修改。
+
+目前已安裝的 `/Applications/SPX Helper.app` 尚未重新 Packaging，因此其 bundle 尚未包含新版 JSX；未來重新 Packaging 後才會帶入。本次 Documentation Update 不執行 Packaging。
+
 ### Platform Adapter
 
-- **macOS Adapter**：Ready Check 使用 bundle id `com.adobe.Photoshop` 的 `is running` 屬性判斷（`application id "com.adobe.Photoshop" is running`），只連接已開啟的 Photoshop，不自動啟動；不依賴容易因版本不同而變動的 process 名稱（Root Cause Fix，取代原本用 System Events process 名稱完全比對的做法）。Execute 呼叫既有、未修改的 `run-photoshop-manifest.applescript` → `remove-background.jsx`（去背核心不變）。
+- **macOS Adapter**：Ready Check 使用 bundle id `com.adobe.Photoshop` 的 `is running` 屬性判斷（`application id "com.adobe.Photoshop" is running`），只連接已開啟的 Photoshop，不自動啟動；不依賴容易因版本不同而變動的 process 名稱（Root Cause Fix，取代原本用 System Events process 名稱完全比對的做法）。Execute 仍呼叫未修改的 `run-photoshop-manifest.applescript` → 共用 `remove-background.jsx`；Adapter／AppleScript 邊界不因 Existing Transparency Skip 改變。
 - **Windows Adapter**：使用 pywin32（`win32com.client`）。Ready Check 用 `GetActiveObject("Photoshop.Application")`（只連接已開啟的實例，不自動啟動）；Execute 由 Runtime 以 UTF-8 讀取共用 `remove-background.jsx`，以 `json.dumps()` 注入 `manifestPath`、`originalFolder`、`outputFolder`，再呼叫 `app.DoJavaScript(full_script)`。已在真實 Windows + Photoshop 2025 環境完成 Windows Validation 與 Jamie Manual Validation，成功產生 `photoshop-run-report.json` 與 Processed PNG。`DoJavaScriptFile()` 實機驗證失敗，不再採用。macOS 現有 AppleScript 流程不變，兩平台維持共用單一 `remove-background.jsx`。
 
 ### Ready / Execution / Status / Result Contract
