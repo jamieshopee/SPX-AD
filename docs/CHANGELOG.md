@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## Review Workspace 新增略過決策並移除 Undo - 2026-07-29
+
+Status：**Completed**
+Code Commit：`c2151987fae163d6e1c8af7f660f2823908846ca`
+Commit subject：`feat: add skipped review decision`
+
+- Review Decision：正式決策值由 `approved`／`needs_rerun` 擴充為 `approved`／`needs_rerun`／`skipped`；Decision Area 三顆按鈕固定為「核准／重新去背／略過」，Detail 與 Completion Screen 的「撤回上一個決策」及其 runtime snapshot／restore 流程已完整移除。
+- Skip Behavior：按下「略過」後寫入 `status: "skipped"` 與 `review.decision: "skipped"`，保留既有 Auto Next，並視為目前 Project 已完成 Review 的 Terminal State；重新開啟 Review Workspace 後仍不可改回其他決策。
+- Queue / Rerun：`skipped` 不加入 Needs Rerun、不計入「重新去背素材（N）」、不出現在第二輪 Review。Rerun Manifest 維持既有 `getNeedsRerunAssets()` 流程與 schema，不新增 Skip 專用欄位或判斷。
+- Manifest：完整 Photoshop Manifest 僅在既有素材選取流程中排除 `status === skipped`；Manifest schema、欄位、命名與其他素材選取規則不變。同一 Project 的 skipped 永遠不再送入 Photoshop。
+- Project State：Project State 維持 version 5，未新增 Object 或 Flag；single-state／Project JSON 匯出與匯入會保留 `status: "skipped"` 與 `review.decision: "skipped"`。匯入新 CSV 會先清空舊 Pipeline State 並建立新 Project，不沿用上一個 Project 的 skipped。
+- Manual Replace：skipped 素材仍可沿用控制台既有手動換圖；換圖會移除舊 processed asset，但保留 skipped status 與 review decision，不重設為 `pending`，也不修改 `_manualRenderState` 架構。
+- Scope Boundary：本次只修改 Browser 端 Review Workspace、Asset Pipeline、Manifest、Project JSON 串接與對應 UI cache key；未修改 SPX Helper、Python Runtime、Photoshop JSX、Windows／macOS Helper、Ready／Execute／Status Contract、Packaging 或 Installer。
+- Validation：`node --check`、`git diff --check`、Decision／Persistence／Import／Manifest 自動驗證、Review Workspace Auto Next／第二輪排除／重開 Terminal State／Keyboard Guard Browser 驗證均 PASS。
+
 ## Windows SPX Helper Local Packaging 0.6.1 - 2026-07-29
 
 Status: **Completed — Local Packaging, MSI Install, and Jamie Manual Validation PASS**

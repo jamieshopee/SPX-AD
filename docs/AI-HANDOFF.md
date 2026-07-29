@@ -73,7 +73,7 @@ main
 - Template System：Template 與 Style 分離，Template 作為排版結構來源。
 - Asset Pipeline Phase 2A：assetPipeline state、assetKey、manifest export、processed folder import。
 - Photoshop Adapter Phase 2B：Photoshop manifest runner、remove background prototype、run report。
-- Review Workspace Phase 2C：processed assets 檢視與 approved / needs_rerun decision。
+- Review Workspace Phase 2C：processed assets 檢視與 `approved`／`needs_rerun`／`skipped` decision。
 - Review Workspace UX Polish：Auto Next、Multi-pass Review、Review Progress Header、Smart Entry、Keyboard Shortcuts、Decision Guard、Remove Drag Tool。
 - Batch ZIP：下載完整專案逐 Job 輸出同 basename 的 PNG／version 5 single-state JSON 配對；不再輸出單一 Project JSON 或素材子資料夾。
 - Phase 2D-2C：Batch Approved Assets，Batch ZIP export 已使用 approved processed assets。
@@ -95,7 +95,7 @@ main
 - 1人＋1品 Accordion mode：UI Bug Fix。`handlePersonProductFiles()` 結尾必須以 `updateTemplateModeLabel('person_product')` 明確維持模式；若省略 mode，Plugin 的共用 accordion defaults 會以預設狀態覆寫並誤展開商品圖區域。修正只影響 accordion UI，未修改手動換圖、`_manualRenderState`、autoTrim／Shadow、Canvas、Approved Asset invalidation、Job restore 或三商品流程。初始載入、Person／Single Product 手動換圖、Job 切換與三商品版型均由 Jamie Manual Validation 確認 PASS。
 - 1人＋1品 Person 垂直位置控制：Bug Fix Commit `f890e73d8372dd2736a7e2eac48486901aa0ca2e`。Person 採 Y-only drag，X 軸固定且不提供縮放、旋轉或 handles；Template 原始 top 是可上移的最上界。`personZone.dataset.bnPersonInitialTop` 僅是目前 Canvas 的 runtime-only Template 基準，不得寫入 Job、JSON 或 layout state schema。Person Reset 與手動換圖均回到該 top，並以既有 `_bnNotifyLayoutState()` 同步 Person `left`／`top`。`manualReplace` runtime flag 只能由使用者手動換 Person 的 `bn-person-add` 傳送；初始載入、Job restore 與一般 rebroadcast 不得帶入。`bn-reset-person-position` 只能重設 Person `top`，不得修改 source、尺寸、比例、left 或其他 transform；Single Product reset、autoTrim、Render Context 與 Download 均維持不變。
 - Upload Panel stale hint rendering：UI Bug Fix Commit `e44f65879e3140ba87ecb4c49f5171d291d5e98d`。Products／1人＋1品提示文字容器移除後，`updateMutualExclusion()` 的舊 `nextElementSibling` lookup 曾分別命中 `#bn-prod-list` 與 Reset button，令 `textContent` 覆寫商品排序 UI 與「恢復預設位置」文字。修正只刪除失效的 `prodHint`／`ppHint` lookup、文字與顏色寫入；商品排序、角色判斷、Upload、Reset、雙向互斥與 Architecture 均不變。Browser Validation 與 Jamie Manual Validation PASS；不得重新加入依 sibling 位置推定提示容器的寫入。
-- Review Workspace UI Upgrade：Navigator 只顯示檔名、Review Status、Dirty Status；Review Summary 與 Filter（全部素材／待重新去背／去背失敗）移至 Navigator 上方；Workspace 預設 Navigator + Workspace，Inspector 預設收合，點選裁切或橡皮擦才展開 Dynamic Inspector，儲存或取消後收合；Header 僅保留素材審閱／關閉；底部 Decision Area 三顆按鈕同列（核准 / 重新去背 / 撤回上一個決策），去背失敗素材則以提示文字取代三顆按鈕；新增 Completion Screen 與 Completion Recovery；Review Workspace 正式 UI 中文化。詳見 CHANGELOG v0.4.5 與去背失敗獨立分類 Bug Fix（詳見 CHANGELOG）。
+- Review Workspace Skip Decision：功能 Commit `c2151987fae163d6e1c8af7f660f2823908846ca`（`feat: add skipped review decision`）。Decision Area 三顆按鈕固定為核准／重新去背／略過，Undo Last Decision 已從 Detail、Completion Screen 與 runtime restore flow 完整移除。`skipped` 是目前 Project 的 Terminal State，保留 Auto Next，不進 Needs Rerun、第二輪 Review 或任何 Photoshop Manifest；Project State v5 JSON 匯出／匯入保留 `status` 與 `review.decision`，手動換圖不得將其重設為 `pending`。新 CSV 會建立全新 Pipeline State，不沿用舊 Project 的 skipped。本次只修改 Browser 端 Review Workspace、Asset Pipeline、Manifest 與 Project JSON 串接；未修改 Helper、Runtime、Adapters、Photoshop JSX、Ready／Execute／Status Contract、Packaging 或 Installer。
 - Photoshop Automation：完成 SPX AD Runtime（`tools/photoshop-automation/spx_ad_runtime.py`，Python stdlib-only）、Platform Adapter Architecture、macOS Adapter（AppleScript／osascript，以 bundle id `com.adobe.Photoshop` 判斷 Ready，不依賴易變動的 process 名稱）與 Windows Adapter（pywin32／`win32com.client`，已完成實作與 Windows 實機驗證，見下方 Validation Status）。Ready / Execution / Status / Results Contract 已定案並實作，Runtime Workspace 隱藏、自動管理、具備 Pending Execution Timeout 與 stale Workspace 清理。
 - Photoshop Existing Transparency Skip：功能 Commit `af30a4106b82e5661ae72d768f6af1141ad632fb`（`feat: skip background removal for existing transparency`）。非 Logo 素材在 `app.open(sourceFile)` 後使用 Photoshop 原生 transparency selection、暫存 Alpha Channel 與 histogram 檢查有效透明背景；命中時 Run Report 為 `attempted: false`、`removed: false`、`method: "existingTransparency"`，但仍 Save PNG、回報 success 並完成 Runtime Result、Browser Fetch、`Processed/` 寫入、Matching 與 Review Workspace。判斷不成立或失敗時仍走既有 Remove Background／Select Subject fallback；JPG、不透明 PNG、Logo 與 failure contract 不變。Jamie Manual Validation PASS，Runtime Contract 60/60 PASS。只修改 `tools/photoshop/remove-background.jsx`；未修改 Browser、Runtime、Adapters、Manifest、Review、Resolver、Download、Import／Export 或 Render Context。後續正式交付版本已修正為 SPX Helper `0.6.1`，Local PKG `SPX Helper-0.6.1.pkg` 必須包含此新版 JSX。
 - AI Workflow：完成 Ready Check、Manifest Send + Processing Mode、Status Polling + Auto Import、Auto Open Review Workspace、Rerun Workflow、Error / Recovery Hardening。macOS Development End-to-End Manual Validation 全數 18 項 PASS（見下方 Validation Status）；Windows Development Validation 與 Jamie Manual Validation 亦已 PASS。
@@ -299,8 +299,11 @@ Review Workspace 只管理 processed result review decision：
 
 - `approved`
 - `needs_rerun`
+- `skipped`
 
-Review Workspace 不接 Canvas、不改 Asset Payload、不寫 layoutStates、不觸發 Batch Render。Legacy `rejected` Project State 匯入時會 migration 為 `needs_rerun`。
+`skipped` 代表使用者放棄該 Photoshop 去背結果並自行手動換圖；它是目前 Project 的 Terminal State，視為 Review 已完成，不加入 Needs Rerun、不出現在第二輪 Review，也不進入任何 Photoshop Manifest。Project State v5 不新增 Object、Flag 或 version，只保存既有 record 內的 `status: "skipped"` 與 `review.decision: "skipped"`；匯出／匯入後維持終態。手動換圖保留這兩個值，不得重設為 `pending`；新 CSV 會建立全新 Project，不沿用舊 skipped。
+
+Review Workspace 不接 Canvas、不改 Asset Payload、不寫 layoutStates、不觸發 Batch Render。Legacy `rejected` Project State 匯入時會 migration 為 `needs_rerun`。`background_removal_failed` 仍只代表 Photoshop 系統處理失敗，不是使用者 Skip。
 
 ### Photoshop Adapter
 
@@ -492,6 +495,8 @@ v0.4.5
 
 Review Workspace UI Upgrade。Navigator Information Architecture 簡化為檔名、Review Status、Dirty Status，移除 Role / Job ID / Slot / Asset Key / Processed Filename / Mode 等技術 Metadata；Review Summary 與 Filter（全部素材／待重新去背）移至 Navigator 上方；Workspace Layout 預設 Navigator + Workspace，Inspector 預設收合，選取裁切或橡皮擦時展開 Dynamic Inspector，儲存或取消後收合；Header 僅保留素材審閱／關閉；底部 Decision Area 三顆按鈕同列（核准 Primary、重新去背 Warning/Danger、撤回上一個決策灰階 Outline）；新增 Completion Screen（依全域 Reviewable Assets 判斷，區分 Needs Rerun = 0 / > 0）；新增 Completion Recovery（Completion Screen 可撤回上一個決策，使用者可重新進入任一已完成素材繼續編輯）；Review Workspace 正式 UI 中文化，internal values（`approved` / `needs_rerun` / `pending` / `processed` / `all` / `crop` / `eraser`）不變；「重新去背素材（N）」目前僅呼叫既有 `exportPhotoshopRerunManifest` callback，未包含 Background Runner、Photoshop 自動啟動、自動 Import 或自動第二輪 Review。未修改 Crop / Eraser Core Logic、Undo Stack、Save Runtime Processed Asset Flow、Keyboard Shortcut 底層邏輯、Photoshop Pipeline 或 Rerun Architecture。
 
+Current behavior superseding the v0.4.5 decision controls：Commit `c2151987fae163d6e1c8af7f660f2823908846ca` 已將第三顆按鈕改為「略過」並完整移除 Review Decision Undo；目前正式 decisions 為 `approved`／`needs_rerun`／`skipped`。此更新不改 Navigator、Dynamic Inspector、Crop／Eraser undo stack、Completion Screen 架構或 Photoshop Runtime。
+
 
 ## Smart Layout Propagation
 
@@ -538,6 +543,8 @@ Next：
 Photoshop Rerun Automation（Completed，人工匯出流程，仍保留作為既有備援入口）：
 
 - Needs Rerun Collection 由 `status === needs_rerun` 派生，不建立 queue array。
+- `skipped` 不屬於 Needs Rerun；Rerun Manifest 繼續只使用既有 `getNeedsRerunAssets()`，schema 不變。
+- 完整 Photoshop Manifest 排除 `status === skipped`，同一 Project 不再將 skipped 送入 Photoshop。
 - `重新去背素材（N）`（Control Center 選單）匯出 `photoshop-rerun-manifest.json`，沿用現有 Photoshop Runner；此人工匯出入口與 AI Workflow 的自動化 Rerun 並存，未被取代。
 - Import Processed Folder 後回到 Review Workspace，不 Auto Approve、不 Auto Update Main Canvas / Thumbnail / Batch。
 - 只有 `approved` 才進入 Approved Asset Resolver 與 Render Pipeline。
@@ -640,9 +647,9 @@ Ready Check 通過後，使用者不需要：操作 Photoshop、匯出 Manifest�
    完成後將自動帶入素材審閱。
 8. 進度更新為「素材處理中（N / M）」。
 9. 完成後顯示「素材處理完成」（停留約 0.8 秒 UI 轉場，非完成判定依據）。
-10. 系統自動開啟素材審閱（Review Workspace），並自動選取第一筆素材顯示圖片，使用者不需要再手動點選。
+10. 系統自動開啟素材審閱（Review Workspace），並自動選取第一筆素材顯示圖片，使用者不需要再手動點選；正式決策為核准／重新去背／略過，三者皆保留 Auto Next。
 11. Needs Rerun = 0 → 返回控制台；Needs Rerun > 0 → 顯示「重新去背素材（N）」。
-12. 若有素材去背失敗（Photoshop 確認處理失敗，從未成功過），完成畫面另外顯示「X 個素材去背失敗，請回控制台手動更換圖片」，此提示不影響「全部素材已完成審閱」的判定，也不計入「重新去背素材（N）」的 N（去背失敗素材不提供核准／重新去背／撤回按鈕，只能手動更換圖片後由使用者自行重新走一次流程）。
+12. 若有素材去背失敗（Photoshop 確認處理失敗，從未成功過），完成畫面另外顯示「X 個素材去背失敗，請回控制台手動更換圖片」，此提示不影響「全部素材已完成審閱」的判定，也不計入「重新去背素材（N）」的 N（去背失敗素材不提供 Review Decision 按鈕，只能手動更換圖片後由使用者自行重新走一次流程）。
 ```
 
 ### Rerun 流程（已實作）
@@ -657,7 +664,7 @@ Ready Check 通過後，使用者不需要：操作 Photoshop、匯出 Manifest�
 7. 重複至 Needs Rerun = 0。
 ```
 
-使用者可見 UI 只使用工作語言：素材處理中、素材處理完成、素材審閱、核准、重新去背、待重新去背、重新去背素材（N）、去背失敗、請回控制台手動更換圖片，以及 Ready Check 未通過或處理失敗時的「Photoshop 已關閉」「重新檢查」「無法寫入處理結果」「重新授權」「無法開啟素材審閱」「重試」等復原提示。不暴露 Manifest、Runtime、Processed Folder、executionId 等技術詞彙。「素材處理完成」後直接自動進入素材審閱，不存在獨立的「等待審閱」中繼狀態。
+使用者可見 UI 只使用工作語言：素材處理中、素材處理完成、素材審閱、核准、重新去背、略過、待重新去背、重新去背素材（N）、去背失敗、請回控制台手動更換圖片，以及 Ready Check 未通過或處理失敗時的「Photoshop 已關閉」「重新檢查」「無法寫入處理結果」「重新授權」「無法開啟素材審閱」「重試」等復原提示。不暴露 Manifest、Runtime、Processed Folder、executionId 等技術詞彙。「素材處理完成」後直接自動進入素材審閱，不存在獨立的「等待審閱」中繼狀態。
 
 ### Error / Recovery（已實作）
 
