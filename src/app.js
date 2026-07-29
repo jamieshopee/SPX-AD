@@ -181,7 +181,7 @@ function getAssetReviewStats() {
   const total = Number(summary?.total || 0);
   const reviewable = Number(summary?.reviewable || 0);
   const pendingReview = Number(summary?.processed || 0);
-  const completed = Number(summary?.approved || 0) + Number(summary?.needs_rerun || 0);
+  const completed = Number(summary?.approved || 0) + Number(summary?.needs_rerun || 0) + Number(summary?.skipped || 0);
   return { summary, total, reviewable, pendingReview, completed, needsRerunCount };
 }
 
@@ -1486,7 +1486,7 @@ async function buildBatchResolvedAssets(job) {
 
 function formatReviewSummary(summary) {
   if (!summary) return '素材 0';
-  return `可審核 ${summary.reviewable || 0} / 已核准 ${summary.approved || 0} / 需重新處理 ${summary.needs_rerun || 0}`;
+  return `可審核 ${summary.reviewable || 0} / 已核准 ${summary.approved || 0} / 需重新處理 ${summary.needs_rerun || 0} / 已略過 ${summary.skipped || 0}`;
 }
 
 function activeRerunReviewAssetKeys() {
@@ -1494,22 +1494,6 @@ function activeRerunReviewAssetKeys() {
     const status = assetPipelineState?.assets?.[assetKey]?.status || '';
     return status === 'pending' || status === 'processed' || status === 'needs_rerun';
   });
-}
-
-function restoreReviewDecisionSnapshot(snapshot) {
-  const assetKey = String(snapshot?.assetKey || '');
-  const record = assetKey ? assetPipelineState?.assets?.[assetKey] : null;
-  if (!record) return { state: assetPipelineState, record: null, ok: false, reason: 'assetKey not found' };
-  record.status = snapshot.status || 'processed';
-  if (snapshot.review) record.review = { ...snapshot.review };
-  else delete record.review;
-  assetPipelineState.reviewUpdatedAt = new Date().toISOString();
-  updateNeedsRerunButton();
-  const nextSummary = window.BNAssetPipelineState?.getReviewSummary?.(assetPipelineState);
-  updateAssetReviewControls();
-  setStatus(`素材審核已撤回上一筆：${formatReviewSummary(nextSummary)}。`, 'success');
-  console.log('[CC][assetPipeline] review decision restored', { assetKey, status: record.status });
-  return { state: assetPipelineState, record, ok: true };
 }
 
 function assetBelongsToJob(asset, job) {
@@ -1637,7 +1621,6 @@ function openAssetReviewWorkspace(options = {}) {
     resolveOriginalImage: resolveReviewOriginalImage,
     resolveProcessedImage: resolveReviewProcessedImage,
     onSaveProcessedAsset: saveReviewProcessedRuntimeAsset,
-    onRestoreDecision: restoreReviewDecisionSnapshot,
     onRunRerun: runAiWorkflowRerun,
     onDecision(assetKey, decision) {
       const result = window.BNAssetPipelineState.setAssetReviewDecision(assetPipelineState, assetKey, decision);
@@ -1647,7 +1630,7 @@ function openAssetReviewWorkspace(options = {}) {
       updateAssetReviewControls();
       setStatus(`素材審核已更新：${formatReviewSummary(nextSummary)}。`, 'success');
       console.log('[CC][assetPipeline] review decision', { assetKey, decision, ok: result.ok });
-      if (decision === 'approved' && result.ok && assetBelongsToJob(result.record, activeJob())) {
+      if ((decision === 'approved' || decision === 'skipped') && result.ok && assetBelongsToJob(result.record, activeJob())) {
         refreshMainCanvasApprovedAssetsForActiveJob('review-decision:' + decision).catch(error => {
           console.warn('[CC][assetResolver] refresh main canvas failed after review decision', error);
         });
@@ -1917,9 +1900,12 @@ window._bnInvalidateApprovedAssetForManualReplace = function(filename, slot, rol
   const assetKey = result && result.assetKey;
   const record = assetKey ? assetPipelineState.assets[assetKey] : null;
   if (!record) return;
-  record.status = 'pending';
+  const isSkipped = record.status === 'skipped' || record.review?.decision === 'skipped';
   delete record.processedAsset;
-  delete record.review;
+  if (!isSkipped) {
+    record.status = 'pending';
+    delete record.review;
+  }
   console.log('[CC][assetPipeline] manual replace invalidated approved record', { assetKey, filename, slot, role, jobId });
 };
 

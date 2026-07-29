@@ -15,8 +15,6 @@
   var currentReviewMode = 'all';
   var runtimeReviewAssetKeys = null;
   var completeMessage = '';
-  var lastDecisionSnapshot = null;
-  var undoDecisionButton = null;
   var loadSeq = 0;
   var currentSession = null;
   var currentEditor = null;
@@ -37,6 +35,7 @@
       processed: '已處理',
       approved: '核准',
       needs_rerun: '重新去背',
+      skipped: '略過',
       background_removal_failed: '去背失敗'
     };
     return labels[status] || text(status);
@@ -48,6 +47,7 @@
       processed: '已處理',
       approved: '核准',
       needs_rerun: '重新去背',
+      skipped: '略過',
       background_removal_failed: '去背失敗'
     };
     return labels[status] || text(status);
@@ -84,7 +84,7 @@
       if (summary[status] == null) summary[status] = 0;
       summary[status]++;
       return summary;
-    }, { reviewable: 0, approved: 0, needs_rerun: 0 });
+    }, { reviewable: 0, approved: 0, needs_rerun: 0, skipped: 0 });
   }
 
   function getNeedsRerunAssets() {
@@ -163,7 +163,8 @@
     if (currentReviewMode !== 'needs_rerun') return assets.slice();
     if (runtimeReviewAssetKeys) {
       return assets.filter(function (asset) {
-        return !!runtimeReviewAssetKeys[asset.assetKey] && (asset.status || 'pending') !== 'approved';
+        var status = asset.status || 'pending';
+        return !!runtimeReviewAssetKeys[asset.assetKey] && status !== 'approved' && status !== 'skipped';
       });
     }
     return assets.filter(function (asset) { return (asset.status || 'pending') === 'needs_rerun'; });
@@ -199,6 +200,7 @@
     target.appendChild(el('span', 'asset-review-progress-main', currentAssets.length ? ((index + 1) + ' / ' + currentAssets.length) : '0 / 0'));
     target.appendChild(el('span', 'asset-review-progress-chip', '核准 ' + (summary.approved || 0)));
     target.appendChild(el('span', 'asset-review-progress-chip', '重新去背 ' + (summary.needs_rerun || 0)));
+    target.appendChild(el('span', 'asset-review-progress-chip', '略過 ' + (summary.skipped || 0)));
     var failedCount = getBackgroundRemovalFailedAssets().length;
     if (failedCount > 0) {
       target.appendChild(el('span', 'asset-review-progress-chip', '去背失敗 ' + failedCount));
@@ -233,13 +235,6 @@
     });
   }
 
-  function updateUndoDecisionButton() {
-    if (!undoDecisionButton) return;
-    var disabled = isSaving || !lastDecisionSnapshot;
-    undoDecisionButton.disabled = disabled;
-    undoDecisionButton.classList.toggle('is-disabled', disabled);
-  }
-
   function selectedAssetIndex() {
     return currentAssets.findIndex(function (item) { return item.assetKey === selectedAssetKey; });
   }
@@ -266,7 +261,6 @@
       node.disabled = isSaving;
       node.classList.toggle('is-disabled', isSaving);
     });
-    updateUndoDecisionButton();
   }
 
   function hideToast() {
@@ -354,11 +348,6 @@
 
   function requestDecision(assetKey, decision) {
     runGuarded(function () { decide(assetKey, decision); });
-  }
-
-  function requestUndoLastDecision() {
-    if (!lastDecisionSnapshot) return;
-    runGuarded(undoLastDecision);
   }
 
   function requestRunRerun() {
@@ -508,23 +497,31 @@
     workspace.appendChild(settings);
     target.appendChild(workspace);
 
-    // 去背失敗獨立分類（Bug Fix）：這類素材不提供核准／重新去背／撤回決策
+    // 去背失敗獨立分類（Bug Fix）：這類素材不提供核准／重新去背／略過決策
     // 按鈕（重跑對這張圖沒有幫助），改顯示提示文字，告知使用者回控制台手動
     // 置換圖片。
     if ((asset.status || 'pending') === 'background_removal_failed') {
-      undoDecisionButton = null;
       target.appendChild(el('div', 'asset-review-failed-hint', '此素材去背失敗，請回控制台手動更換圖片。'));
     } else {
       var actions = el('div', 'asset-review-actions asset-review-bottom-actions');
-      actions.appendChild(button('asset-review-action approve', '核准', function () {
+      var approveDecisionButton = button('asset-review-action approve', '核准', function () {
         requestDecision(asset.assetKey, 'approved');
-      }));
-      actions.appendChild(button('asset-review-action rerun', '重新去背', function () {
+      });
+      var rerunDecisionButton = button('asset-review-action rerun', '重新去背', function () {
         requestDecision(asset.assetKey, 'needs_rerun');
-      }));
-      undoDecisionButton = button('asset-review-action undo-decision is-disabled', '撤回上一個決策', requestUndoLastDecision);
-      undoDecisionButton.disabled = true;
-      actions.appendChild(undoDecisionButton);
+      });
+      var skipDecisionButton = button('asset-review-action skip', '略過', function () {
+        requestDecision(asset.assetKey, 'skipped');
+      });
+      if ((asset.status || 'pending') === 'skipped') {
+        [approveDecisionButton, rerunDecisionButton, skipDecisionButton].forEach(function (decisionButton) {
+          decisionButton.disabled = true;
+          decisionButton.classList.add('is-disabled');
+        });
+      }
+      actions.appendChild(approveDecisionButton);
+      actions.appendChild(rerunDecisionButton);
+      actions.appendChild(skipDecisionButton);
       target.appendChild(actions);
     }
 
@@ -586,7 +583,6 @@
 
   function renderCompletion(target) {
     destroyEditorSession();
-    undoDecisionButton = null;
     target.innerHTML = '';
 
     var needsRerunCount = getNeedsRerunAssets().length;
@@ -614,21 +610,8 @@
       actions.appendChild(rerunButton);
     }
     actions.appendChild(button('asset-review-completion-btn secondary', '返回控制台', requestClose));
-    undoDecisionButton = button('asset-review-completion-btn undo-decision is-disabled', '撤回上一個決策', requestUndoLastDecision);
-    undoDecisionButton.disabled = true;
-    actions.appendChild(undoDecisionButton);
     screen.appendChild(actions);
     target.appendChild(screen);
-  }
-
-  function snapshotDecision(assetKey) {
-    var record = currentOptions.pipelineState?.assets?.[assetKey];
-    if (!record) return null;
-    return {
-      assetKey: assetKey,
-      status: record.status || 'pending',
-      review: record.review ? Object.assign({}, record.review) : null,
-    };
   }
 
   function isAssetReviewed(asset) {
@@ -667,10 +650,8 @@
     if (!currentOptions.onDecision) return;
     var beforeAssets = currentAssets.slice();
     var beforeIndex = selectedAssetIndex();
-    var snapshot = snapshotDecision(assetKey);
     var result = currentOptions.onDecision(assetKey, decision);
     if (result && result.state) currentOptions.pipelineState = result.state;
-    if (result?.ok && snapshot) lastDecisionSnapshot = snapshot;
     refreshAssets();
     // Stage 3 Root Cause Fix：先前這裡會先用全域判斷提前 return、直接跳過
     // 「目前 Filter 還有沒有下一筆」的既有邏輯——這正是「核准第一筆待重新
@@ -710,19 +691,6 @@
     render();
   }
 
-  function undoLastDecision() {
-    if (!lastDecisionSnapshot || !currentOptions.onRestoreDecision) return;
-    var result = currentOptions.onRestoreDecision(lastDecisionSnapshot);
-    if (result && result.state) currentOptions.pipelineState = result.state;
-    selectedAssetKey = lastDecisionSnapshot.assetKey;
-    inspectorState = 'collapsed';
-    lastDecisionSnapshot = null;
-    completeMessage = '';
-    refreshAssets();
-    updateCompleteMessage();
-    render();
-  }
-
   function close() {
     removeGuardDialog();
     hideToast();
@@ -737,8 +705,6 @@
     currentReviewMode = 'all';
     runtimeReviewAssetKeys = null;
     completeMessage = '';
-    lastDecisionSnapshot = null;
-    undoDecisionButton = null;
     document.removeEventListener('keydown', onKeydown);
   }
 
@@ -762,12 +728,16 @@
     }
     if (key.toLowerCase() === 'a') {
       event.preventDefault();
-      if (selectedAssetKey) requestDecision(selectedAssetKey, 'approved');
+      if (selectedAssetKey && currentOptions.pipelineState?.assets?.[selectedAssetKey]?.status !== 'skipped') {
+        requestDecision(selectedAssetKey, 'approved');
+      }
       return;
     }
     if (key.toLowerCase() === 'r') {
       event.preventDefault();
-      if (selectedAssetKey) requestDecision(selectedAssetKey, 'needs_rerun');
+      if (selectedAssetKey && currentOptions.pipelineState?.assets?.[selectedAssetKey]?.status !== 'skipped') {
+        requestDecision(selectedAssetKey, 'needs_rerun');
+      }
     }
   }
 
@@ -811,7 +781,6 @@
     } else {
       renderDetail(detail);
     }
-    updateUndoDecisionButton();
     root.querySelectorAll('[data-review-mode]').forEach(function (button) {
       button.classList.toggle('is-active', button.getAttribute('data-review-mode') === currentReviewMode);
     });
@@ -828,15 +797,13 @@
     var requestedAssetKey = currentOptions.selectedAssetKey || '';
     selectedAssetKey = requestedAssetKey;
     completeMessage = '';
-    lastDecisionSnapshot = null;
     inspectorState = 'collapsed';
     refreshAssets();
     if (!requestedAssetKey) pickSmartEntry();
     // 開啟當下的完成畫面判斷，交給已修正為「依目前 Filter」判斷的
     // updateCompleteMessage()（見 isCurrentFilterComplete()）——若目前
     // Filter 有素材，一律直接顯示第一筆素材；只有目前 Filter 真的沒有素
-    // 材時才顯示完成畫面。與 decide()／undoLastDecision() 共用同一套、已
-    // 修正的判斷依據，不是各自獨立的邏輯。
+    // 材時才顯示完成畫面。與 decide() 共用同一套、已修正的判斷依據。
     updateCompleteMessage();
 
     root = el('div', 'asset-review-modal asset-review-modal-workspace');

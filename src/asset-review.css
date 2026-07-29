@@ -201,6 +201,12 @@
   background: rgba(255,159,10,.13);
 }
 
+.asset-review-status.status-skipped {
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
+  background: rgba(255,255,255,.04);
+}
+
 /* 去背失敗獨立分類（Bug Fix）：與核准（綠）／重新去背（橘）區分開的紅色。 */
 .asset-review-status.status-background_removal_failed {
   color: #ffb4ab;
@@ -382,13 +388,13 @@
   background: rgba(255,159,10,.16);
 }
 
-.asset-review-action.undo-decision {
+.asset-review-action.skip {
   border-color: var(--border-strong);
   background: rgba(255,255,255,.025);
   color: var(--text-secondary);
 }
 
-.asset-review-action.undo-decision:not(:disabled):hover {
+.asset-review-action.skip:not(:disabled):hover {
   color: var(--text-primary);
   background: rgba(255,255,255,.06);
 }
@@ -798,17 +804,6 @@
 
 .asset-review-completion-btn.secondary {
   background: var(--bg-surface-2);
-}
-
-.asset-review-completion-btn.undo-decision {
-  border-color: var(--border-strong);
-  background: rgba(255,255,255,.025);
-  color: var(--text-secondary);
-}
-
-.asset-review-completion-btn.undo-decision:not(:disabled):hover {
-  color: var(--text-primary);
-  background: rgba(255,255,255,.06);
 }
 
 .asset-review-completion-btn.is-disabled,

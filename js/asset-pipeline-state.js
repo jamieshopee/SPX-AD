@@ -222,7 +222,7 @@
         };
         if (existingDecision) {
           record.status = existingDecision;
-        } else if (existingStatus === 'approved' || existingStatus === 'needs_rerun') {
+        } else if (existingStatus === 'approved' || existingStatus === 'needs_rerun' || existingStatus === 'skipped') {
           record.status = existingStatus;
         } else {
           record.status = 'processed';
@@ -290,7 +290,7 @@
         };
         if (existingDecision) {
           record.status = existingDecision;
-        } else if (existingStatus === 'approved' || existingStatus === 'needs_rerun') {
+        } else if (existingStatus === 'approved' || existingStatus === 'needs_rerun' || existingStatus === 'skipped') {
           record.status = existingStatus;
         } else {
           record.status = 'processed';
@@ -312,7 +312,7 @@
   function normalizeDecision(decision) {
     var value = String(decision || '').trim();
     if (value === 'rejected') return 'needs_rerun';
-    return /^(approved|needs_rerun)$/.test(value) ? value : '';
+    return /^(approved|needs_rerun|skipped)$/.test(value) ? value : '';
   }
 
   function normalizeStatus(status) {
@@ -321,7 +321,7 @@
     // 去背失敗獨立分類（Bug Fix）：background_removal_failed 是系統偵測到
     // 的結果（不是使用者 review 決策，見 normalizeDecision()，刻意不加入該
     // 白名單），只代表「這筆素材從未成功去背過」。
-    return /^(pending|processed|approved|needs_rerun|background_removal_failed)$/.test(value) ? value : 'pending';
+    return /^(pending|processed|approved|needs_rerun|skipped|background_removal_failed)$/.test(value) ? value : 'pending';
   }
 
   function setAssetReviewDecision(pipelineState, assetKey, decision, options) {
@@ -337,6 +337,14 @@
         record: null,
         ok: false,
         reason: record ? 'invalid decision' : 'assetKey not found'
+      };
+    }
+    if (normalizeStatus(record.status) === 'skipped') {
+      return {
+        state: state,
+        record: record,
+        ok: normalized === 'skipped',
+        reason: normalized === 'skipped' ? '' : 'terminal decision'
       };
     }
     var decidedAt = options.decidedAt || new Date().toISOString();
@@ -381,6 +389,7 @@
       processed: 0,
       approved: 0,
       needs_rerun: 0,
+      skipped: 0,
       missingProcessed: 0
     };
     Object.keys(assets).forEach(function (assetKey) {

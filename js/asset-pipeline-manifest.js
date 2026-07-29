@@ -150,7 +150,9 @@
 
   function buildPhotoshopJobManifest(pipelineState, options) {
     var assets = pipelineState && pipelineState.assets ? pipelineState.assets : {};
-    var items = Object.keys(assets).sort().map(function (assetKey) { return assets[assetKey]; });
+    var items = Object.keys(assets).sort().map(function (assetKey) { return assets[assetKey]; }).filter(function (record) {
+      return record && record.status !== 'skipped';
+    });
     return manifestFromItems(pipelineState, items, options);
   }
 
