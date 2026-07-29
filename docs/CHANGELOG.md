@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 匯入素材資料夾（Direct Import）- 2026-07-29
+
+Status：**Completed — Jamie Manual Validation 全部 PASS**
+Code Commit：`d5a22c86f203d1b5c795d808b1f6eb700a9c13d4`
+Commit subject：`feat: add direct transparent asset import`
+
+- Header：新增一般使用者入口「匯入素材資料夾」，作為既有「選擇素材資料夾 → SPX Helper → Photoshop → Processed → 素材審核」之外的第二條獨立素材入口，不取代原流程。
+- Input Contract：適用於已完成去背、四周透明的 PNG；資料夾結構與檔名規則必須和正式素材資料夾相同。兩個入口共用既有正式資料夾掃描與 filename normalization；Direct Import 略過非 PNG，不轉檔、不去背。
+- Runtime Flow：Direct Import 建立既有 `assetIndex`、`assetPipelineState` 與 `processedAssetIndex`，沿用 `importProcessedAssets()` Matching；只有確實 matched 且存在 runtime handle 的 records 會設為 `approved`，直接進入既有 Approved Asset Runtime。
+- Bypass Boundary：Direct Import 只要求資料夾 read permission，不啟動 SPX Helper、Photoshop 或 AI Workflow，不建立 `Processed`，不開啟 Review Workspace，也不進入 Needs Rerun／Rerun。
+- Shared Rendering：Resolver 之後完全沿用既有 Asset Resolver、autoTrim、Shadow、Canvas、手動換圖、Job 切換、PNG 輸出、單張暫存與完整專案流程。
+- Scope Boundary：未修改 `BNAssetResolver`、`BNAssetRenderPayload`、Review Workspace、Photoshop Automation、SPX Helper、任何 `ai-workflow` 模組、Project State v5 schema 或 `qrcode-demo`。
+- Validation：Jamie Manual Validation 全部 PASS，包含 Direct Import、不啟動 SPX Helper／Photoshop、不開啟素材審核、不建立 Processed、三商品、1人＋1品、Logo、autoTrim、Shadow、初始尺寸／位置、手動換圖、Transform 保留、Job 切換、PNG 輸出、單張暫存、完整專案、暫存匯入還原及原 Photoshop 流程。
+
 ## 素材審閱在 Processed 不可用時顯示 Original - 2026-07-29
 
 Status：**Completed — Jamie Manual Validation PASS**

@@ -8,6 +8,7 @@ SPX Helper Core（功能 Commit `9a71794`）、Runtime Productization Phase 1 Fo
 
 ## What's New
 
+- **匯入素材資料夾（Direct Import，功能 Commit `d5a22c86f203d1b5c795d808b1f6eb700a9c13d4`）**：Control Center Header 新增第二條素材入口，供已完成去背、四周透明且沿用正式資料夾結構／檔名規則的 PNG 直接進入既有 Approved Asset Runtime。兩個入口共用正式資料夾掃描；Direct Import 建立既有 `assetIndex`、`assetPipelineState`、`processedAssetIndex`，沿用 `importProcessedAssets()` Matching，只核准 matched 且存在 runtime handle 的 records。此路徑不啟動 SPX Helper、Photoshop 或 AI Workflow，不建立 Processed、不開啟 Review Workspace，也不進 Needs Rerun／Rerun。Resolver 之後沿用既有 Asset Resolver、autoTrim、Shadow、Canvas、手動換圖、Job 切換與輸出／還原流程。Jamie Manual Validation 全部 PASS。
 - **Review Workspace Original Fallback（Bug Fix，Commit `c21c79e5e762598a35d6368fff5013ffd6ee21df`）**：Review Detail 的 Original 與 Processed 載入不再是 all-or-nothing。Processed resolver 不存在、回傳空值或 reject 時，只要 Original 成功仍建立 Editor，初始來源自動改為 Original；Processed 有效時仍預設顯示 Processed。Original resolver 失敗維持既有錯誤處理。`loadSeq`／disposed 防競態與 Original／Processed 切換契約保留；Session schema、Navigator、Decision、Crop、Eraser、AI Workflow、Photoshop、Helper、Pipeline 均未修改，且未新增 cache、timeout 或 retry。Jamie Manual Validation PASS。
 - **手動換圖跨 Job 保留與 Products Render Race 修正（Bug Fix，Commit `4ff252f`）**：`src/app.js` 以 Job-scoped、runtime-only `_manualRenderState` 保存 Products／Person／Single Product 同 filename、同 role／slot 的最終手動 render source；既有 Approved processed → original asset lookup、classifier、Template defaults 與 payload build 全部完成後才套用最小 overlay，最後仍由既有 `layoutStates` 恢復 transform。三商品 `applyProductsToCanvas()` 另外固定綁定 render 開始時的 `job`、`loadSeq`、`frameWindow`，每個 `await` 後及 globals／Canvas message 寫入前拒絕 stale transaction。未修改 Project State schema、Approved Asset Resolver、Render Context、Template defaults 或 Photoshop Pipeline。
 - **下載完整專案逐 Job PNG／Single State JSON 配對（功能 Commit `d16ffaa`）**：Download Complete Project 不再建立一份多 Job Project JSON。Batch 依序等待每個 Job 的既有 Canvas transaction 完成，擷取 PNG 後立即建立同一 Job 的 version 5 single-state JSON；ZIP 根目錄只加入同 basename 的成功 PNG／JSON 配對，不建立 Assets、Processed、Thumbnail、Hidden、Manifest 或其他子資料夾。每份 JSON 可由既有「匯入暫存」獨立還原；schema/version、正式「下載單張暫存」與 Import contract 均未修改。
@@ -89,7 +90,8 @@ Preview / Thumbnail / Export
 ```text
 控制台 UI
   ├─ CSV import
-  ├─素材資料夾
+  ├─ 選擇素材資料夾（Photoshop 流程）
+  ├─ 匯入素材資料夾（Direct Import）
   ├─暫存 JSON
   ├─Style 下拉
   └─下載 / 重設
@@ -174,11 +176,9 @@ Review Workspace（Crop / Eraser）、Photoshop Rerun Automation、Review Worksp
 ```text
 CSV
   ↓
-Asset Pipeline
-  ↓
-Review Workspace
-  ↓
-(Approve)
+素材入口
+  ├─ 選擇素材資料夾 → SPX Helper → Photoshop → Processed → Review Workspace → Approve
+  └─ 匯入素材資料夾 → transparent PNG → Matching → Approve
   ↓
 Approved Asset Resolver
   ↓
@@ -188,6 +188,12 @@ Canvas / Thumbnail / Batch
   ↓
 ZIP Export
 ```
+
+Direct Import 是輸入 adapter，不是第二套 Asset Pipeline。它與正式入口共用資料夾掃描與 filename normalization，並建立既有 `assetIndex`、`assetPipelineState`、`processedAssetIndex` 與 approved decision。只有 Matching 成功且 runtime handle 存在的 records 可進入 Approved Asset Resolver；unmatched 不建立虛假 record，非 PNG 直接略過。
+
+Direct Import 的 source guard 阻止 AI Workflow Ready Check 與 `BNAIWorkflowOrchestrator`，因此不啟動 SPX Helper／Photoshop、不建立 Processed、不開啟 Review Workspace，也不產生 Needs Rerun／Rerun。從 Approved Asset Resolver 往後的 Asset Payload、autoTrim、Shadow、Canvas、layout state、手動換圖、Job 切換、PNG／single-state／完整專案輸出及 Project State v5 restore 全部沿用既有流程。
+
+Scope Boundary：功能 Commit `d5a22c86f203d1b5c795d808b1f6eb700a9c13d4` 未修改 `BNAssetResolver`、`BNAssetRenderPayload`、Review Workspace、Photoshop Automation、SPX Helper、任何 `ai-workflow` 模組、Project State v5 schema 或 `qrcode-demo`。Jamie Manual Validation 全部 PASS。
 
 Review Workspace 與 Photoshop Rerun Automation 形成 rerun loop：
 

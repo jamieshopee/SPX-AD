@@ -13,7 +13,9 @@
 ```text
 CSV / Project State
   ↓
-選擇素材資料夾
+素材入口
+  ├─ 選擇素材資料夾 → SPX Helper → Photoshop → Processed → 素材審核
+  └─ 匯入素材資料夾（已去背透明 PNG；Direct Import）
   ↓
 控制台分類與管理素材
   ↓
@@ -51,6 +53,14 @@ AI Workflow 角色（已完成，macOS 與 Windows Development Validated；見�
 - 失敗時提供對應復原流程（Ready Check 失敗、Execute 失敗、上傳失敗、Status Polling 失敗、寫入失敗、Matching 失敗、Review 開啟失敗），不假裝成功、不重跑已成功的部分。
 - AI Workflow 不直接控制 Canvas、不寫 layoutStates、不改 Render Engine，不重新設計 Review Workspace UI、Navigator、Dynamic Inspector、Decision Area 或 Completion Screen。
 
+Direct Import 角色：
+
+- Header 的「匯入素材資料夾」是第二條獨立素材入口，不取代既有「選擇素材資料夾」與 Photoshop 流程。
+- 僅接受已完成去背、四周透明的 PNG；資料夾結構與檔名規則必須和正式素材資料夾相同，並共用既有正式掃描與 Matching 規則。
+- Direct Import 只要求 read permission，不啟動 SPX Helper、Photoshop 或 AI Workflow，不建立 `Processed`，不開啟 Review Workspace，也不進入 Needs Rerun／Rerun。
+- 素材直接建立既有 `assetIndex`、`assetPipelineState`、`processedAssetIndex` 與 `approved` decision；只有 matched 且存在 runtime handle 的 record 可核准。
+- Resolver 之後沿用既有 Asset Resolver、autoTrim、Shadow、Canvas、手動換圖、Job 切換、PNG 輸出、單張暫存與完整專案，不建立第二套 render 或 persistence 流程。
+
 ## 2. 目前完成度（Current Status）
 
 目前最新既有 GitHub Release：
@@ -84,6 +94,7 @@ main
 - Imported Job Style persistence：Bug Fix Commit `f19364d2fe4aa8f8652c36abbb7f8f2a851765ae`（`fix: preserve imported job style selection`）。`selectStyle()` 更新並正規化 `job.styleId` 後，若存在 `_importedRenderContext`，必須同步其 `styleId`；否則 `selectJob()` 會在切回時用匯入快照的舊值覆寫目前 Style。本次只處理 Style，不得擴大解讀為 Placement／Template persistence、Render Context 或 Import schema 改版。Jamie Manual Validation PASS，普通 CSV Job 行為不變。
 - Import Safety：raw／processed asset、pipeline identity 與 embedded export filename 在 commit 前執行 Collision Preflight；同 normalized filename、同 data URL 可共用，同名不同內容則整批拒絕。匯入採 Atomic Append，任何檔案失敗時不得留下部分 Job、asset、pipeline 或 active state；不得以 runtime alias、自動改名或 Job-scoped Asset 架構繞過衝突。
 - Control Center UI Upgrade：Header 已簡化為一般使用者入口，隱藏 Photoshop / Manifest / Processed Folder 等技術術語，版位下拉只調整 display order。
+- Direct Import：功能 Commit `d5a22c86f203d1b5c795d808b1f6eb700a9c13d4`（`feat: add direct transparent asset import`）。Header 新增「匯入素材資料夾」，供已完成去背、四周透明的 PNG 直接進入既有 Approved Asset Runtime；不啟動 SPX Helper／Photoshop／AI Workflow、不建立 Processed、不開啟 Review Workspace。後續共用 Asset Resolver、autoTrim、Shadow、Canvas、手動換圖、Job 切換與既有輸出／還原流程。未修改 `BNAssetResolver`、`BNAssetRenderPayload`、Review Workspace、Photoshop Automation、SPX Helper、`ai-workflow` 模組、Project State v5 schema 或 `qrcode-demo`。Jamie Manual Validation 全部 PASS。
 - Thumbnail Boundary：左側 Job List 已移除縮圖 UI，且一般操作不再排程或生成只供該列表使用的 quickThumbnail／active thumbnail／hidden iframe thumbnail；Project State thumbnail 欄位與 import 相容仍保留，不得誤認為整套 Thumbnail 系統已刪除。功能 Commit `b67604b`，Browser Validation 與 Jamie Manual Validation PASS。下載單張暫存及目前下載完整專案內逐 Job single-state JSON 均不輸出 `jobs[].thumbnail`。
 - Download Complete Project：功能 Commit `d16ffaa64d1bdae98bf76972de4077e0d2e92375`（`feat: export per-job state in project zip`）。ZIP 根目錄只包含每個成功 Job 同 basename 的 PNG／version 5 single-state JSON 配對；不再輸出單一 Project JSON，亦不建立 Assets、Processed、Thumbnail、Hidden、Manifest 或其他子資料夾。PNG／JSON 取自同一次 Canvas transaction；單一 Job 失敗不留下殘缺配對，完成或取消後恢復原 active Job。Browser Validation 與 Jamie Manual Validation PASS。
 - Single-state export：Bug Fix Commit `2c7dca06146b414ec23f29df94d190d8d09d457d`（`fix: remove thumbnail from single state export`）。`exportSingleState()` 的 JSON 不含 `jobs[].thumbnail`，檔名與單張 PNG 使用相同 basename 並改為 `.json`；`assets.*[].dataUrl`、processed asset data、`layoutState`／`layoutStates`、手動換圖、Crop、Eraser、Shadow 及其他還原資料不變。只修改 single-state 最終輸出，未修改共用 serializer、Project State schema、匯入、完整專案、Batch 或單張 PNG。Browser Validation 與 Jamie Manual Validation PASS，Browser Console errors 0。

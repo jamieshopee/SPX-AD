@@ -1,11 +1,12 @@
 # SPX AD 版型規格與操作說明
 
-Version: 2026.07.29-review-skip
+Version: 2026.07.29-direct-import
 Last Updated: 2026-07-29
 Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數規格與操作流程。
 
 ## What's New
 
+- **匯入素材資料夾（Direct Import，Commit `d5a22c86f203d1b5c795d808b1f6eb700a9c13d4`）**：Header 新增第二條素材入口「匯入素材資料夾」，供已完成去背、四周透明的 PNG 直接匯入。資料夾結構與檔名規則需和正式素材資料夾相同；此流程不啟動 SPX Helper、Photoshop 或 AI Workflow，不建立 Processed，也不進入素材審閱。素材完成 Matching 後直接進入既有 Approved Asset Runtime，後續沿用 Asset Resolver、autoTrim、Shadow、Canvas、手動換圖、Job 切換、PNG、單張暫存與完整專案。Jamie Manual Validation 全部 PASS。
 - **素材審閱在 Processed 不可用時顯示 Original（Bug Fix，Commit `c21c79e5e762598a35d6368fff5013ffd6ee21df`）**：有可用 Processed 的素材仍預設顯示 Processed；去背失敗、沒有 Processed，或 Processed 讀取失敗時，只要 Original 成功，中央預覽會直接建立 Editor 並顯示 Original，不需要手動切換。Original 讀取失敗維持既有錯誤處理。快速切換素材的既有防競態保護與 Original／Processed 切換不變；Navigator、Decision、Crop、Eraser 及其他流程均未修改。Jamie Manual Validation PASS。
 - **素材審閱新增「略過」決策（Commit `c2151987fae163d6e1c8af7f660f2823908846ca`）**：Decision Area 三顆按鈕改為核准／重新去背／略過，完整移除「撤回上一個決策」。略過會寫入 `status: "skipped"` 與 `review.decision: "skipped"`，保留 Auto Next，並成為目前 Project 不可解除的 Terminal State；不加入 Needs Rerun、不出現在第二輪 Review，也不進任何 Photoshop Manifest。Project State v5 JSON 匯出／匯入及手動換圖都保留 skipped；匯入新 CSV 則建立全新 Project，不沿用舊 skipped。
 - **已有有效透明背景素材略過 Remove Background（Commit `af30a4106b82e5661ae72d768f6af1141ad632fb`）**：非 Logo 素材由 Photoshop 開啟後會檢查實際影像是否已有有效透明背景；命中時只略過 Remove Background 動作，仍儲存 Processed PNG、回報 success、自動匯入並進入 Matching 與 Review Workspace，Run Report method 為 `existingTransparency`。不依 PNG 副檔名判斷，不透明 PNG 與 JPG 仍正常去背；Logo copy、fallback 與 failure contract 不變。First Run／Needs Rerun、後續 Download、Render、Import／Export 均維持既有流程。Jamie Manual Validation PASS；新版 JSX 已納入 SPX Helper `0.6.1` 的 macOS Local Packaging。
@@ -48,8 +49,9 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 12. [Template 參數](#template-參數)
 13. [新增 Style](#新增-style)
 14. [控制台入口](#控制台入口)
-15. [素材審核 / 素材審閱](#素材審核--素材審閱)
-16. [AI Workflow 使用者流程](#ai-workflow-使用者流程)
+15. [匯入素材資料夾（Direct Import）](#匯入素材資料夾direct-import)
+16. [素材審核 / 素材審閱](#素材審核--素材審閱)
+17. [AI Workflow 使用者流程](#ai-workflow-使用者流程)
 
 ## 四個尺寸
 
@@ -294,11 +296,12 @@ macOS 正式使用方式：安裝 SPX Helper PKG 後，Helper 位於 `/Applicati
 SPX AD BN生成器
 ```
 
-Header 固定四個一般使用者入口：
+Header 固定五個一般使用者入口：
 
 - 匯入CSV
 - 匯入暫存
 - 選擇素材資料夾
+- 匯入素材資料夾
 - 素材審核
 
 「匯入暫存」只接受 JSON，支援一次選取一份或多份 single-state JSON。每份 JSON 必須只包含一個 Job；同一批檔案會先依完整檔名 Natural Sort（例如 `1.json`、`2.json`、`10.json`），再依序新增至左側 Job List 尾端。既有 Job 不會被覆蓋或重新排序，之後再次匯入的新批次也只會接續 append；整批完成後會選取本批第一個新增 Job。
@@ -316,6 +319,25 @@ Header 固定四個一般使用者入口：
 - 開啟素材審核
 
 一般使用者 UI 不顯示 Photoshop / Manifest / Processed Folder 等技術術語。底層素材處理、rerun manifest 與 processed import 能力保留，但不作為一般使用者需要理解的主入口。
+
+## 匯入素材資料夾（Direct Import）
+
+「匯入素材資料夾」是第二條獨立入口，不取代原本的「選擇素材資料夾 → SPX Helper → Photoshop → Processed → 素材審核」。
+
+適用條件：
+
+- 素材已完成去背，圖片四周為透明背景。
+- 可匯入素材只接受 PNG；非 PNG 會略過，不轉檔、不去背。
+- 素材資料夾結構與檔名規則必須和正式素材資料夾完全相同。
+- 請先匯入 CSV／建立 Jobs，再按「匯入素材資料夾」並選擇資料夾。
+
+此入口只取得資料夾 read permission，並直接完成既有 Matching 與 Approved Asset Runtime 建立。它不啟動 SPX Helper、不啟動 Photoshop、不建立 `Processed`、不開啟素材審閱，也不執行 Needs Rerun／Rerun。
+
+成功匯入後，後續操作與 Photoshop 去背並核准完成後相同：沿用既有 Asset Resolver、autoTrim、Shadow、Canvas、自動尺寸與初始定位、手動換圖、移動／縮放／旋轉、Job 切換、PNG 輸出、單張暫存、完整專案及暫存匯入還原。
+
+功能 Commit：`d5a22c86f203d1b5c795d808b1f6eb700a9c13d4`（`feat: add direct transparent asset import`）。Jamie Manual Validation 全部 PASS。
+
+Scope Boundary：本次未修改 `BNAssetResolver`、`BNAssetRenderPayload`、Review Workspace、Photoshop Automation、SPX Helper、任何 `ai-workflow` 模組、Project State v5 schema 或 `qrcode-demo`。
 
 ## 素材審核 / 素材審閱
 
