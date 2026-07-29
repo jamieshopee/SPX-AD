@@ -13,7 +13,7 @@ $PyInstallerDist = Join-Path $BuildDir "pyinstaller-dist"
 $PyInstallerWork = Join-Path $BuildDir "pyinstaller-work"
 $BundleDir = Join-Path $PyInstallerDist "SPX Helper"
 $IconPath = Join-Path $BuildDir "icon\SPXHelper.ico"
-$ExpectedMsi = Join-Path $DistDir "SPX Helper-0.5.4-x64.msi"
+$ExpectedMsi = Join-Path $DistDir "SPX Helper-0.6.1-x64.msi"
 
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
     throw "Windows packaging must be built on Windows."

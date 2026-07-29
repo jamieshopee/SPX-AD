@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 
 
 PRODUCT_NAME = "SPX Helper"
-PRODUCT_VERSION = "0.5.4"
+PRODUCT_VERSION = "0.6.1"
 PUBLISHER = "SPX AD"
 UPGRADE_CODE = "{0E9BD5FB-A6F1-472B-8B6B-A395BDEDC941}"
 WIX_NAMESPACE = {"w": "http://wixtoolset.org/schemas/v4/wxs"}
@@ -100,7 +100,7 @@ def validate_wix(packaging_dir):
     wix_project = ET.parse(packaging_dir / "SPXHelper.wixproj").getroot()
     check("WiX Toolset SDK is pinned", wix_project.get("Sdk") == "WixToolset.Sdk/5.0.2")
     project_text = (packaging_dir / "SPXHelper.wixproj").read_text(encoding="utf-8")
-    check("MSI output name includes the fixed version", "SPX Helper-0.5.4-x64" in project_text)
+    check("MSI output name includes the fixed version", "SPX Helper-0.6.1-x64" in project_text)
 
 
 def validate_build_inputs(packaging_dir, automation_dir):
@@ -118,7 +118,7 @@ def validate_build_inputs(packaging_dir, automation_dir):
 
     product_host = automation_dir / "spx_helper_product.py"
     check("Product Host exists", product_host.is_file())
-    check("Product Host version remains 0.5.4", read_product_version(product_host) == PRODUCT_VERSION)
+    check("Product Host version remains 0.6.1", read_product_version(product_host) == PRODUCT_VERSION)
     check(
         "Shared remove-background.jsx exists",
         (automation_dir.parent / "photoshop" / "remove-background.jsx").is_file(),
