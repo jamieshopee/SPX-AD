@@ -102,6 +102,10 @@ Windows Packaging source is located in `packaging/windows/`. It uses
 PyInstaller plus WiX Toolset SDK 5.0.2; WiX v7 is not used because its OSMF
 condition does not meet this project's no-additional-cost packaging requirement.
 
+### Windows 0.6.1 packaging status
+
+Windows local packaging is PASS: the official PyInstaller onedir bundle and `SPX Helper-0.6.1-x64.msi` were built and Jamie Manual Validation confirmed MSI install, Helper launch, and Photoshop Remove Background. MSI metadata is Product Name `SPX Helper`, Product Version `0.6.1`, and unchanged UpgradeCode `{0E9BD5FB-A6F1-472B-8B6B-A395BDEDC941}`. Both bundle and MSI payload contain `photoshop/remove-background.jsx`; their CRLF-normalized content matches the repository at SHA-256 `467bb19a80850c6a63fe1a40d469727ea396b1d629019b934cffc7e905b3f8fc`. This includes Existing Transparency Skip and changes neither the Runtime Contract, Adapter architecture, WiX UpgradeCode, nor Installer Flow. The packaging-local `obj/` directory is a WiX intermediate and is ignored. The existing `v0.6.1` Tag and GitHub Release are not recreated; adding the Windows MSI as a Release asset remains a later decision, and local commits are not yet pushed.
+
 macOS Packaging source is located in `packaging/macos/`. It uses PyInstaller to
 build the menu-bar-only `SPX Helper.app`, then `pkgbuild`／`productbuild` to create
 the PKG. Product Name is `SPX Helper`, bundle identifier is `com.spxad.helper`,

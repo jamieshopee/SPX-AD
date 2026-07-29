@@ -717,3 +717,7 @@ QR Code 已完成 Coding、Browser Validation 與 Jamie Manual Validation（功�
 - 修改完成後同步更新 CHANGELOG。
 
 若使用者明確要求「先不要修改程式」，AI 只能分析、規劃或更新文件，不得碰 JS / HTML / CSS。
+
+## Windows SPX Helper 0.6.1 packaging completion (2026-07-29)
+
+This current status supersedes earlier notes that described `v0.6.1` as planned. Windows Phase 2 local packaging is PASS: the official PyInstaller onedir bundle and `SPX Helper-0.6.1-x64.msi` were produced, and Jamie Manual Validation passed MSI Install, Helper Launch, and Photoshop Remove Background. MSI Product Name is `SPX Helper`, Product Version is `0.6.1`, and UpgradeCode remains `{0E9BD5FB-A6F1-472B-8B6B-A395BDEDC941}`. Bundle and MSI payload both contain `photoshop/remove-background.jsx`; repository, bundle, and MSI payload content match after CRLF-to-LF normalization at SHA-256 `467bb19a80850c6a63fe1a40d469727ea396b1d629019b934cffc7e905b3f8fc`. Existing Transparency Skip is included. The Phase 2 architecture was not redesigned: Runtime Contract, Adapter architecture, WiX UpgradeCode, and Installer Flow are unchanged. WiX `obj/` is an ignored intermediate, not a formal artifact. Existing `v0.6.1` Tag and GitHub Release remain; local commits are not yet pushed, and adding the Windows MSI to the existing Release is a later decision.

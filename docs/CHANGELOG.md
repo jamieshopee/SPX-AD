@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## Windows SPX Helper Local Packaging 0.6.1 - 2026-07-29
+
+Status: **Completed — Local Packaging, MSI Install, and Jamie Manual Validation PASS**
+
+- Deliverables: PyInstaller onedir bundle and `SPX Helper-0.6.1-x64.msi`.
+- MSI identity: Product Name `SPX Helper`; Product Version `0.6.1`; UpgradeCode `{0E9BD5FB-A6F1-472B-8B6B-A395BDEDC941}` unchanged.
+- Payload integrity: bundle and MSI payload include `photoshop/remove-background.jsx`. Repo, bundle, and MSI payload match after CRLF-to-LF normalization at SHA-256 `467bb19a80850c6a63fe1a40d469727ea396b1d629019b934cffc7e905b3f8fc`.
+- Validation: MSI Install PASS; Helper Launch PASS; Photoshop Remove Background PASS. Existing Transparency Skip is included.
+- Scope: Phase 2 architecture was not redesigned; Runtime Contract, Adapter architecture, WiX UpgradeCode, and Installer Flow remain unchanged. WiX `obj/` is an ignored intermediate, not a deliverable.
+- Release state: existing `v0.6.1` Tag and GitHub Release remain unchanged; no push or Release asset upload occurred. Adding the Windows MSI to that Release remains a later decision.
+
+
+
 ## 已有有效透明背景素材略過 Remove Background - 2026-07-28
 
 Status：**Completed — Jamie Manual Validation PASS**
