@@ -30,6 +30,7 @@ const el = {
   processedFolderBtn: document.querySelector('#processed-folder-btn'),
   reviewAssetsBtn:   document.querySelector('#review-assets-btn'),
   folderBtn:        document.querySelector('#folder-btn'),
+  directFolderBtn:  document.querySelector('#direct-folder-btn'),
   folderStatus:     document.querySelector('#folder-status'),
   folderStatusText: document.querySelector('#folder-status-text'),
   csvStatus:        document.querySelector('#csv-status'),
@@ -1149,7 +1150,8 @@ function ensureWorkspaceReadyForJob() {
 function maybeRunAiWorkflowReadyCheck() {
   const hasJobs = jobs.length > 0;
   const hasAssetFolder = !!assetFolderName && Object.keys(assetIndex).length > 0;
-  if (hasJobs && hasAssetFolder) {
+  const usesPhotoshopAssetFolder = assetSourceMode === 'folder';
+  if (hasJobs && hasAssetFolder && usesPhotoshopAssetFolder) {
     window.BNAIWorkflowOrchestrator?.start?.(
       () => assetPipelineState || refreshAssetPipelineState(),
       () => assetFolderName,
@@ -1164,6 +1166,18 @@ function maybeRunAiWorkflowReadyCheck() {
 // ══════════════════════════════════════════════════════
 //  10. 素材資料夾
 // ══════════════════════════════════════════════════════
+async function scanAssetFolderEntries(handle) {
+  const files = [];
+  const index = {};
+  for await (const [name, fh] of handle.entries()) {
+    if (fh.kind !== 'file' || !/\.(png|jpg|jpeg|svg|gif|webp)$/i.test(name)) continue;
+    const lookupKey = name.trim().toLowerCase();
+    files.push({ name, handle: fh, lookupKey });
+    index[lookupKey] = fh;
+  }
+  return { files, index };
+}
+
 async function pickAssetFolder() {
   if (!window.showDirectoryPicker) {
     setStatus('此瀏覽器不支援資料夾選取（請用 Chrome 86+）', 'error');
@@ -1182,15 +1196,11 @@ async function pickAssetFolder() {
     // Import 內同一個 requestPermission() 呼叫只是確認既有授權（通常立即
     // resolve 'granted'，不需要新的手勢），不影響既有唯讀操作。
     const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
-    assetIndex = {};
+    const scanned = await scanAssetFolderEntries(handle);
+    assetIndex = scanned.index;
     assetFolderName = handle.name;
     assetFolderHandle = handle;
     assetSourceMode = 'folder';
-    for await (const [name, fh] of handle.entries()) {
-      if (fh.kind === 'file' && /\.(png|jpg|jpeg|svg|gif|webp)$/i.test(name)) {
-        assetIndex[name.toLowerCase()] = fh;
-      }
-    }
     const count = Object.keys(assetIndex).length;
     if (!count) {
       assetFolderName = '';
@@ -1239,6 +1249,89 @@ async function pickAssetFolder() {
       setTopbarBadge(el.folderStatus, el.folderStatusText, '');
       renderAssetFileLists();
     } else {
+      setStatus('開啟資料夾失敗：' + e.message, 'error');
+    }
+  }
+}
+
+async function importDirectAssetFolder(handle, scanned) {
+  const pngFiles = (scanned.files || []).filter(item => /\.png$/i.test(item.name || ''));
+  if (!pngFiles.length) {
+    setStatus('素材資料夾內沒有可匯入的 PNG。', 'error');
+    return false;
+  }
+
+  const directAssetIndex = {};
+  const directProcessedIndex = {};
+  pngFiles.forEach(item => {
+    const lookupKey = item.lookupKey || String(item.name || '').trim().toLowerCase();
+    if (!lookupKey || !item.handle) return;
+    directAssetIndex[lookupKey] = item.handle;
+    directProcessedIndex[lookupKey] = item.handle;
+  });
+
+  assetIndex = directAssetIndex;
+  assetFolderName = handle.name;
+  assetFolderHandle = null;
+  assetSourceMode = 'direct';
+  processedAssetIndex = directProcessedIndex;
+  reviewWorkspaceRerunAssetKeys = [];
+
+  refreshAssetPipelineState();
+  const result = window.BNAssetPipelineState.importProcessedAssets(assetPipelineState, pngFiles, {
+    sourceFolderName: handle.name,
+  });
+  assetPipelineState = result.state;
+
+  let approved = 0;
+  Object.keys(assetPipelineState.assets || {}).forEach(assetKey => {
+    const record = assetPipelineState.assets[assetKey];
+    const lookupKey = processedAssetLookupKey(record);
+    if (!record?.processedAsset || !lookupKey || !processedAssetIndex[lookupKey]) return;
+    const decision = window.BNAssetPipelineState.setAssetReviewDecision(assetPipelineState, assetKey, 'approved');
+    assetPipelineState = decision.state;
+    if (decision.ok) approved++;
+  });
+
+  const ignored = Math.max(0, (scanned.files || []).length - pngFiles.length);
+  setTopbarBadge(el.folderStatus, el.folderStatusText, `${handle.name}（${Object.keys(assetIndex).length}）`);
+  validateAllJobs();
+  updateNeedsRerunButton();
+  updateAssetReviewControls();
+  renderJobList();
+  renderAssetFileLists();
+
+  const details = [
+    `已匯入 ${pngFiles.length} 個 PNG`,
+    `核准 ${approved}`,
+    `未對應 ${result.unmatched}`,
+  ];
+  if (ignored) details.push(`略過非 PNG ${ignored}`);
+  setStatus(`素材已直接匯入：${details.join('，')}。`, result.unmatched ? 'error' : 'success');
+
+  if (activeJobId) {
+    await selectJob(activeJobId, {
+      awaitCanvasTransaction: true,
+    });
+  }
+  return true;
+}
+
+async function pickDirectAssetFolder() {
+  if (!window.showDirectoryPicker) {
+    setStatus('此瀏覽器不支援資料夾選取（請用 Chrome 86+）', 'error');
+    return;
+  }
+  if (!jobs.length) {
+    setStatus('尚未匯入工單，無法匯入素材資料夾。', 'error');
+    return;
+  }
+  try {
+    const handle = await window.showDirectoryPicker({ mode: 'read' });
+    const scanned = await scanAssetFolderEntries(handle);
+    await importDirectAssetFolder(handle, scanned);
+  } catch (e) {
+    if (e.name !== 'AbortError') {
       setStatus('開啟資料夾失敗：' + e.message, 'error');
     }
   }
@@ -4773,6 +4866,7 @@ el.importStateFile.addEventListener('change', e => {
 
 // 素材資料夾
 el.folderBtn.addEventListener('click', pickAssetFolder);
+el.directFolderBtn?.addEventListener('click', pickDirectAssetFolder);
 el.assetReviewMenuBtn?.addEventListener('click', event => {
   event.stopPropagation();
   updateAssetReviewControls();
