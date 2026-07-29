@@ -6,6 +6,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 
 ## What's New
 
+- **素材審閱在 Processed 不可用時顯示 Original（Bug Fix，Commit `c21c79e5e762598a35d6368fff5013ffd6ee21df`）**：有可用 Processed 的素材仍預設顯示 Processed；去背失敗、沒有 Processed，或 Processed 讀取失敗時，只要 Original 成功，中央預覽會直接建立 Editor 並顯示 Original，不需要手動切換。Original 讀取失敗維持既有錯誤處理。快速切換素材的既有防競態保護與 Original／Processed 切換不變；Navigator、Decision、Crop、Eraser 及其他流程均未修改。Jamie Manual Validation PASS。
 - **素材審閱新增「略過」決策（Commit `c2151987fae163d6e1c8af7f660f2823908846ca`）**：Decision Area 三顆按鈕改為核准／重新去背／略過，完整移除「撤回上一個決策」。略過會寫入 `status: "skipped"` 與 `review.decision: "skipped"`，保留 Auto Next，並成為目前 Project 不可解除的 Terminal State；不加入 Needs Rerun、不出現在第二輪 Review，也不進任何 Photoshop Manifest。Project State v5 JSON 匯出／匯入及手動換圖都保留 skipped；匯入新 CSV 則建立全新 Project，不沿用舊 skipped。
 - **已有有效透明背景素材略過 Remove Background（Commit `af30a4106b82e5661ae72d768f6af1141ad632fb`）**：非 Logo 素材由 Photoshop 開啟後會檢查實際影像是否已有有效透明背景；命中時只略過 Remove Background 動作，仍儲存 Processed PNG、回報 success、自動匯入並進入 Matching 與 Review Workspace，Run Report method 為 `existingTransparency`。不依 PNG 副檔名判斷，不透明 PNG 與 JPG 仍正常去背；Logo copy、fallback 與 failure contract 不變。First Run／Needs Rerun、後續 Download、Render、Import／Export 均維持既有流程。Jamie Manual Validation PASS；新版 JSX 已納入 SPX Helper `0.6.1` 的 macOS Local Packaging。
 - **Imported Job 切換後保留最後選擇 Style（Bug Fix，Commit `f19364d2fe4aa8f8652c36abbb7f8f2a851765ae`）**：從完整專案取出的 single-state JSON 匯入後，使用者更換 Style，再切換其他 Job 並返回時，Style selector 與 Canvas 都會保留最後選擇，不再恢復成匯入當下的舊 Style。普通 CSV Job 行為不變，Jamie Manual Validation PASS。
@@ -376,7 +377,7 @@ Review Summary（進度、核准數、重新去背數、略過數、去背失敗
 - 上一張／下一張不再是 Header 常駐按鈕，但仍可用 Navigator 點選或鍵盤 `←` / `→` 導航；Review Decision Undo 已完整移除。
 - 底部 Decision Area 三顆按鈕同列，由左至右：核准、重新去背、略過；三種決策皆保留 Auto Next（非循環導航）。
 - 已略過素材重新開啟時仍顯示 `skipped`，Decision 按鈕停用，A／R 快捷鍵也不會改寫終態。
-- 去背失敗素材（Photoshop 從未成功處理過）不顯示上述三顆按鈕，改顯示「此素材去背失敗，請回控制台手動更換圖片。」提示文字，並顯示原圖。
+- 去背失敗素材（Photoshop 從未成功處理過）不顯示上述三顆按鈕，改顯示「此素材去背失敗，請回控制台手動更換圖片。」提示文字，並顯示原圖。若 Processed 不存在、為空或讀取失敗，只要 Original 成功，中央預覽會直接以 Original 建立 Editor；有可用 Processed 時仍預設顯示 Processed。
 
 ### Completion Screen（全部素材完成審閱）
 

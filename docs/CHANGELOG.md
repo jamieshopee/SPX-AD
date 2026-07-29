@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 素材審閱在 Processed 不可用時顯示 Original - 2026-07-29
+
+Status：**Completed — Jamie Manual Validation PASS**
+Code Commit：`c21c79e5e762598a35d6368fff5013ffd6ee21df`
+Commit subject：`fix: show original for failed review assets`
+
+- Root Cause：Review Workspace Detail 原本以 all-or-nothing 方式同時等待 Original 與 Processed；Processed resolver reject 會連帶阻止已成功取得的 Original 建立 Editor。Editor Session 也固定以 `processed` 作為初始 `viewMode`，因此沒有可用 Processed source 的去背失敗素材會在中央預覽顯示空白。
+- Detail Loading：`renderDetail()` 將 Processed resolver 失敗視為空來源；只要 Original resolver 成功，仍建立 Editor。Original resolver 失敗維持既有 Detail 載入錯誤處理。
+- Initial Source：`createSession()` 在 Processed source 有效時仍預設顯示 Processed；Processed 不存在或為空時，自動以 Original 作為初始來源，`currentImage` 對應實際可用來源。
+- Race / Existing Behavior：既有 `loadSeq`／disposed 防競態保護保留，快速切換素材時 stale result 仍不會覆寫目前選取素材。Original／Processed 切換契約、Session 資料結構、Navigator、Decision、Crop、Eraser 與其他 Review 流程均未修改。
+- Scope Boundary：只修改 `js/asset-review-workspace.js` 的 `renderDetail()` 與 `js/asset-edit-session.js` 的 `createSession()`；未新增 cache、timeout、retry 或資料欄位，未修改 AI Workflow、Photoshop、Helper、Pipeline、Manifest、Import、Download、Job、Canvas、CSV 或任何 Locked 規格。
+- Validation：正常 Processed 素材仍預設顯示 Processed；沒有 Processed 的去背失敗素材直接顯示 Original；Processed resolver 失敗時 Original 成功仍建立 Editor；快速切換、Original 模式 Crop／Eraser 禁用狀態與 Decision Area 既有 Locked 行為均由 Jamie Manual Validation 確認 PASS。
+
 ## Review Workspace 新增略過決策並移除 Undo - 2026-07-29
 
 Status：**Completed**

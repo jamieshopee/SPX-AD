@@ -1,13 +1,14 @@
 # Architecture
 
 Version: v0.6.1（Product Host `0.6.1`；Runtime Productization Phase 3 macOS Packaging Completed；Next: Phase 4 — Update + Uninstall）
-Last Updated: 2026-07-28
+Last Updated: 2026-07-29
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界、新增 Style 流程，以及 SPX Helper / Photoshop Automation / AI Workflow / QR Code 架構。
 
 SPX Helper Core（功能 Commit `9a71794`）、Runtime Productization Phase 1 Foundation（功能 Commit `51c4828`）、Phase 2 Windows Packaging（功能 Commit `9240504`）與 Phase 3 macOS Packaging（功能 Commit `ee55dd527a00361f1155ba45713ff2ce3957b06c`）均已完成。Phase 3 以 PyInstaller 建立 `SPX Helper.app`，並由 PKG 固定安裝到 `/Applications/SPX Helper.app`；LaunchAgent 提供登入自動啟動。macOS local build／install 與 Jamie Manual Validation 已完成，正式 GitHub Pages → SPX Helper → Photoshop → Processed PNG PASS。Developer ID signing 與 Apple Notarization 因缺少 credentials 尚未驗證。下一步為尚未開始的 Phase 4 Update + Uninstall；Phase 5 Final Validation 亦尚未開始。
 
 ## What's New
 
+- **Review Workspace Original Fallback（Bug Fix，Commit `c21c79e5e762598a35d6368fff5013ffd6ee21df`）**：Review Detail 的 Original 與 Processed 載入不再是 all-or-nothing。Processed resolver 不存在、回傳空值或 reject 時，只要 Original 成功仍建立 Editor，初始來源自動改為 Original；Processed 有效時仍預設顯示 Processed。Original resolver 失敗維持既有錯誤處理。`loadSeq`／disposed 防競態與 Original／Processed 切換契約保留；Session schema、Navigator、Decision、Crop、Eraser、AI Workflow、Photoshop、Helper、Pipeline 均未修改，且未新增 cache、timeout 或 retry。Jamie Manual Validation PASS。
 - **手動換圖跨 Job 保留與 Products Render Race 修正（Bug Fix，Commit `4ff252f`）**：`src/app.js` 以 Job-scoped、runtime-only `_manualRenderState` 保存 Products／Person／Single Product 同 filename、同 role／slot 的最終手動 render source；既有 Approved processed → original asset lookup、classifier、Template defaults 與 payload build 全部完成後才套用最小 overlay，最後仍由既有 `layoutStates` 恢復 transform。三商品 `applyProductsToCanvas()` 另外固定綁定 render 開始時的 `job`、`loadSeq`、`frameWindow`，每個 `await` 後及 globals／Canvas message 寫入前拒絕 stale transaction。未修改 Project State schema、Approved Asset Resolver、Render Context、Template defaults 或 Photoshop Pipeline。
 - **下載完整專案逐 Job PNG／Single State JSON 配對（功能 Commit `d16ffaa`）**：Download Complete Project 不再建立一份多 Job Project JSON。Batch 依序等待每個 Job 的既有 Canvas transaction 完成，擷取 PNG 後立即建立同一 Job 的 version 5 single-state JSON；ZIP 根目錄只加入同 basename 的成功 PNG／JSON 配對，不建立 Assets、Processed、Thumbnail、Hidden、Manifest 或其他子資料夾。每份 JSON 可由既有「匯入暫存」獨立還原；schema/version、正式「下載單張暫存」與 Import contract 均未修改。
 - **SPX Helper Runtime Productization Phase 2 Windows Packaging — Completed（功能 Commit `9240504`）**：以 PyInstaller 建立 executable bundle，並以 WiX Toolset SDK 5.0.2 建立 per-machine MSI。Fresh Install、安裝後立即啟動、Login Startup、Start Menu、Apps & Features、System Tray 與正式 Windows Happy Path 均已實機 PASS。
@@ -242,6 +243,8 @@ Review Workspace UX Polish 已完成，屬於 Review Workspace 的 workflow / na
 Review Workspace 負責：
 
 - Review processed assets
+- 載入 Detail 時獨立處理 Original 與 Processed 結果：Processed 有效時預設顯示 Processed；Processed 不存在、為空或讀取失敗時，只要 Original 成功仍建立 Editor 並預設顯示 Original。Original 讀取失敗維持既有 Detail 載入錯誤處理。
+- 素材切換沿用既有 `loadSeq`／disposed transaction guard；較舊的非同步載入結果不得覆寫目前選取素材。
 - Crop
 - Eraser
 - Review decision：`approved` / `needs_rerun`
