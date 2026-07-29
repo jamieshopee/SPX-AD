@@ -4,18 +4,21 @@
   var MAX_UNDO = 20;
 
   function createSession(reviewAsset, sources) {
+    var original = sources?.original || '';
     var processed = sources?.processed || '';
+    var initialViewMode = processed ? 'processed' : 'original';
+    var initialImage = processed || original;
     return {
       assetKey: reviewAsset?.assetKey || '',
       reviewAsset: reviewAsset || null,
       sources: {
-        original: sources?.original || '',
+        original: original,
         processed: processed,
       },
-      currentImage: processed,
+      currentImage: initialImage,
       savedImage: processed,
       savedImageSize: { width: 0, height: 0 },
-      viewMode: 'processed',
+      viewMode: initialViewMode,
       currentTool: 'pan',
       dirty: false,
       undoStack: [],

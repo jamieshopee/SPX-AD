@@ -528,7 +528,9 @@
     var seq = ++loadSeq;
     Promise.all([
       Promise.resolve().then(function () { return currentOptions.resolveOriginalImage ? currentOptions.resolveOriginalImage(asset) : ''; }),
-      Promise.resolve().then(function () { return currentOptions.resolveProcessedImage ? currentOptions.resolveProcessedImage(asset) : ''; })
+      Promise.resolve()
+        .then(function () { return currentOptions.resolveProcessedImage ? currentOptions.resolveProcessedImage(asset) : ''; })
+        .catch(function () { return ''; })
     ]).then(function (sources) {
       if (seq !== loadSeq) return;
       var loading = stage.querySelector('.asset-review-editor-loading');
