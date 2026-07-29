@@ -273,13 +273,13 @@ Review Workspace UX Polish 已完成並列入 Locked Completed Phase。後續不
 
 UX 規範：
 
-- Auto Next：`Approve` 或 `Needs Rerun` 儲存 decision 後自動前往下一張；最後一張停留並顯示 completed header。
-- Multi-pass Review：支援 `All Assets` 與 `Needs Rerun Only`。Needs Rerun rerun 後可用 runtime-only subset 回到第二輪 review。
+- Auto Next：`Approve`、`Needs Rerun` 或 `Skipped` 儲存 decision 後自動前往下一張；最後一張停留並顯示 completed header。
+- Multi-pass Review：支援 `All Assets` 與 `Needs Rerun Only`。第一輪可產生 Needs Rerun，並以 runtime-only subset 回到第二輪；第二輪是最後一輪，只允許 `approved`／`skipped`，不得再次產生 Needs Rerun。
 - Remove Drag Tool：不保留 persistent Drag Tool。Pan 是 momentary action，不是 persistent tool。
 - Keyboard Shortcuts：Review Workspace 開啟時才啟用；焦點在文字輸入、slider 或可編輯元件時不得攔截。
 - Review Progress Header：依目前 filter 顯示 `current / total`、Approved count 與 Needs Rerun count。
 - Smart Entry：重新開啟時優先定位未 review asset；已 approved 不得被當成未 review。
-- Decision Guard：`Undo Last Decision` 只撤回上一個 `Approve` / `Needs Rerun` decision，runtime-only，不新增 Project State history schema。
+- Decision Guard：Review Decision Undo 已移除；`skipped` 的 UI 名稱為「之後手動換圖」，internal decision／state 不變。第二輪的按鈕、`R` 快捷鍵與 decision 入口都必須拒絕 `needs_rerun`。
 
 ### Review Workspace UX Decisions
 
@@ -362,10 +362,10 @@ Project Persistence 已完成並列入 Locked Completed Phase。後續不得重�
 
 Control Center UI Upgrade 已完成並列入 Locked Completed Phase。後續不得重新設計控制台主流程，除非屬於 Bug Fix、User Request 或 Architecture 明確改版。
 
-- Header 固定一般使用者主入口：匯入CSV、匯入暫存、選擇素材資料夾、素材審核。
+- Header 固定一般使用者主入口順序：匯入CSV、匯入暫存、匯入素材資料夾、自動去背匯入素材。
 - 一般使用者 UI 不顯示 Photoshop / Manifest / Processed Folder 等技術術語。
 - Manifest export、Processed Folder import、Rerun manifest 等底層能力可保留，但不得重新暴露為一般使用者主入口，除非使用者明確要求。
-- 素材審核入口只負責狀態呈現與開啟既有 Review Workspace，不重新設計 Review Workspace、Decision Model 或 Rerun Architecture。
+- 素材審核入口初始隱藏，只在 `FirstReview`／`SecondReview` 顯示；Photoshop First Run／Rerun 實際執行 phase 顯示「處理中（N／N）」。`Idle`、CSV-only、Direct Import、`Completed` 不顯示素材審核或處理中；`Completed` 顯示不可點擊的「AI 去背完成」。Header 不顯示「已套用文字」，但 `bn-text` postMessage 與文字套用流程不變。
 - 中央版位排序只能改 display order，不得修改 placementId、templateId、layoutState key 或 Project State schema。
 
 ## Future Phase Order
@@ -421,10 +421,10 @@ Review Workspace UI Upgrade 已完成並列入 Locked Completed Phase。後續�
 - Review Summary 與 Filter（全部素材／待重新去背／去背失敗）固定在 Navigator 上方。
 - Workspace 預設畫面為 Navigator + Workspace；Inspector 預設收合，選取裁切或橡皮擦時展開 Dynamic Inspector，儲存或取消後收合。
 - Dynamic Inspector 依目前工具顯示 View / 裁切 / 橡皮擦，不顯示素材 Metadata。
-- Header 僅保留素材審閱／關閉；上一張／下一張／撤回上一個決策只移除可見 UI，底層 Navigator 點擊、Keyboard ← / →、Auto Next、非循環導航皆保留。
-- 底部 Decision Area 三顆按鈕同列：核准（Primary）、重新去背（Warning / Danger）、撤回上一個決策（灰色 Outline、低視覺權重）。
-- Completion Screen 判斷依目前 Filter 是否還有素材（「全部素材」Filter 下等同全域 Reviewable Assets，「待重新去背」Filter 下限定 needs_rerun 子集）；Needs Rerun 數量沿用 `BNAssetPipelineState.getNeedsRerunAssets()`；Needs Rerun = 0 顯示「返回控制台」，Needs Rerun > 0 額外顯示「重新去背素材（X）」；去背失敗素材（`background_removal_failed`）完全不計入完成判斷或 Needs Rerun 數量，只另外顯示「X 個素材去背失敗，請回控制台手動更換圖片」。
-- Completion Screen 支援 Completion Recovery：可於 Completion Screen 撤回上一個決策；使用者可透過 Navigator 重新進入任一已完成素材繼續查看、裁切、橡皮擦、儲存、核准或重新去背。Completion Screen 不得永久覆蓋 Editor。
+- Header 僅保留素材審閱／關閉；上一張／下一張只移除可見 UI，底層 Navigator 點擊、Keyboard ← / →、Auto Next、非循環導航皆保留。Review Decision Undo 已移除。
+- 第一輪 Decision Area：核准（Primary）、重新去背（Warning / Danger）、之後手動換圖（灰色 Outline）。第二輪只顯示核准／之後手動換圖；「之後手動換圖」仍使用 `skipped`。
+- 未完成本輪應審核素材時，右上角 Close 與 `Esc` 必須阻止關閉並顯示「請先完成全部素材審核後再關閉。」第二輪完成判斷只依本輪 Needs Rerun 素材集合；去背失敗素材（`background_removal_failed`）不計入完成判斷或 Needs Rerun 數量。
+- `SecondReview` 是最後一輪，不顯示重新去背、不接受 `needs_rerun`；完成後進入 `Completed`，不得重新進入 Review Workspace。
 - 「重新去背素材（N）」（Review Workspace Completion Screen 內）現已呼叫 AI Workflow Orchestrator，與 First Run 共用同一套 Ready Check／Execute／Status Polling／Auto Import 資料流；原本呼叫 `exportPhotoshopRerunManifest` 的人工匯出流程仍保留為 Control Center 選單的獨立備援入口，未被移除。系統不會自動啟動 Photoshop App；使用者需自行先開啟 Photoshop，系統只負責 Ready Check。
 - Review Workspace UI 正式中文化；internal values（`approved` / `needs_rerun` / `pending` / `processed` / `all` / `crop` / `eraser`）維持不變。
 - 未修改 Crop Core Logic、Eraser Core Logic、Undo Stack、Save Runtime Processed Asset Flow、Keyboard Shortcut 底層邏輯、Photoshop Pipeline、Rerun Architecture。

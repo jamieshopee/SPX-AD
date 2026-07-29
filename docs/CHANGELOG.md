@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## AI Workflow 單向審核流程與 Header 狀態收斂 - 2026-07-30
+
+Status：**Completed — Manual Validation 與 Code Review PASS**
+Code Commit：`8eefbb0924121f3a199c547186306c5eeb722a31`
+Commit subject：`feat: finalize AI asset review workflow`
+
+- Workflow：正式流程固定為 Photoshop First Run → `FirstReview` →（有 Needs Rerun 時）Photoshop Rerun → `SecondReview` → `Completed`。Rerun 只能由 `FirstReview` 啟動；`SecondReview` 是最後一輪，不得建立第三輪 Rerun。`Completed` 後不得重新開啟 Review Workspace 或重新去背。
+- Review Workspace：「略過」正式更名為「之後手動換圖」，仍寫入既有 `skipped` decision／state，不新增 decision。第一輪顯示核准／重新去背／之後手動換圖；第二輪只顯示核准／之後手動換圖，並由按鈕、decision guard、`R` 快捷鍵與 Orchestrator guard 共同阻止第二輪寫入 `needs_rerun`。
+- Close Guard：First／Second Review 尚有未完成素材時，右上角「關閉」與 `Esc` 均不得離開，固定提示「請先完成全部素材審核後再關閉。」；第二輪完成判斷只依本輪 Needs Rerun 素材集合。
+- Header：一般使用者入口順序更新為匯入 CSV、匯入暫存、匯入素材資料夾、自動去背匯入素材；素材審核入口初始隱藏，只在 `FirstReview`／`SecondReview` 顯示。Photoshop First Run／Rerun 實際執行 phase 顯示「處理中（N／N）」；`Idle`、CSV-only、Direct Import、`Completed` 不顯示素材審核或處理中。`Completed` 顯示不可點擊的綠色「AI 去背完成」，位置接在「已匯入工單（N）」之後。
+- Text Status：Header 不再顯示「已套用文字」；既有 `bn-text` postMessage、文字套用與 Canvas Render 流程不變。
+- Direct Import：維持既有獨立路徑，不啟動 SPX Helper／Photoshop／AI Workflow，不開啟 Review Workspace，也不提供 Review／Rerun 入口。
+- Validation：A1、A2、A3、B1、B2、B3、C1、C2、C3、D1、E1、E2 全部 PASS；Code Review、三個修改 JS 的 `node --check` 與 `git diff --check` 均 PASS。
+- Scope Boundary：未修改 CSV Import、Direct Import 資料處理、`asset-pipeline-state.js`、Photoshop Runtime／Adapter／JSX、Manifest schema、Canvas Render、`bn-text` postMessage、Import／Export、Project State／Persistence、Multi Job／Queue、手動換圖既有流程、Build／Packaging／安裝。
+
 ## 匯入素材資料夾（Direct Import）- 2026-07-29
 
 Status：**Completed — Jamie Manual Validation 全部 PASS**

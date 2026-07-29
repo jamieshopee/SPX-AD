@@ -1,12 +1,13 @@
 # UI Design Guideline
 
-Version: 2026.07.29-review-skip
-Last Updated: 2026-07-29
+Version: 2026.07.30-ai-review-flow
+Last Updated: 2026-07-30
 Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
 
-- **素材審閱新增「略過」決策（Commit `c2151987fae163d6e1c8af7f660f2823908846ca`）**：Decision Area 三顆按鈕固定為核准／重新去背／略過，Review Decision Undo 已完整移除。`skipped` 保留 Auto Next，是目前 Project 不可解除的 Terminal State；不加入 Needs Rerun、不出現在第二輪 Review，重新開啟後三顆 Decision 按鈕停用。
+- **AI Workflow 單向審核與 Header 狀態收斂（Commit `8eefbb0924121f3a199c547186306c5eeb722a31`）**：Header 入口順序更新；素材審核只在 `FirstReview`／`SecondReview` 顯示，Photoshop 實際執行時顯示處理中，`Completed` 顯示「AI 去背完成」。Decision Area 第一輪為核准／重新去背／之後手動換圖，第二輪為核准／之後手動換圖；未完成時 Close／Esc 不得離開。Manual Validation A1–E2 與 Code Review 全部 PASS。
+- **素材審閱新增 `skipped` 決策（Commit `c2151987fae163d6e1c8af7f660f2823908846ca`）**：Review Decision Undo 已完整移除；`skipped` 保留 Auto Next，是目前 Project 不可解除的 Terminal State，不加入 Needs Rerun。其目前正式 UI 名稱與兩輪按鈕規則由 Commit `8eefbb0924121f3a199c547186306c5eeb722a31` 更新為「之後手動換圖」。
 - **1人＋1品 Person 垂直位置控制（Commit `f890e73`）**：Person 僅提供 Y 軸上下微調，X 軸固定，不顯示 Transform handles，也不提供縮放或旋轉；上移不得超過 Template 預設 top。1人＋1品「恢復預設位置」會將 Person top 回復至 Template 預設值，手動換 Person 圖片後亦回到同一預設位置。Single Product 與既有圖片處理行為不變，Jamie Manual Validation PASS。
 - **1人＋1品 Accordion 手動換圖修正（UI Bug Fix）**：1人＋1品模式初始載入及 Person／Single Product 手動換圖完成後，商品圖區域均維持收合；修正只補齊 `person_product` mode，不改圖片處理、素材 state、Job restore 或其他版型。Jamie Manual Validation PASS。
 - **下載單張暫存精簡（Commit `2c7dca0`）**：single-state JSON 不再包含左側 Job List 使用的 `jobs[].thumbnail`，也不再為此執行 on-demand Canvas capture；JSON 與單張 PNG 使用相同 basename，只將副檔名改為 `.json`。真正的暫存內容與還原能力完整保留；此變更不是 Project State 改版，也未影響完整專案、Batch 或 Thumbnail 共用流程。Browser Validation 與 Jamie Manual Validation PASS。
@@ -24,7 +25,7 @@ Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 - 明確定義 Template = 排版，Style = 背景 / 資訊圖 / 文字顏色。
 - 補上 `template.json`、`styles/`、`backgrounds/`、`info/` 命名規範。
 - 初始狀態、匯入 CSV、匯入暫存與重設工作區 UI 狀態需保持一致。
-- Review Workspace decision UI 三顆按鈕：核准、重新去背、略過。
+- Review Workspace decision UI：第一輪為核准、重新去背、之後手動換圖；第二輪為核准、之後手動換圖。
 - 新增 Review Workspace 繁體中文 UI Terminology 對照表。
 
 ## Table of Contents
@@ -125,18 +126,19 @@ Header 品牌顯示：
 SPX AD BN生成器
 ```
 
-Header 固定四個一般使用者入口：
+Header 固定四個一般使用者入口，順序如下：
 
 - 匯入CSV
 - 匯入暫存
-- 選擇素材資料夾
-- 素材審核
+- 匯入素材資料夾
+- 自動去背匯入素材
 
-素材審核入口負責狀態呈現與開啟既有審核流程：
+AI Workflow 狀態呈現：
 
-- 處理中：`處理中（18 / 63）`
-- 全部完成：`素材審核（63）`
-- 有待審核：`素材審核（已完成：58｜待審核：5）`
+- 初始、CSV-only、Direct Import、`Idle`：不顯示素材審核或處理中。
+- Photoshop First Run／Rerun 實際執行 phase：`處理中（18 / 63）`。
+- `FirstReview`／`SecondReview`：顯示素材審核入口。
+- `Completed`：隱藏素材審核／rerun，於「已匯入工單（N）」後顯示不可點擊的綠色 `AI 去背完成`。
 
 素材審核選單可承載既有流程入口，但一般使用者 UI 不顯示 Photoshop / Manifest / Processed Folder 等技術術語。
 
@@ -144,9 +146,11 @@ Header 固定四個一般使用者入口：
 
 常駐 Badge 僅顯示必要狀態：
 
-- 已套用文字
 - 素材資料夾狀態
 - CSV 工單狀態
+- AI 去背完成
+
+Header 不顯示「已套用文字」；此規則只移除重複狀態，不改變既有 `bn-text` postMessage 或文字套用流程。
 
 匯入暫存是一次性動作，不顯示常駐 Badge，可用 toast 或短暫狀態提示。
 
@@ -313,11 +317,10 @@ Review Workspace（素材審閱）是 processed result 的檢查與修圖工作�
 
 Decision actions 固定為：
 
-- 核准
-- 重新去背
-- 略過
+- 第一輪：核准、重新去背、之後手動換圖。
+- 第二輪：核准、之後手動換圖。
 
-不得再新增 `Rejected` action。Review Decision Undo 已完整移除。原始素材若需要更換，沿用控制台右側素材欄。
+「之後手動換圖」沿用既有 `skipped` decision／state，不新增 decision。第二輪不得寫入 `needs_rerun`。不得再新增 `Rejected` action。Review Decision Undo 已完整移除。原始素材若需要更換，沿用控制台右側素材欄。
 
 ### Navigator（Review Workspace UI Upgrade）
 
@@ -340,9 +343,10 @@ Decision actions 固定為：
 
 - Header 僅保留：素材審閱（標題）、關閉。
 - 已移除可見的上一張、下一張 Header 按鈕；底層 Navigator 點擊、Keyboard ← / →、Auto Next、非循環導航皆保留，只是不再是 Header 常駐按鈕。Review Decision Undo 已完整移除。
-- 底部 Decision Area 三顆按鈕同列，由左至右：核准、重新去背、略過。
-- 樣式：核准為 Primary；重新去背為 Warning / Danger；略過為灰色 Outline、低視覺權重。
-- `skipped` 是目前 Project 的 Terminal State；重新開啟時三顆 Decision 按鈕停用，A／R 快捷鍵不得改寫該狀態。
+- 第一輪底部 Decision Area 三顆按鈕同列，由左至右：核准、重新去背、之後手動換圖。
+- 第二輪只顯示核准、之後手動換圖，不建立 disabled 的重新去背按鈕。
+- 樣式：核准為 Primary；重新去背為 Warning / Danger；之後手動換圖為灰色 Outline、低視覺權重。
+- `skipped` 是目前 Project 的 Terminal State；Decision 按鈕與 A／R 快捷鍵不得改寫該狀態。
 - 去背失敗（`background_removal_failed`，去背失敗獨立分類 Bug Fix）素材不顯示上述三顆按鈕，改顯示提示文字「此素材去背失敗，請回控制台手動更換圖片。」；顯示原圖（無 processed image 可看）。
 
 ### Completion Screen（Review Workspace UI Upgrade）
@@ -353,12 +357,12 @@ Decision actions 固定為：
 - Needs Rerun > 0：額外顯示「X 個素材待重新去背」與「重新去背素材（X）」。
 - 去背失敗 > 0（去背失敗獨立分類 Bug Fix）：額外顯示「X 個素材去背失敗，請回控制台手動更換圖片」，不提供對應的 action 按鈕。
 
-Completion 判斷必須使用全域 Reviewable Assets，不得使用目前 Filter collection；Needs Rerun 數量沿用 `BNAssetPipelineState.getNeedsRerunAssets()`。「待重新去背」Filter 為空、但全域仍有未審閱素材時，顯示「目前沒有待重新去背的素材」，不得誤顯示全域完成。去背失敗素材完全不計入 Reviewable Assets 或完成判斷（永遠不會被視為「待完成」），也不計入「重新去背素材（N）」的 N；`重新去背素材（N）` 沿用 `BNAssetPipelineState.getNeedsRerunAssets()`，不受去背失敗影響。
+第一輪 Completion 判斷使用全域 Reviewable Assets；第二輪只依本輪 Needs Rerun 素材集合判斷。去背失敗素材完全不計入 Reviewable Assets 或完成判斷，也不計入「重新去背素材（N）」的 N。
 
-### Completed Asset Re-entry（Review Workspace UI Upgrade）
+### Completed State（Review Workspace UI Upgrade）
 
 - Completion Screen 不提供 Review Decision Undo。
-- 使用者可點 Navigator 已完成素材重新進入 Editor 繼續查看、裁切、橡皮擦或儲存；`skipped` 維持 Terminal State，不提供解除或改回其他決策。
+- AI Workflow 進入 `Completed` 後不得重新開啟 Review Workspace；`skipped` 維持 Terminal State，不提供解除或改回其他決策。
 - Completion Screen 不得永久覆蓋 Editor。
 
 ### Review Workspace UX Polish
@@ -367,17 +371,18 @@ Completion 判斷必須使用全域 Reviewable Assets，不得使用目前 Filte
 - Review Complete Header 用於最後一張完成後的狀態，不自動關閉 Workspace。
 - Auto Next 是 decision flow 的預設行為；`Approve`／`Needs Rerun`／`Skipped` 後自動前往下一張。
 - Keyboard Shortcuts 只在 Review Workspace 開啟時生效；焦點在 input、textarea、select、contenteditable 或 slider 時不得攔截。
-- 快捷鍵：`A` Approve、`R` Needs Rerun、`←` Previous、`→` Next、`Esc` Close、`Space` Temporary Pan。
+- 快捷鍵：`A` Approve、`R` Needs Rerun（僅第一輪）、`←` Previous、`→` Next、`Esc` Close、`Space` Temporary Pan。第二輪按 `R` 不得寫入 decision 或觸發 rerun。
+- 尚有未完成素材時，右上角 Close 與 `Esc` 都不得關閉 Workspace，並顯示「請先完成全部素材審核後再關閉。」
 - Temporary Pan（Space）是 momentary action，放開 Space 後必須回到原工具。
 - Remove Drag Tool UX Principle：Pan 不應是 persistent tool；不顯示固定 Drag Tool 按鈕。
 
-`重新去背素材（N）` 屬於素材審核選單／Completion Screen 內的流程型 action，目前有兩個共存的入口（AI Workflow Completed 後的現況，非本 UI Upgrade 當時的行為）：
+`重新去背素材（N）` 只可由 `FirstReview` 的 Completion Screen 啟動 AI Workflow Rerun：
 
-- `N=0` 時兩個入口皆 disabled。
 - **Review Workspace Completion Screen 內的入口（主要流程）**：點擊後串接 AI Workflow Orchestrator，自動重新執行一次 Ready Check、重新進入 Processing Mode（Photoshop 全程保持開啟，不重新啟動）、完成後自動 Import、自動回到素材審閱並將 Filter 切到「待重新去背」，只顯示本輪重新處理的素材子集，不 Auto Approve。
-- **Control Center 選單內的入口（人工備援）**：仍呼叫既有 `exportPhotoshopRerunManifest` callback，匯出 `photoshop-rerun-manifest.json` 供人工執行既有 Photoshop Runner，執行後需人工點擊「匯入處理結果」；這個入口保留作為獨立備援，AI Workflow 沒有取代或移除它。
+- `SecondReview` 不顯示此入口、不接受 `needs_rerun`，也不建立第三輪。
+- `Completed` 後不顯示 Review／rerun 入口。
 - 一般 UI 使用「重新去背素材」，不使用 Photoshop / Manifest 等技術術語。
-- 兩個入口共用同一套 basename + `.png` Naming Contract（見 `docs/Photoshop Asset Pipeline.md`），Processed 結果匯入後都回到 Review Workspace，都不會自動更新 Main Canvas / Thumbnail / Batch。
+- Processed 結果沿用 basename + `.png` Naming Contract（見 `docs/Photoshop Asset Pipeline.md`），不會自動更新 Main Canvas / Thumbnail / Batch。
 - 若 Project State 已恢復 `approved` decision，Main Canvas 可透過既有 approved asset refresh flow 更新 approved processed asset source。
 - Main Canvas refresh 僅更新既有 DOM 的圖片來源，不重建 DOM、不重設 transform、不修改 `layoutState`。
 
@@ -391,7 +396,7 @@ Completion 判斷必須使用全域 Reviewable Assets，不得使用目前 Filte
 | Background Removal Failed | 去背失敗 | `background_removal_failed` |
 | Approved | 核准 | `approved` |
 | Needs Rerun | 重新去背 | `needs_rerun` |
-| Skipped | 略過 | `skipped` |
+| Skipped | 之後手動換圖 | `skipped` |
 | Pending | 待審閱 | `pending` |
 | Processed | 已處理 | `processed` |
 | Crop | 裁切 | `crop` |
@@ -469,8 +474,8 @@ Project Persistence 的 UX 原則是讓使用者理解「保存的是完整工�
 
 ### Review Workspace Integration
 
-- Approved asset 重新開啟 Review Workspace 時，應顯示最後一次 Save 的 result。
-- Approved asset 可繼續 Crop / Eraser 編輯。
+- AI Workflow 尚在 `FirstReview`／`SecondReview` 時，Review Workspace 顯示目前 latest Save result。
+- AI Workflow 進入 `Completed` 後不得重新開啟 Review Workspace；後續換圖使用控制台既有手動換圖。
 - Save 不自動 Approve、不改 decision、不直接改 Render Engine。
 - Restore 後 Main Canvas、Thumbnail、Batch 透過既有 Resolver 使用 restored processed source。
 

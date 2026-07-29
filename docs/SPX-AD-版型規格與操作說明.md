@@ -1,14 +1,15 @@
 # SPX AD 版型規格與操作說明
 
-Version: 2026.07.29-direct-import
-Last Updated: 2026-07-29
+Version: 2026.07.30-ai-review-flow
+Last Updated: 2026-07-30
 Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數規格與操作流程。
 
 ## What's New
 
+- **AI Workflow 單向審核流程（Commit `8eefbb0924121f3a199c547186306c5eeb722a31`）**：正式流程為 Photoshop First Run → FirstReview →（有 Needs Rerun 時）Photoshop Rerun → SecondReview → Completed。第一輪顯示核准／重新去背／之後手動換圖；第二輪只顯示核准／之後手動換圖，不得產生第三輪。未完成時 Close／Esc 不得離開；Completed 後顯示「AI 去背完成」，不得重新開啟素材審閱。Header 入口與狀態亦同步收斂。Manual Validation A1–E2 與 Code Review 全部 PASS。
 - **匯入素材資料夾（Direct Import，Commit `d5a22c86f203d1b5c795d808b1f6eb700a9c13d4`）**：Header 新增第二條素材入口「匯入素材資料夾」，供已完成去背、四周透明的 PNG 直接匯入。資料夾結構與檔名規則需和正式素材資料夾相同；此流程不啟動 SPX Helper、Photoshop 或 AI Workflow，不建立 Processed，也不進入素材審閱。素材完成 Matching 後直接進入既有 Approved Asset Runtime，後續沿用 Asset Resolver、autoTrim、Shadow、Canvas、手動換圖、Job 切換、PNG、單張暫存與完整專案。Jamie Manual Validation 全部 PASS。
 - **素材審閱在 Processed 不可用時顯示 Original（Bug Fix，Commit `c21c79e5e762598a35d6368fff5013ffd6ee21df`）**：有可用 Processed 的素材仍預設顯示 Processed；去背失敗、沒有 Processed，或 Processed 讀取失敗時，只要 Original 成功，中央預覽會直接建立 Editor 並顯示 Original，不需要手動切換。Original 讀取失敗維持既有錯誤處理。快速切換素材的既有防競態保護與 Original／Processed 切換不變；Navigator、Decision、Crop、Eraser 及其他流程均未修改。Jamie Manual Validation PASS。
-- **素材審閱新增「略過」決策（Commit `c2151987fae163d6e1c8af7f660f2823908846ca`）**：Decision Area 三顆按鈕改為核准／重新去背／略過，完整移除「撤回上一個決策」。略過會寫入 `status: "skipped"` 與 `review.decision: "skipped"`，保留 Auto Next，並成為目前 Project 不可解除的 Terminal State；不加入 Needs Rerun、不出現在第二輪 Review，也不進任何 Photoshop Manifest。Project State v5 JSON 匯出／匯入及手動換圖都保留 skipped；匯入新 CSV 則建立全新 Project，不沿用舊 skipped。
+- **素材審閱新增 `skipped` 決策（Commit `c2151987fae163d6e1c8af7f660f2823908846ca`）**：完整移除「撤回上一個決策」。`skipped` 保留 Auto Next，並成為目前 Project 不可解除的 Terminal State；不加入 Needs Rerun、不出現在第二輪 Review，也不進任何 Photoshop Manifest。其目前正式 UI 名稱已由 Commit `8eefbb0924121f3a199c547186306c5eeb722a31` 更新為「之後手動換圖」。
 - **已有有效透明背景素材略過 Remove Background（Commit `af30a4106b82e5661ae72d768f6af1141ad632fb`）**：非 Logo 素材由 Photoshop 開啟後會檢查實際影像是否已有有效透明背景；命中時只略過 Remove Background 動作，仍儲存 Processed PNG、回報 success、自動匯入並進入 Matching 與 Review Workspace，Run Report method 為 `existingTransparency`。不依 PNG 副檔名判斷，不透明 PNG 與 JPG 仍正常去背；Logo copy、fallback 與 failure contract 不變。First Run／Needs Rerun、後續 Download、Render、Import／Export 均維持既有流程。Jamie Manual Validation PASS；新版 JSX 已納入 SPX Helper `0.6.1` 的 macOS Local Packaging。
 - **Imported Job 切換後保留最後選擇 Style（Bug Fix，Commit `f19364d2fe4aa8f8652c36abbb7f8f2a851765ae`）**：從完整專案取出的 single-state JSON 匯入後，使用者更換 Style，再切換其他 Job 並返回時，Style selector 與 Canvas 都會保留最後選擇，不再恢復成匯入當下的舊 Style。普通 CSV Job 行為不變，Jamie Manual Validation PASS。
 - **1人＋1品手動換圖後商品圖區域維持收合（UI Bug Fix）**：修正 Person／Single Product 手動換圖完成後，無 mode 的 accordion defaults 將商品圖區域誤展開。現在初始載入、手動換圖及 Job 切換後，1人＋1品模式下的商品圖區域均維持收合；三商品版型行為不變。Jamie Manual Validation PASS。
@@ -296,13 +297,20 @@ macOS 正式使用方式：安裝 SPX Helper PKG 後，Helper 位於 `/Applicati
 SPX AD BN生成器
 ```
 
-Header 固定五個一般使用者入口：
+Header 固定四個一般使用者入口，順序如下：
 
 - 匯入CSV
 - 匯入暫存
-- 選擇素材資料夾
 - 匯入素材資料夾
-- 素材審核
+- 自動去背匯入素材
+
+Header 狀態規則：
+
+- 初始、CSV-only、Direct Import、`Idle`：不顯示素材審核或處理中。
+- Photoshop First Run／Rerun 實際執行時：顯示「處理中（N／N）」。
+- `FirstReview`／`SecondReview`：顯示素材審核入口。
+- `Completed`：隱藏素材審核／rerun，於「已匯入工單（N）」後顯示不可點擊的綠色「AI 去背完成」。
+- Header 不顯示「已套用文字」；文字套用與 `bn-text` postMessage 行為不變。
 
 「匯入暫存」只接受 JSON，支援一次選取一份或多份 single-state JSON。每份 JSON 必須只包含一個 Job；同一批檔案會先依完整檔名 Natural Sort（例如 `1.json`、`2.json`、`10.json`），再依序新增至左側 Job List 尾端。既有 Job 不會被覆蓋或重新排序，之後再次匯入的新批次也只會接續 append；整批完成後會選取本批第一個新增 Job。
 
@@ -312,7 +320,7 @@ Header 固定五個一般使用者入口：
 
 一般控制台可按 `ArrowUp`／`ArrowDown` 依目前 Job List 順序切換上一個／下一個 Job，第一筆與最後一筆不循環。切換使用既有 `selectJob()`；active Job Card 只在左側列表容器內自動捲動，整個頁面不會跟著捲動。焦點位於輸入控制項或按鈕時，以及 Main Canvas iframe、Modal、Editor、Review Workspace、Crop／Eraser等模式中，方向鍵不切換控制台 Job。素材審核選單開啟時仍可切換；素材審核按鈕取得焦點時不切換。
 
-素材審核選單：
+素材審核選單只在 `FirstReview`／`SecondReview` 顯示：
 
 - 匯入處理結果
 - 重新去背素材（N）
@@ -322,7 +330,7 @@ Header 固定五個一般使用者入口：
 
 ## 匯入素材資料夾（Direct Import）
 
-「匯入素材資料夾」是第二條獨立入口，不取代原本的「選擇素材資料夾 → SPX Helper → Photoshop → Processed → 素材審核」。
+「匯入素材資料夾」是第二條獨立入口，不取代「自動去背匯入素材 → SPX Helper → Photoshop → Processed → 素材審核」。
 
 適用條件：
 
@@ -350,7 +358,7 @@ Scope Boundary：本次未修改 `BNAssetResolver`、`BNAssetRenderPayload`、Re
   ↓
 匯入CSV
   ↓
-選擇素材資料夾（一次）
+自動去背匯入素材（選擇素材資料夾一次）
   ↓
 Photoshop Ready Check
   ↓
@@ -358,7 +366,7 @@ Processing Mode（背景自動處理，Control Center 鎖定）
   ↓
 自動 Import 並自動開啟素材審核（進入素材審閱工作區，自動選取第一筆）
   ↓
-核准 / 重新去背 / 略過
+FirstReview：核准 / 重新去背 / 之後手動換圖
 ```
 
 Control Center 選單內的「匯入處理結果」「重新去背素材（N）」等人工流程仍保留為既有備援入口，未被移除，可獨立於自動化流程使用。
@@ -367,7 +375,7 @@ Review Workspace（素材審閱）只檢查 Photoshop processed result。可操�
 
 - 核准：processed asset 可進入 Main Canvas / Thumbnail / Batch。
 - 重新去背：加入 Needs Rerun Collection。
-- 略過：放棄 Photoshop 去背，寫入 `skipped` 並 Auto Next；同一 Project 後續改由使用者手動換圖，不再送入 Photoshop。
+- 之後手動換圖：寫入既有 `skipped` 並 Auto Next；同一 Project 後續改由使用者手動換圖，不再送入 Photoshop。
 
 正式 Review Decision 只有 `approved`、`needs_rerun`、`skipped`。`skipped` 視為 Review 已完成且為目前 Project 的 Terminal State；它不加入 Needs Rerun、不計入「重新去背素材（N）」、不出現在第二輪 Review。`background_removal_failed` 仍只代表 Photoshop 系統處理失敗，與使用者略過不同。
 
@@ -397,8 +405,9 @@ Review Summary（進度、核准數、重新去背數、略過數、去背失敗
 
 - Header 只保留「素材審閱」標題與「關閉」。
 - 上一張／下一張不再是 Header 常駐按鈕，但仍可用 Navigator 點選或鍵盤 `←` / `→` 導航；Review Decision Undo 已完整移除。
-- 底部 Decision Area 三顆按鈕同列，由左至右：核准、重新去背、略過；三種決策皆保留 Auto Next（非循環導航）。
-- 已略過素材重新開啟時仍顯示 `skipped`，Decision 按鈕停用，A／R 快捷鍵也不會改寫終態。
+- 第一輪底部 Decision Area 三顆按鈕同列，由左至右：核准、重新去背、之後手動換圖；三種決策皆保留 Auto Next（非循環導航）。
+- 第二輪只顯示核准、之後手動換圖；不顯示或建立 disabled 的重新去背按鈕。
+- 已是 `skipped` 的素材維持終態，Decision 按鈕停用，A／R 快捷鍵也不會改寫。
 - 去背失敗素材（Photoshop 從未成功處理過）不顯示上述三顆按鈕，改顯示「此素材去背失敗，請回控制台手動更換圖片。」提示文字，並顯示原圖。若 Processed 不存在、為空或讀取失敗，只要 Original 成功，中央預覽會直接以 Original 建立 Editor；有可用 Processed 時仍預設顯示 Processed。
 
 ### Completion Screen（全部素材完成審閱）
@@ -409,18 +418,19 @@ Review Summary（進度、核准數、重新去背數、略過數、去背失敗
 - Needs Rerun > 0：額外顯示「X 個素材待重新去背」與「重新去背素材（X）」。
 - 去背失敗 > 0：額外顯示「X 個素材去背失敗，請回控制台手動更換圖片」，無對應 action 按鈕。
 
-完成判斷使用全域可審閱素材，不是目前 Filter 的結果；若切到「待重新去背」但該 Filter 目前是空的、而全域仍有未審閱素材，會顯示「目前沒有待重新去背的素材」，不會誤顯示成全部完成。去背失敗素材不計入可審閱素材或完成判斷，也不計入「重新去背素材（N）」的 N；即使還有去背失敗素材未處理，只要其餘素材都完成 Decision，仍會顯示「全部素材已完成審閱」。
+第一輪完成判斷使用全域可審閱素材；第二輪只依本輪 Needs Rerun 素材集合判斷。去背失敗素材不計入可審閱素材或完成判斷，也不計入「重新去背素材（N）」的 N。
 
-Completion Screen 不提供 Review Decision Undo。使用者仍可透過 Navigator 點選已完成素材重新進入編輯；`skipped` 維持 Terminal State，不提供解除或改回其他決策。
+Completion Screen 不提供 Review Decision Undo。AI Workflow 進入 `Completed` 後不得重新開啟 Review Workspace；`skipped` 維持 Terminal State，不提供解除或改回其他決策。
 
 ### 快捷鍵與工具
 
-- 快捷鍵：`A` 核准、`R` 重新去背、`←` 上一張、`→` 下一張、`Esc` 關閉。
+- 快捷鍵：`A` 核准、`R` 重新去背（僅第一輪）、`←` 上一張、`→` 下一張、`Esc` 關閉。第二輪按 `R` 不得寫入 `needs_rerun` 或觸發 rerun。
+- 尚有未完成素材時，右上角「關閉」與 `Esc` 都不得離開，固定提示「請先完成全部素材審核後再關閉。」
 - Review Workspace 不提供固定拖曳工具；按住 `Space` 可暫時 Pan，放開後回到原工具。
 
 ### 重新去背素材（N）
 
-`重新去背素材（N）` 代表目前需要重新去背的素材數量。`N=0` 時不可執行。點擊後會串接 AI Workflow：重新執行一次 Ready Check、重新進入 Processing Mode（Photoshop 全程保持開啟，不重新啟動），完成後自動回到素材審閱，Filter 自動切到「待重新去背」，只顯示本輪重新處理的素材子集，不 Auto Approve；一般 UI 不顯示 Photoshop / Manifest 等技術術語。系統不會自動啟動 Photoshop App，使用者需自行先開啟 Photoshop。Control Center 選單內原本呼叫 `exportPhotoshopRerunManifest` 的人工匯出流程仍保留，作為獨立備援入口。
+`重新去背素材（N）` 只可由 `FirstReview` 啟動。點擊後串接 AI Workflow：重新執行一次 Ready Check、重新進入 Processing Mode（Photoshop 全程保持開啟，不重新啟動），完成後自動進入 `SecondReview`，Filter 自動切到「待重新去背」，只顯示本輪重新處理的素材子集，不 Auto Approve。`SecondReview` 不提供重新去背，不得建立第三輪；全部素材完成 decision 後進入 `Completed`。
 
 `skipped` 不屬於 Needs Rerun，因此既有 Rerun Manifest 不會包含它；完整 Photoshop Manifest 也會排除 `status === skipped`。兩種 Manifest schema 均未改變。
 
@@ -501,7 +511,7 @@ Project JSON 匯出／匯入會保留 skipped status 與 review decision。匯�
 1. 使用者先自行開啟 Photoshop。
 2. 使用者開啟 SPX AD 生成器。
 3. 匯入 CSV。
-4. 選擇素材資料夾（一次；選擇時一併取得後續寫入 Processed／ 所需的權限）。
+4. 點擊「自動去背匯入素材」並選擇素材資料夾（一次；選擇時一併取得後續寫入 Processed／ 所需的權限）。
 5. 系統執行 Photoshop Ready Check。
 6. 若未通過，顯示「Photoshop 已關閉。請重新開啟 Photoshop。開啟後按「重新檢查」即可繼續。」；使用者開啟 Photoshop 後按「重新檢查」即可繼續，不需要重新選擇 CSV / 素材資料夾。
 7. Ready Check 通過後，系統進入 Processing Mode：
@@ -511,16 +521,17 @@ Project JSON 匯出／匯入會保留 skipped status 與 review decision。匯�
    完成後將自動帶入素材審閱。
 8. 背景處理期間 Control Center 不可操作（不可修改文字、不可切換工單、不可下載、不可開始新的工作）。
 9. 完成後顯示：素材處理完成（停留約 0.8 秒，此時間只屬於 UI 轉場，不是處理完成的判定依據）。
-10. 系統自動開啟素材審閱並自動選取第一筆素材，使用者不需要再按「開啟素材審核」：核准 / 重新去背 / 略過 / 裁切 / 橡皮擦。
-11. Needs Rerun = 0 → 返回控制台。
-12. Needs Rerun > 0 → 點擊「重新去背素材（N）」，系統重新執行 Ready Check 後再次進入相同的 Processing Mode（Photoshop 全程保持開啟，不重新啟動），完成後自動回到素材審閱，Filter 自動切到「待重新去背」，只顯示本輪重新處理的素材，核准後自動顯示下一筆，不會誤跳回完成畫面。
-13. 重複至 Needs Rerun = 0，Workflow 結束。
-14. 若有素材去背失敗（去背失敗獨立分類 Bug Fix；Photoshop 從未成功處理過），Completion Screen 另外顯示「X 個素材去背失敗，請回控制台手動更換圖片」；此提示不影響「全部素材已完成審閱」的顯示，也不計入「重新去背素材（N）」的 N。使用者需回控制台手動更換圖片，再自行重新走一次流程。
+10. 系統自動進入 `FirstReview` 並選取第一筆素材，使用者不需要再按「開啟素材審核」；第一輪提供核准／重新去背／之後手動換圖，以及既有裁切／橡皮擦。
+11. Needs Rerun = 0 → 全部 decision 完成後進入 `Completed`。
+12. Needs Rerun > 0 → 點擊「重新去背素材（N）」，系統重新執行 Ready Check 後再次進入相同的 Processing Mode（Photoshop 全程保持開啟，不重新啟動），完成後自動進入 `SecondReview`，Filter 固定為「待重新去背」，只顯示本輪重新處理的素材。
+13. `SecondReview` 只提供核准／之後手動換圖；不顯示重新去背，`R` 與其他 decision 入口均不得寫入 `needs_rerun`。全部素材完成 decision 後進入 `Completed`，不存在第三輪 Rerun。
+14. 返回控制台後隱藏素材審核／rerun 與處理中，顯示不可點擊的綠色「AI 去背完成」；不得重新開啟 Review Workspace 或重新去背。
+15. 若有素材去背失敗（去背失敗獨立分類 Bug Fix；Photoshop 從未成功處理過），Completion Screen 另外顯示「X 個素材去背失敗，請回控制台手動更換圖片」；此提示不影響完成判斷，也不計入「重新去背素材（N）」的 N。
 ```
 
 若過程中發生失敗，畫面會顯示對應復原提示（「Photoshop 已關閉」「素材處理失敗」「無法寫入處理結果」「無法開啟素材審閱」）與對應動作（「重新檢查」「重試」「重新授權」「重新開啟素材審閱」），Global Interaction Lock 持續維持直到復原成功並進入素材審閱；Retry 不會重複觸發 Photoshop，也不會遺漏已成功的部分。部分素材去背失敗（至少一張成功）不顯示上述整批 Recovery 提示——直接進入素材審閱，失敗素材改以「去背失敗」呈現（見上方 Completion Screen 說明）；只有全部素材皆處理失敗時才會顯示「素材處理失敗」與「重試」。
 
-使用者始終只看到工作語言（素材處理中、素材處理完成、素材審閱、核准、重新去背、略過、待重新去背、重新去背素材（N）、去背失敗、請回控制台手動更換圖片）與上述核可的復原提示；不會看到 Manifest、Runtime、Processed Folder、executionId 等技術詞彙。「素材處理完成」後直接自動進入素材審閱，不存在獨立的「等待審閱」中繼狀態。
+使用者始終只看到工作語言（處理中、素材處理完成、素材審閱、核准、重新去背、之後手動換圖、待重新去背、重新去背素材（N）、AI 去背完成、去背失敗、請回控制台手動更換圖片）與上述核可的復原提示；不會看到 Manifest、Runtime、Processed Folder、executionId 等技術詞彙。「素材處理完成」後直接自動進入素材審閱，不存在獨立的「等待審閱」中繼狀態。
 
 本次 skipped 功能只修改 Browser 端 Review Workspace、Asset Pipeline、Manifest 與 Project JSON 串接；SPX Helper、Python Runtime、Photoshop JSX、Windows／macOS Helper、Ready／Execute／Status Contract、Packaging 與 Installer 均未修改。
 
