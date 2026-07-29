@@ -56,8 +56,8 @@
 //
 // Global Interaction Lock 規則（Phase 6 落實）：
 //   - Lock 只在 Execute Accepted 之後（phase 進入 processing）才 enter()，
-//     在 phase 進入共用的 'Review' 之後才 exit()——中間任何 Phase 6 新增的
-//     失敗分支都不會提前解除。
+//     在 phase 進入 FirstReview／SecondReview 之後才 exit()——中間任何
+//     Phase 6 新增的失敗分支都不會提前解除。
 //   - Ready Check／Execute 相關的失敗分支（readyCheckFailed／
 //     executeRejected／manifestConflict）都發生在 enter() 之前，Lock 從未
 //     進入，使用者本來就能自由操作既有 UI（不需要特別放寬）。
@@ -141,10 +141,8 @@
   }
 
   // 「正在進行中」的狀態——start()／startRerun() 都不允許在這些狀態下重
-  // 入。除此之外的任何狀態（Idle／Review／任何一種失敗分支）都允許重新開
-  // 始一輪 First Run（start()）；startRerun() 額外要求必須是從 'Review'
-  // 或某個 Rerun 前綴的狀態觸發（見 startRerun()），避免從 Idle 或 First
-  // Run 的失敗分支誤觸發 Rerun。
+  // 入。FirstReview／SecondReview／Completed 是同一個 AI Workflow 的三個
+  // Review 邊界；只有 FirstReview 可以開始產品定義的唯一一次 Rerun。
   var MID_FLIGHT_KEYS = ['awaitingReadyCheck', 'buildingManifest', 'processing', 'awaitingExecution', 'autoImporting', 'openingReview'];
   var MID_FLIGHT_PHASES = {};
   MID_FLIGHT_KEYS.forEach(function (key) {
@@ -227,11 +225,11 @@
     return true;
   }
 
-  // Rerun 入口：只能從 Review 或某個 Rerun 前綴的狀態（前一次 Rerun 的失敗
-  // 分支，供 Retry 用）觸發。
+  // Rerun 入口：正常流程只能從 FirstReview 觸發一次；Rerun 前綴狀態保留給
+  // 既有同一輪 Recovery Retry。SecondReview／Completed 不得再建立新 Rerun。
   function startRerun(getPipelineState, lookupAssetFn, getAssetFolderHandle, openReviewFn, onProcessedAssetsWritten) {
     if (MID_FLIGHT_PHASES[phase]) return false;
-    if (phase !== 'Review' && phase.indexOf('Rerun') !== 0) return false;
+    if (phase !== 'FirstReview' && phase.indexOf('Rerun') !== 0) return false;
     if (!global.BNAIWorkflowReadyCheck) return false;
 
     lastAttempt = {
@@ -280,9 +278,9 @@
     }
 
     if (!manifest || !manifest.itemCount) {
-      // 沒有素材可送出：First Run 回到 Idle；Rerun 回到 Review（使用者仍在
-      // 檢視既有審核結果）。兩種情況都不進入 Processing Mode。
-      setPhase(a.runMode === 'rerun' ? 'Review' : 'Idle');
+      // 沒有素材可送出：First Run 回到 Idle；Rerun 回到第一次審核。兩種情
+      // 況都不進入 Processing Mode。
+      setPhase(a.runMode === 'rerun' ? 'FirstReview' : 'Idle');
       return;
     }
     a.manifest = manifest;
@@ -465,9 +463,10 @@
     setPhase(phaseFor('openingReview', a.runMode));
 
     var reviewMode = a.runMode === 'rerun' ? 'needs_rerun' : 'all';
+    var reviewStage = a.runMode === 'rerun' ? 'second' : 'first';
     var opened = false;
     try {
-      opened = typeof a.openReviewFn === 'function' ? !!a.openReviewFn(reviewMode) : false;
+      opened = typeof a.openReviewFn === 'function' ? !!a.openReviewFn(reviewMode, reviewStage) : false;
     } catch (e) {
       opened = false;
     }
@@ -477,8 +476,15 @@
       return;
     }
 
-    setPhase('Review');
+    setPhase(reviewStage === 'second' ? 'SecondReview' : 'FirstReview');
     if (global.BNAIWorkflowProcessingMode) global.BNAIWorkflowProcessingMode.exit();
+  }
+
+  function completeReview(reviewStage) {
+    var expectedPhase = reviewStage === 'second' ? 'SecondReview' : 'FirstReview';
+    if (phase !== expectedPhase) return false;
+    setPhase('Completed');
+    return true;
   }
 
   // ---- Phase 6：Retry 機制（唯一、集中的實作，見檔頭 Recovery State Model）----
@@ -599,5 +605,6 @@
     onPhaseChange: onPhaseChange,
     getRecoveryContext: getRecoveryContext,
     retry: retry,
+    completeReview: completeReview,
   };
 })(window);

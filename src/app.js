@@ -16,6 +16,7 @@ const el = {
   previewLoader:    document.querySelector('#preview-loader'),
   statusText:       document.querySelector('#system-status .status-text'),
   statusPill:       document.querySelector('#system-status'),
+  aiWorkflowCompleteStatus: document.querySelector('#ai-workflow-complete-status'),
   jobList:          document.querySelector('#job-list'),
   addJobBtn:        document.querySelector('#add-job-btn'),
   importBtn:        document.querySelector('#import-btn'),
@@ -23,6 +24,7 @@ const el = {
   importStateBtn:    document.querySelector('#import-state-btn'),
   importStateFile:   document.querySelector('#import-state-file'),
   assetReviewMenuBtn: document.querySelector('#asset-review-menu-btn'),
+  assetReviewEntry:   document.querySelector('#asset-review-entry'),
   assetReviewMenu:    document.querySelector('#asset-review-menu'),
   assetReviewEntryText: document.querySelector('#asset-review-entry-text'),
   manifestBtn:       document.querySelector('#manifest-btn'),
@@ -186,8 +188,22 @@ function getAssetReviewStats() {
   return { summary, total, reviewable, pendingReview, completed, needsRerunCount };
 }
 
-function formatAssetReviewEntryText(stats = getAssetReviewStats()) {
-  if (stats.total && stats.reviewable < stats.total) {
+function getAiWorkflowPhase() {
+  return window.BNAIWorkflowOrchestrator?.getPhase?.() || 'Idle';
+}
+
+function aiReviewStageForPhase(phase = getAiWorkflowPhase()) {
+  if (phase === 'FirstReview') return 'first';
+  if (phase === 'SecondReview') return 'second';
+  return '';
+}
+
+function formatAssetReviewEntryText(stats = getAssetReviewStats(), workflowPhase = getAiWorkflowPhase()) {
+  const isPhotoshopProcessing = workflowPhase === 'Processing'
+    || workflowPhase === 'AwaitingExecution'
+    || workflowPhase === 'RerunProcessing'
+    || workflowPhase === 'RerunAwaitingExecution';
+  if (isPhotoshopProcessing) {
     return `處理中（${stats.reviewable} / ${stats.total}）`;
   }
   if (stats.pendingReview > 0) {
@@ -207,8 +223,25 @@ function setAssetReviewMenuOpen(open) {
 
 function updateAssetReviewControls() {
   const stats = getAssetReviewStats();
+  const workflowPhase = getAiWorkflowPhase();
+  const isAiWorkflowSource = assetSourceMode === 'folder';
+  const isReviewPhase = workflowPhase === 'FirstReview' || workflowPhase === 'SecondReview';
+  const isPhotoshopProcessing = workflowPhase === 'Processing'
+    || workflowPhase === 'AwaitingExecution'
+    || workflowPhase === 'RerunProcessing'
+    || workflowPhase === 'RerunAwaitingExecution';
+  const isAiWorkflowCompleted = assetSourceMode === 'folder' && workflowPhase === 'Completed';
+  const showReviewEntry = isAiWorkflowSource && (isReviewPhase || isPhotoshopProcessing);
+  const hideReviewEntry = !showReviewEntry;
+  if (el.assetReviewEntry) {
+    el.assetReviewEntry.style.display = hideReviewEntry ? 'none' : 'inline-flex';
+  }
+  if (hideReviewEntry) setAssetReviewMenuOpen(false);
+  if (el.aiWorkflowCompleteStatus) {
+    el.aiWorkflowCompleteStatus.style.display = isAiWorkflowCompleted ? 'inline-flex' : 'none';
+  }
   if (el.assetReviewEntryText) {
-    el.assetReviewEntryText.textContent = formatAssetReviewEntryText(stats);
+    el.assetReviewEntryText.textContent = formatAssetReviewEntryText(stats, workflowPhase);
   }
   if (el.manifestBtn) {
     el.manifestBtn.disabled = !jobs.length || !assetFolderName || !Object.keys(assetIndex || {}).length;
@@ -218,11 +251,12 @@ function updateAssetReviewControls() {
   }
   if (el.rerunManifestBtn) {
     el.rerunManifestBtn.textContent = `重新去背素材（${stats.needsRerunCount}）`;
-    el.rerunManifestBtn.disabled = stats.needsRerunCount <= 0;
-    el.rerunManifestBtn.classList.toggle('is-disabled', stats.needsRerunCount <= 0);
+    const rerunDisabled = hideReviewEntry || stats.needsRerunCount <= 0;
+    el.rerunManifestBtn.disabled = rerunDisabled;
+    el.rerunManifestBtn.classList.toggle('is-disabled', rerunDisabled);
   }
   if (el.reviewAssetsBtn) {
-    el.reviewAssetsBtn.disabled = stats.reviewable <= 0;
+    el.reviewAssetsBtn.disabled = hideReviewEntry || stats.reviewable <= 0;
   }
   return stats;
 }
@@ -948,7 +982,6 @@ function sendRecord(record) {
       '不放案型日期或警語可在14個字':  record.disclaimer  || '',
     },
   }, '*');
-  setStatus('已套用文字', 'success');
   scheduleActiveJobThumbnailUpdate();
   return true;
 }
@@ -1160,6 +1193,7 @@ function maybeRunAiWorkflowReadyCheck() {
       autoOpenReviewWorkspaceForAiWorkflow,
       onAiWorkflowProcessedAssetsWritten
     );
+    updateAssetReviewControls();
   }
 }
 
@@ -1691,6 +1725,10 @@ async function refreshMainCanvasApprovedAssetsForActiveJob(reason = '') {
 }
 
 function openAssetReviewWorkspace(options = {}) {
+  const workflowPhase = getAiWorkflowPhase();
+  if (assetSourceMode === 'direct' || (assetSourceMode === 'folder' && workflowPhase === 'Completed')) {
+    return;
+  }
   if (!window.BNAssetReviewWorkspace?.open) {
     setStatus('素材審核工作區尚未載入。', 'error');
     return;
@@ -1706,10 +1744,27 @@ function openAssetReviewWorkspace(options = {}) {
     return;
   }
   const reviewAssetKeys = options.reviewAssetKeys || activeRerunReviewAssetKeys();
+  const aiReviewStage = options.aiReviewStage || aiReviewStageForPhase(workflowPhase);
   window.BNAssetReviewWorkspace.open({
     pipelineState: assetPipelineState,
     initialReviewMode: options.initialReviewMode || (reviewAssetKeys?.length ? 'needs_rerun' : undefined),
     reviewAssetKeys,
+    aiReviewStage,
+    requireCompleteBeforeClose: !!aiReviewStage,
+    canClose(closeContext) {
+      if (closeContext?.reviewStage === 'first') {
+        return Number(closeContext.needsRerunCount || 0) === 0;
+      }
+      return true;
+    },
+    onClose() {
+      if (!aiReviewStage) return true;
+      const completed = window.BNAIWorkflowOrchestrator?.completeReview?.(aiReviewStage) === true;
+      if (!completed) return false;
+      clearStatus();
+      updateAssetReviewControls();
+      return true;
+    },
     selectedAssetKey: options.selectedAssetKey,
     resolveOriginalImage: resolveReviewOriginalImage,
     resolveProcessedImage: resolveReviewProcessedImage,
@@ -1751,14 +1806,17 @@ function openAssetReviewWorkspace(options = {}) {
 // reviewMode !== 'needs_rerun' 時（First Run）主動清空
 // reviewWorkspaceRerunAssetKeys，避免殘留上一輪 Rerun 的子集快照，誤將
 // 「全部素材」畫面限制成只顯示舊的 rerun 子集。
-function autoOpenReviewWorkspaceForAiWorkflow(reviewMode) {
+function autoOpenReviewWorkspaceForAiWorkflow(reviewMode, reviewStage) {
   if (!window.BNAssetReviewWorkspace?.open) return false;
   if (!assetPipelineState) refreshAssetPipelineState();
   if (!assetPipelineState) return false;
   const summary = window.BNAssetPipelineState?.getReviewSummary?.(assetPipelineState);
   if (!summary || !summary.reviewable) return false;
   if (reviewMode !== 'needs_rerun') reviewWorkspaceRerunAssetKeys = [];
-  openAssetReviewWorkspace({ initialReviewMode: reviewMode || 'all' });
+  openAssetReviewWorkspace({
+    initialReviewMode: reviewMode || 'all',
+    aiReviewStage: reviewStage || (reviewMode === 'needs_rerun' ? 'second' : 'first'),
+  });
   return true;
 }
 
@@ -1775,6 +1833,7 @@ function autoOpenReviewWorkspaceForAiWorkflow(reviewMode) {
 // Rule 5）；沿用同一個已保留的 FileSystemDirectoryHandle（Product Rule
 // 6／7，getAssetFolderHandle 不變）。
 function runAiWorkflowRerun() {
+  if (getAiWorkflowPhase() !== 'FirstReview') return;
   if (!assetPipelineState) refreshAssetPipelineState();
   if (!assetPipelineState) return;
   const rerunAssetKeysBeforeImport = window.BNAssetPipelineState?.getNeedsRerunAssets?.(assetPipelineState)
@@ -1785,9 +1844,9 @@ function runAiWorkflowRerun() {
     () => assetPipelineState || refreshAssetPipelineState(),
     lookupAsset,
     getAssetFolderHandle,
-    (reviewMode) => {
+    (reviewMode, reviewStage) => {
       reviewWorkspaceRerunAssetKeys = rerunAssetKeysBeforeImport.slice();
-      return autoOpenReviewWorkspaceForAiWorkflow(reviewMode);
+      return autoOpenReviewWorkspaceForAiWorkflow(reviewMode, reviewStage);
     },
     onAiWorkflowProcessedAssetsWritten
   );
@@ -4895,6 +4954,7 @@ el.reviewAssetsBtn?.addEventListener('click', openAssetReviewWorkspace);
 // presentation 結果轉交給 Processing Mode Controller 顯示／隱藏，並把按下
 // 按鈕的動作原封不動轉交給 Orchestrator 唯一的 retry(kind) 入口。
 function renderAiWorkflowRecoveryUI() {
+  updateAssetReviewControls();
   const presentation = window.BNAIWorkflowRecovery?.getPresentation?.();
   if (!presentation) {
     window.BNAIWorkflowProcessingMode?.hideRecovery?.();

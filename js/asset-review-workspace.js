@@ -342,11 +342,42 @@
     });
   }
 
+  function isSecondReview() {
+    return currentOptions?.aiReviewStage === 'second';
+  }
+
+  function isRequiredReviewComplete() {
+    if (!isSecondReview()) return isGlobalReviewComplete();
+    var requiredKeys = Object.keys(runtimeReviewAssetKeys || {});
+    if (!requiredKeys.length) return false;
+    return requiredKeys.every(function (assetKey) {
+      var status = currentOptions.pipelineState?.assets?.[assetKey]?.status || 'pending';
+      return status === 'approved' || status === 'skipped';
+    });
+  }
+
   function requestClose() {
-    runGuarded(close);
+    runGuarded(function () {
+      var complete = isRequiredReviewComplete();
+      if (complete && typeof currentOptions.canClose === 'function') {
+        complete = currentOptions.canClose({
+          reviewStage: currentOptions.aiReviewStage || '',
+          needsRerunCount: getNeedsRerunAssets().length,
+        }) !== false;
+      }
+      if (!complete && currentOptions.requireCompleteBeforeClose) {
+        showToast('請先完成全部素材審核後再關閉。');
+        return;
+      }
+      if (typeof currentOptions.onClose === 'function' && currentOptions.onClose() === false) {
+        return;
+      }
+      close();
+    });
   }
 
   function requestDecision(assetKey, decision) {
+    if (isSecondReview() && decision === 'needs_rerun') return;
     runGuarded(function () { decide(assetKey, decision); });
   }
 
@@ -507,20 +538,23 @@
       var approveDecisionButton = button('asset-review-action approve', '核准', function () {
         requestDecision(asset.assetKey, 'approved');
       });
-      var rerunDecisionButton = button('asset-review-action rerun', '重新去背', function () {
-        requestDecision(asset.assetKey, 'needs_rerun');
-      });
-      var skipDecisionButton = button('asset-review-action skip', '略過', function () {
+      var skipDecisionButton = button('asset-review-action skip', '之後手動換圖', function () {
         requestDecision(asset.assetKey, 'skipped');
       });
+      var rerunDecisionButton = null;
+      if (!isSecondReview()) {
+        rerunDecisionButton = button('asset-review-action rerun', '重新去背', function () {
+          requestDecision(asset.assetKey, 'needs_rerun');
+        });
+      }
       if ((asset.status || 'pending') === 'skipped') {
-        [approveDecisionButton, rerunDecisionButton, skipDecisionButton].forEach(function (decisionButton) {
+        [approveDecisionButton, rerunDecisionButton, skipDecisionButton].filter(Boolean).forEach(function (decisionButton) {
           decisionButton.disabled = true;
           decisionButton.classList.add('is-disabled');
         });
       }
       actions.appendChild(approveDecisionButton);
-      actions.appendChild(rerunDecisionButton);
+      if (rerunDecisionButton) actions.appendChild(rerunDecisionButton);
       actions.appendChild(skipDecisionButton);
       target.appendChild(actions);
     }
@@ -603,7 +637,7 @@
     }
 
     var actions = el('div', 'asset-review-completion-actions');
-    if (needsRerunCount > 0) {
+    if (needsRerunCount > 0 && !isSecondReview()) {
       var rerunButton = button('asset-review-completion-btn rerun', '重新去背素材（' + needsRerunCount + '）', requestRunRerun);
       if (typeof currentOptions.onRunRerun !== 'function') {
         rerunButton.disabled = true;
@@ -639,6 +673,7 @@
   // 頭到尾都不包含這個分類，語意與修改前的 currentAssets 完全一致。
   function isCurrentFilterComplete() {
     if (currentReviewMode === 'background_removal_failed') return false;
+    if (isSecondReview()) return isRequiredReviewComplete();
     if (!currentCompletableAssets.length) return true;
     if (currentReviewMode === 'needs_rerun') return false;
     return currentCompletableAssets.every(isAssetReviewed);
@@ -737,7 +772,7 @@
     }
     if (key.toLowerCase() === 'r') {
       event.preventDefault();
-      if (selectedAssetKey && currentOptions.pipelineState?.assets?.[selectedAssetKey]?.status !== 'skipped') {
+      if (!isSecondReview() && selectedAssetKey && currentOptions.pipelineState?.assets?.[selectedAssetKey]?.status !== 'skipped') {
         requestDecision(selectedAssetKey, 'needs_rerun');
       }
     }
