@@ -1,5 +1,15 @@
 # AI-HANDOFF.md
 
+## 右側欄文字即時同步 Canvas 完成（2026-07-30）
+
+- Code Commit：`40227ca17d7b5c1bc067c8b52f96686c8f7f6092`（`feat: replace manual text apply with live canvas sync`）。
+- Root Cause：主標、副標、日期／警語原本只在輸入時更新計數與 active Job；Canvas 必須另外按「套用文字到模板」才會呼叫既有驗證與 `sendRecord()`。
+- Current Flow：已移除「套用文字到模板」按鈕。三個文字欄位在非 composition 的 `input`、`blur` 與 Enter 直接沿用 `runBanwordCheck()`、`banwordEngine`、`currentRecord()`、`validateRecord()`、`sendRecord()` 同步目前 Job；Enter 不插入換行。
+- IME Boundary：`compositionstart` 後不送出中間字串，Enter 同時受 composition flag、`event.isComposing` 與 `keyCode === 229` 保護；`compositionend` 立即同步最終文字。同步入口只有局部 boolean re-entry guard，用於避免禁用語引擎改寫欄位並 dispatch input 時重入。
+- Validation Boundary：既有禁用語、自動替換、允許字元清理、數字／日期格式、Toast、8／7／14 字限制與 0.5 字算法全部沿用；驗證未通過時 Canvas 保留最後合法內容。若引擎改寫欄位，input、active Job 與 Canvas 均保存／顯示清理後內容。active Job 的三欄明確皆為空字串時仍送出空的 `bn-text` 以清空 Canvas；無 active Job 或無效 record 仍不送出。
+- Render Boundary：文字同步只更新目前 Job，並透過既有 `bn-text` postMessage 更新 Canvas 文字節點；不 reload iframe、不重建 Template、不重新載入圖片，也不修改 Canvas 排版、Template、Style、CSV 初始套用、暫存、素材、QRCode、Batch、Export 或 Project State schema／serialization 邏輯。
+- Validation：Browser Validation 全部 PASS；Jamie Manual Validation（含原生中文 IME composition、選字與 Enter）全部 PASS；Console error 為 0，未觀察到 iframe reload 或新增 network request。
+
 ## 右側欄手動換圖驗證修正完成（2026-07-30）
 
 - Code Commit：`8cb7c27c71d664ececb6b57487e921a3f0c44839`（`fix: validate manual image replacements before commit`）。
@@ -745,7 +755,7 @@ QR Code 已完成 Coding、Browser Validation 與 Jamie Manual Validation（功�
 - 每個 Job 擁有一組 QR Code，由 CSV 的 `QRcode` 欄位網址自動產生；使用者可於控制台右側欄修改網址，系統依網址重新產生 QR Code。不使用使用者自行準備的 QR Code 圖片。
 - CSV 欄位比對：找到清理後（移除欄名換行後的第一行）**剛好等於** `QRcode`（不分大小寫）的欄位。真實入稿表同一列裡還有「QRcode統一導shop...」「QRcode雲端(SPX填寫)」等 SPX 內部後續流程欄位，同樣含 QRcode 字樣但通常是空的；比對邏輯必須精準排除這些欄位，不能用「只要含 QRcode 字樣」的寬鬆比對，否則會被覆蓋成空值。
 - 網址驗證：自動 trim、未含 Protocol 自動補上 `https://`、含空白字元一律視為非法；輸入框、Project State、QR Code 產生與檢查網址連結四處皆使用補完 Protocol 後的同一個值。
-- 控制台右側欄固定順序：主標／副標／小字之後、Logo 之前；不提供拖曳、縮放、旋轉或縮圖預覽，獨立於「套用文字到模板」按鈕之外。
+- 控制台右側欄固定順序：主標／副標／小字之後、Logo 之前；不提供拖曳、縮放、旋轉或縮圖預覽，並與三個文字欄位的即時同步流程保持獨立。
 - Template 新增 `qrZone`（四個尺寸皆有 Locked Visual Baseline 固定座標，不可調整）與 `layerOrder.qrCode = 48`（固定位於既有 `info` 圖層之上）。
 - Library：`soldair/node-qrcode`，與 `tools/qrcode-demo/`（技術驗證 demo）共用同一份 vendored 檔案。固定 ECC Level `M`、黑碼白底。
 - `job.qrCodeUrl` 為字串欄位，直接隨 Project State 保存與還原，不透過 `_embeddedAssets` 或 processed asset 機制。

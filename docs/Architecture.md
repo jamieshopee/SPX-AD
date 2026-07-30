@@ -337,6 +337,31 @@ Preview / Export
 7. `box-transform-utils.js` 控制可手動 transform 的物件。
 8. Capture 輸出 preview、thumbnail 或 PNG。
 
+### 右側欄文字同步
+
+主標、副標、日期／警語沿用同一條既有驗證與 Canvas 傳遞鏈：
+
+```text
+文字欄位
+  ↓ input / blur / Enter（composition 期間暫停）
+updateCounters() + saveCurrentJobData()
+  ↓
+runBanwordCheck() / banwordEngine
+  ↓
+currentRecord()
+  ↓
+validateRecord()
+  ↓
+sendRecord()
+  ↓ bn-text postMessage
+目前 Canvas 的文字節點
+```
+
+- 非 composition 的 `input` 直接同步，不使用 debounce、`requestAnimationFrame` 或 render queue；`blur` 與 Enter 立即同步，Enter 不插入換行。`compositionend` 只同步輸入法確認後的最終文字。
+- 禁用語引擎若改寫欄位，active Job 與 Canvas 只接收清理後內容；驗證失敗時不送出 record，Canvas 保留最後合法文字。
+- `sendRecord()` 仍要求 active Job 與有效文字 record；唯一空值例外是 active Job 的三個文字欄位明確皆為空字串，此時送出空的 `bn-text` 以清除 Canvas。
+- 此路徑只更新目前 Job 與既有 Canvas 文字節點，不 reload iframe、不重建 Template、不重新載入圖片，也不修改 layoutState、Canvas 文字排版、Template、Style、CSV 初始套用或 Project State schema。
+
 ## Template
 
 Template 負責排版結構。
@@ -1072,7 +1097,7 @@ Locked Visual Baseline：
 ### 邊界（QR Code，Locked）
 
 - 不提供使用者調整 QR Code 位置、大小、比例、樣式或 Error Correction Level。
-- 不綁定「套用文字到模板」按鈕；更新時機固定為貼上網址、Enter、失焦。
+- QRCode 更新與三個文字欄位的即時同步流程保持獨立；更新時機固定為貼上網址、Enter、失焦。
 - 不修改 Asset Pipeline、Review Workspace、Approved Asset Resolver、`layoutStates` schema 或 Project State schema 版號。
 - 不修改 Main Canvas / Thumbnail / Batch Render 既有商品身份與 layoutState 邏輯。
 

@@ -181,6 +181,13 @@ Toolbar 顯示：
 
 文字欄位固定在上方，QRCode 區塊固定於文字欄位之後、Logo 之前。Logo、商品圖、1人＋1品使用 Accordion。
 
+主標、副標、日期／警語不提供額外的「套用文字到模板」按鈕，欄位操作固定如下：
+
+- 非中文輸入法組字期間，每次 `input` 直接同步目前 Job 與 Canvas；`blur` 與 Enter 立即同步，Enter 不插入換行。
+- 中文輸入法 composition 期間不得將中間字串送入 Canvas；選字 Enter 不得提前提交，`compositionend` 後立即同步最終文字。
+- 保留既有禁用語、自動替換、允許字元清理、數字／日期格式、Toast、8／7／14 字限制與 0.5 字算法。驗證未通過時 Canvas 保留最後合法內容；自動替換後 input、active Job 與 Canvas 必須一致。
+- active Job 的三個文字欄位全部清空時，Canvas 文字亦全部清空。
+
 素材上傳區塊固定使用以下精簡文案，不在 Upload Box 下方顯示常駐說明文字：
 
 - Logo 標題：`Logo（最多3張）`；Upload Box：`＋ 點擊或拖曳上傳 Logo`。
@@ -213,7 +220,7 @@ Logo、Products 與 1人＋1品 Upload Box 下方各有具名的 transient inlin
 - 拖曳、縮放、旋轉。
 - 樣式設定（顏色、Error Correction Level 皆固定，不開放調整）。
 
-更新時機固定為貼上網址（自動套用）、Enter、失焦；不綁定「套用文字到模板」按鈕，兩者各自獨立觸發。
+更新時機固定為貼上網址（自動套用）、Enter、失焦；QRCode 與三個文字欄位的即時同步流程各自獨立觸發。
 
 Accordion 規則：
 

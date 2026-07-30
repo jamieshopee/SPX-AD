@@ -437,7 +437,7 @@ QR Code 已完成並列入 Locked Completed Phase（功能 Commit `79de045`、Ta
 - CSV 欄位比對規則為 Locked：找出清理後（移除欄名內換行後的第一行）**剛好等於** `QRcode`（不分大小寫）的欄位，不得改回「只要包含 QRcode 字樣」的寬鬆比對——真實入稿表同一列裡還有其他同樣含 QRcode 字樣、但屬於 SPX 內部後續流程且通常是空的欄位（例如「QRcode統一導shop...」「QRcode雲端(SPX填寫)」），寬鬆比對會被這些欄位覆蓋掉。
 - 網址驗證規則為 Locked：自動 trim、未含 Protocol 自動補上 `https://`、含空白字元視為非法；輸入框、Project State、QR Code 產生、檢查網址連結四處必須使用同一個補完後的值，不得只在部分位置正規化。
 - 四個尺寸的 Locked Visual Baseline 座標（`qrZone`）與 `layerOrder.qrCode = 48` 不得調整；QR Code 不提供拖曳、縮放、旋轉或使用者自訂樣式。
-- 控制台右側欄 QRCode 區塊固定順序（主標／副標／小字之後、Logo 之前），獨立於「套用文字到模板」按鈕之外，不得合併或綁定既有按鈕行為。
+- 控制台右側欄 QRCode 區塊固定順序（主標／副標／小字之後、Logo 之前），與三個文字欄位的即時同步流程保持獨立，不得合併或綁定文字欄位事件。
 - 未修改 Asset Pipeline、Review Workspace、Approved Asset Resolver、Photoshop Pipeline、`layoutStates` schema 或 Project State schema 版號；`job.qrCodeUrl` 為向下相容的新增字串欄位。
 
 ## AI Workflow Documentation Sync（已執行）

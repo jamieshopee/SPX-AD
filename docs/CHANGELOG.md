@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## 右側欄文字即時同步 Canvas - 2026-07-30
+
+Status：**Completed — Browser Validation 與 Jamie Manual Validation 全部 PASS**
+Code Commit：`40227ca17d7b5c1bc067c8b52f96686c8f7f6092`
+Commit subject：`feat: replace manual text apply with live canvas sync`
+
+### Root Cause
+
+- 主標、副標、日期／警語原本在 `input` 時只執行 `updateCounters()` 與 `saveCurrentJobData()`；Canvas 更新仍需另外按「套用文字到模板」，才會進入既有驗證與 `sendRecord()`。
+
+### Changed Behavior
+
+- 移除「套用文字到模板」按鈕與對應 DOM reference／click listener。
+- 三個文字欄位在非 composition 的每次 `input` 直接同步 Canvas，不加 debounce；`blur` 與 Enter 立即同步，Enter 不插入換行。
+- `compositionstart` 後不送出中間字串；Enter 受欄位 composition flag、`event.isComposing` 與 `keyCode === 229` 保護；`compositionend` 立即同步最終文字。
+- 新增小型共用同步入口與局部 boolean re-entry guard，只用於避免 `runBanwordCheck()` 經引擎改寫欄位並 dispatch input 時再次進入同一流程。
+- 完整沿用 `runBanwordCheck()`、`banwordEngine`、`currentRecord()`、`validateRecord()`、`sendRecord()`；禁用語、自動替換、允許字元清理、數字／日期格式、Toast、8／7／14 字限制與 0.5 字算法未建立第二套規則。
+- 驗證失敗時不送出非法 record，Canvas 保留最後合法內容；引擎改寫時，欄位、active Job 與 Canvas 均使用最終清理後內容。
+- `sendRecord()` 保留 active Job 與有效 record guard，只針對 active Job 的三個文字欄位明確皆為空字串新增最小例外，允許送出空的 `bn-text` 以清空 Canvas。
+
+### Render Cost / Scope Boundary
+
+- 文字更新只影響目前 Job，透過既有 `bn-text` postMessage 局部更新 Canvas 文字節點；不觸發 iframe reload、Template 重建、圖片重新載入、FileReader、base64 轉換或新增 network request。
+- 未修改 Canvas 文字排版、Template、Style、CSV 初始套用、暫存、素材、QRCode、Batch、Export、Project State schema／serialization 邏輯、Job List 架構、`renderJobList()`、`layout-runtime.js` 或 `qrcode-demo`。
+- Browser Validation 全部 PASS；Jamie Manual Validation（含原生中文 IME composition、選字與 Enter）全部 PASS。快速輸入無明顯卡頓、閃爍或舊文字覆蓋新文字；Console error 為 0。
+
 ## 右側欄手動換圖 Commit 前驗證與失敗保護 - 2026-07-30
 
 Status：**Completed — Static Check、Browser Validation 與 Jamie Manual Validation 全部 PASS**
@@ -560,7 +586,7 @@ Root Cause：`window._bnProducts[]` 的 `position`（角色身份，理應固定
 - **CSV**：新增欄位比對，找到清理後（移除欄名換行後的第一行）**剛好等於** `QRcode`（不分大小寫）的欄位，內容視為網址。刻意不使用「包含 QRcode 字樣」的寬鬆比對：真實入稿表同一列裡還有「QRcode統一導shop...」「QRcode雲端(SPX填寫)」「QR code 圖檔名稱」等 SPX 內部後續流程欄位，同樣含 QRcode 字樣，寬鬆比對會被這些欄位（通常是空的）覆蓋掉，導致使用者實際填寫的網址欄位讀不到。
 - **Library**：使用 `soldair/node-qrcode`（MIT License），與既有的 `tools/qrcode-demo/`（技術驗證 demo）共用同一份已驗證的 vendored library 檔案，不重複存放、不各自維護版本。
 - **網址驗證**：自動 trim 前後空白；輸入若含任何空白字元一律視為非法（避免瀏覽器 `URL` 建構子把空白靜默轉成 `%20`、把明顯不是網址的文字誤判為合法）；未含 Protocol（例如 `shopee.tw`）自動補上 `https://` 後再驗證；不限制網域、是否縮網址、是否帶參數或網址類型。合法網址一律以補完 Protocol 後的版本為準，控制台輸入框、Project State、QR Code 產生與「檢查網址連結」四處皆使用同一個補完後的值。
-- **控制台右側欄**：新增 QRCode 區塊，固定順序為主標／副標／小字之後、Logo 之前；包含標題、網址輸入框、檢查網址連結、狀態訊息（固定保留於輸入框下方，有狀態時顯示文字、無狀態時保持空白）。更新時機固定為貼上網址（自動套用）、Enter、失焦；不提供 QR Code 縮圖、位置／尺寸／比例資訊、拖曳、縮放、旋轉或樣式設定，獨立於既有「套用文字到模板」按鈕之外。
+- **控制台右側欄**：新增 QRCode 區塊，固定順序為主標／副標／小字之後、Logo 之前；包含標題、網址輸入框、檢查網址連結、狀態訊息（固定保留於輸入框下方，有狀態時顯示文字、無狀態時保持空白）。更新時機固定為貼上網址（自動套用）、Enter、失焦；不提供 QR Code 縮圖、位置／尺寸／比例資訊、拖曳、縮放、旋轉或樣式設定，與三個文字欄位的同步流程保持獨立。
 - **Template**：四個尺寸新增 `qrZone`（固定 X／Y／Width／Height，不可拖曳／縮放／旋轉）與 `layerOrder.qrCode = 48`（固定位於既有 `info` 圖層［47］之上）。Locked Visual Baseline（已包含 Quiet Zone 與黑碼）：
 
   | 尺寸 | X | Y | W | H |
@@ -578,7 +604,7 @@ Root Cause：`window._bnProducts[]` 的 `position`（角色身份，理應固定
 
 ### Not Changed（Boundaries Reaffirmed）
 
-- 未修改既有「套用文字到模板」按鈕（`sendRecord()`）；QRCode 更新時機與此按鈕無關。
+- 當時未修改既有文字套用入口（`sendRecord()`）；QRCode 更新時機與文字欄位同步流程無關。
 - 未修改 Main Canvas / Thumbnail / Batch Render 既有商品身份與 layoutState 邏輯。
 - 未修改 Project State schema 版號（`version: 5` 不變）；`qrCodeUrl` 為向下相容的新增字串欄位，舊 Project State 檔案沒有此欄位時視為空值。
 - 未修改 Photoshop Pipeline、Asset Pipeline、Review Workspace。
