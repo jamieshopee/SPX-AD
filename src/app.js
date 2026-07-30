@@ -37,7 +37,6 @@ const el = {
   folderStatusText: document.querySelector('#folder-status-text'),
   csvStatus:        document.querySelector('#csv-status'),
   csvStatusText:    document.querySelector('#csv-status-text'),
-  applyRecord:      document.querySelector('#apply-record'),
   captureBtn:       document.querySelector('#capture-btn'),
   downloadBtn:      document.querySelector('#download-btn'),
   singleStateBtn:    document.querySelector('#single-state-btn'),
@@ -870,9 +869,23 @@ function recordHasText(record) {
   return Boolean(record && (record.headline || record.subheadline || record.disclaimer));
 }
 
+function isExplicitTextRecord(record) {
+  return Boolean(record)
+    && typeof record === 'object'
+    && ['headline', 'subheadline', 'disclaimer'].every(key =>
+      Object.hasOwn(record, key) && typeof record[key] === 'string');
+}
+
+function isExplicitlyEmptyTextRecord(record) {
+  return isExplicitTextRecord(record)
+    && !record.headline
+    && !record.subheadline
+    && !record.disclaimer;
+}
+
 // ══════════════════════════════════════════════════════
 //  6.5 QRCode 欄位操作（docs/proposals/QR-Code-Product-Proposal.md）
-//  獨立於「套用文字到模板」按鈕之外，更新時機只有：貼上／Enter／失焦。
+//  與文字欄位同步流程分開，更新時機只有：貼上／Enter／失焦。
 // ══════════════════════════════════════════════════════
 function qrCodeStatusText(kind) {
   switch (kind) {
@@ -970,7 +983,10 @@ function validateRecord(record) {
 // ══════════════════════════════════════════════════════
 function sendRecord(record) {
   if (!activeJobId) { clearStatus(); return false; }
-  if (!recordHasText(record)) { clearStatus(); return false; }
+  if (!recordHasText(record) && !isExplicitlyEmptyTextRecord(record)) {
+    clearStatus();
+    return false;
+  }
   const errors = validateRecord(record);
   if (errors.length) { setStatus(errors.join('；'), 'error'); return false; }
   if (!frameReady) { pendingRecord = record; setStatus('模板載入中，資料將自動套用。'); return true; }
@@ -4859,7 +4875,7 @@ var BANWORD_FIELD_MAP = {
 };
 function runBanwordCheck(id, el) {
   var engine = window.banwordEngine;
-  if (!engine) return;
+  if (!engine) return null;
   var role = BANWORD_FIELD_MAP[id] || '';
   var shadowId = '_bw_shadow_' + id;
   var shadow = document.getElementById(shadowId);
@@ -4887,24 +4903,70 @@ function runBanwordCheck(id, el) {
     document.body.appendChild(toast);
     setTimeout(function(){ toast.remove(); }, result.duration || 4000);
   }
+  return result || null;
 }
 
 // 文字欄位
+var syncTextFieldToCanvas = (function() {
+  var isSyncing = false;
+  return function(fieldEl, jobDataIsCurrent) {
+    if (!fieldEl || isSyncing) return;
+    isSyncing = true;
+    try {
+      var valueBeforeValidation = fieldEl.value;
+      runBanwordCheck(fieldEl.id, fieldEl);
+      if (!jobDataIsCurrent && fieldEl.value === valueBeforeValidation) {
+        updateCounters();
+        saveCurrentJobData();
+      }
+      sendRecord(currentRecord());
+    } finally {
+      isSyncing = false;
+    }
+  };
+})();
+
 Object.values(el.fields).forEach(input => {
-  input.addEventListener('input', () => { updateCounters(); saveCurrentJobData(); });
+  var isComposing = false;
+  var compositionCommittedValue = null;
+
+  input.addEventListener('compositionstart', () => {
+    isComposing = true;
+    compositionCommittedValue = null;
+  });
+
+  input.addEventListener('compositionend', () => {
+    isComposing = false;
+    syncTextFieldToCanvas(input, false);
+    compositionCommittedValue = input.value;
+  });
+
+  input.addEventListener('input', event => {
+    updateCounters();
+    saveCurrentJobData();
+    if (event.isComposing || isComposing) return;
+    if (compositionCommittedValue !== null) {
+      var isCompositionFinalInput = input.value === compositionCommittedValue;
+      compositionCommittedValue = null;
+      if (isCompositionFinalInput) return;
+    }
+    syncTextFieldToCanvas(input, true);
+  });
+
+  input.addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    if (event.isComposing || isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    syncTextFieldToCanvas(input, false);
+  });
+
+  input.addEventListener('blur', () => {
+    if (isComposing) return;
+    syncTextFieldToCanvas(input, false);
+  });
 });
 
-// 禁用語 blur 檢查
-['field-headline', 'field-subheadline', 'field-disclaimer'].forEach(function(id) {
-  var fieldEl = document.getElementById(id);
-  if (!fieldEl) return;
-  fieldEl.addEventListener('blur', function() { runBanwordCheck(id, fieldEl); });
-});
-
-// 套用文字
-el.applyRecord.addEventListener('click', () => sendRecord(currentRecord()));
-
-// QRCode（貼上／Enter／失焦皆驗證；獨立於「套用文字到模板」按鈕之外）
+// QRCode（貼上／Enter／失焦皆驗證；與文字欄位同步流程分開）
 if (el.qrCodeUrlInput) {
   el.qrCodeUrlInput.addEventListener('paste', () => {
     setTimeout(() => commitQrCodeUrl(el.qrCodeUrlInput.value), 0);
