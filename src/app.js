@@ -1909,6 +1909,21 @@ window._bnGetActiveTemplateJson = function() {
   return activeTemplate?._json || null;
 };
 
+// 右側手動換圖只需要目前 Job 的單一 canonical filename。此 getter 僅讀取
+// 既有 Job arrays 與 classifier，不回傳 Job／Asset state，也不寫入任何 state。
+window._bnGetActiveManualImageFilename = function(role, index = 0) {
+  const job = activeJob();
+  if (!job) return null;
+  const normalizedIndex = Math.max(0, Number(index) || 0);
+  if (role === 'logo') {
+    return sortLogos(job.logoFilenames || [])[normalizedIndex] || null;
+  }
+  const info = classifyProducts(job.productFilenames || []);
+  if (role === 'person') return info.person || null;
+  if (role === 'singleProduct') return (info.singles || [])[normalizedIndex] || null;
+  return null;
+};
+
 // Bug #2C（手動換圖 Asset Pipeline record 失效化）：手動換圖只更新畫布上的
 // 圖片內容，從未更新 assetPipelineState，導致換圖前仍標示 approved 的那一筆
 // record（連同其 processedAsset）繼續被 Approved Asset Resolver 選中，蓋過
@@ -2718,6 +2733,7 @@ async function selectJob(id, options = {}) {
   activeJobId = id;
   const job = jobs.find(j => j.id === id);
   if (!job) return;
+  window._bnClearManualUploadErrors?.();
   ensureJobPlacementTemplate(job);
   fillFields(job);
   ensureWorkspaceReadyForJob();

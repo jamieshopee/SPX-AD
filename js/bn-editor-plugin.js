@@ -119,6 +119,8 @@
 .bn-btn-confirm{background:linear-gradient(135deg,#1d4ed8,#0d47a1);border:none;color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:7px;cursor:pointer;transition:opacity .12s}
 .bn-btn-confirm:hover{opacity:.88}
 .bn-btn-confirm:disabled{opacity:.35;cursor:not-allowed}
+.bn-upload-error{display:none;margin-top:5px;color:#e05c5c;font-size:11px;line-height:1.45}
+.bn-upload-error.show{display:block}
 `;
     document.head.appendChild(style);
 
@@ -133,6 +135,86 @@
     /* ── 工具 ── */
     function readFile(file){ return new Promise(function(res,rej){var r=new FileReader();r.onload=function(e){res(e.target.result);};r.onerror=rej;r.readAsDataURL(file);}); }
     function loadImg(src){ return new Promise(function(res,rej){var i=new Image();i.onload=function(){res(i);};i.onerror=rej;i.src=src;}); }
+    var MANUAL_UPLOAD_ERRORS = {
+      filename_mismatch: '換圖失敗，檔名必須與目前素材完全一致。',
+      unsupported_format: '手動換圖僅支援已完成去背的 PNG，且檔名必須與要取代的圖片完全一致。',
+      decode_failed: '圖片損壞無法讀取，原圖片未被更換。'
+    };
+    var _manualObjectFilenames = typeof WeakMap === 'function' ? new WeakMap() : null;
+    function manualUploadError(code){
+      var error = new Error(MANUAL_UPLOAD_ERRORS[code] || MANUAL_UPLOAD_ERRORS.decode_failed);
+      error.code = code;
+      return error;
+    }
+    function manualUploadErrorElement(kind){
+      return document.getElementById('bn-' + kind + '-upload-error');
+    }
+    function clearManualUploadError(kind){
+      var el = manualUploadErrorElement(kind);
+      if(!el) return;
+      el.textContent = '';
+      el.classList.remove('show');
+      el.hidden = true;
+    }
+    function showManualUploadError(kind, error){
+      var el = manualUploadErrorElement(kind);
+      if(!el) return;
+      var code = error && error.code;
+      el.textContent = MANUAL_UPLOAD_ERRORS[code] || MANUAL_UPLOAD_ERRORS.decode_failed;
+      el.hidden = false;
+      el.classList.add('show');
+    }
+    function clearAllManualUploadErrors(){
+      ['logo','prod','pp'].forEach(clearManualUploadError);
+    }
+    window._bnClearManualUploadErrors = clearAllManualUploadErrors;
+    function rememberManualObjectFilename(object, filename){
+      if(_manualObjectFilenames && object && filename) _manualObjectFilenames.set(object, filename);
+    }
+    function rememberedManualObjectFilename(object){
+      return _manualObjectFilenames && object ? _manualObjectFilenames.get(object) || null : null;
+    }
+    function activeManualFilename(role, index){
+      if(typeof window._bnGetActiveManualImageFilename !== 'function') return null;
+      return window._bnGetActiveManualImageFilename(role, index == null ? 0 : index);
+    }
+    function activeLogoFilenameForObject(logo, fallbackIndex){
+      var remembered = rememberedManualObjectFilename(logo);
+      if(remembered) return remembered;
+      var match = String(logo && logo.id || '').match(/^cc_logo_(\d+)$/);
+      return activeManualFilename('logo', match ? Number(match[1]) : fallbackIndex);
+    }
+    async function detectManualImageFormat(file){
+      var bytes;
+      try{
+        bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+      }catch(_){
+        throw manualUploadError('decode_failed');
+      }
+      var isPng = bytes.length >= 8 &&
+        bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 &&
+        bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a;
+      var isWebp = bytes.length >= 12 &&
+        bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+        bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
+      if(!isPng && !isWebp) throw manualUploadError('unsupported_format');
+      return isPng ? 'png' : 'webp';
+    }
+    async function validateManualImageFile(file){
+      var format = await detectManualImageFormat(file);
+      var dataUrl;
+      var image;
+      try{
+        dataUrl = await readFile(file);
+        image = await loadImg(dataUrl);
+      }catch(_){
+        throw manualUploadError('decode_failed');
+      }
+      if(!image || !image.naturalWidth || !image.naturalHeight){
+        throw manualUploadError('decode_failed');
+      }
+      return {file:file, format:format, dataUrl:dataUrl, image:image};
+    }
     function sampleCorner(d,w,h){function px(x,y){var i=(y*w+x)*4;return{r:d[i],g:d[i+1],b:d[i+2],a:d[i+3]};}var c=[px(0,0),px(w-1,0),px(0,h-1),px(w-1,h-1)].filter(function(p){return p.a>200;});if(!c.length)return{r:255,g:255,b:255};var r=0,g=0,b=0;c.forEach(function(p){r+=p.r;g+=p.g;b+=p.b;});return{r:r/c.length,g:g/c.length,b:b/c.length};}
     function autoTrim(img){var max=1200,sc=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));var w=Math.max(1,Math.round(img.naturalWidth*sc)),h=Math.max(1,Math.round(img.naturalHeight*sc));var c=document.createElement('canvas');c.width=w;c.height=h;var ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0,w,h);var id=ctx.getImageData(0,0,w,h),d=id.data,bg=sampleCorner(d,w,h);var x0=w,y0=h,x1=-1,y1=-1;for(var y=0;y<h;y++)for(var x=0;x<w;x++){var i=(y*w+x)*4,a=d[i+3];if(a>18&&(a<245||Math.abs(d[i]-bg.r)+Math.abs(d[i+1]-bg.g)+Math.abs(d[i+2]-bg.b)>46)&&!(d[i]>246&&d[i+1]>246&&d[i+2]>246)){if(x<x0)x0=x;if(y<y0)y0=y;if(x>x1)x1=x;if(y>y1)y1=y;}}if(x1<0)return{src:img.src,ratio:img.naturalWidth/img.naturalHeight};var pad=Math.round(Math.max(w,h)*.015);x0=Math.max(0,x0-pad);y0=Math.max(0,y0-pad);x1=Math.min(w-1,x1+pad);y1=Math.min(h-1,y1+pad);var tw=x1-x0+1,th=y1-y0+1;var o=document.createElement('canvas');o.width=tw;o.height=th;o.getContext('2d').drawImage(c,x0,y0,tw,th,0,0,tw,th);return{src:o.toDataURL('image/png'),ratio:tw/th};}
 
@@ -260,9 +342,10 @@
         '<div class="s-section bn-accordion-title" style="margin-top:14px"><span>Logo（最多3張）</span><span class="bn-acc-arrow">⌄</span></div>',
         '<div class="bn-section">',
         '  <div class="bn-drop" id="bn-logo-drop">',
-        '    <input type="file" accept="image/*" multiple id="bn-logo-inp">',
+        '    <input type="file" accept=".png,image/png" multiple id="bn-logo-inp">',
         '    ＋ 點擊或拖曳上傳 Logo',
         '  </div>',
+        '  <div id="bn-logo-upload-error" class="bn-upload-error" hidden aria-live="polite"></div>',
         '  <div class="bn-prod-list" id="bn-logo-list"></div>',
         '</div>',
         '</div>',
@@ -273,7 +356,7 @@
       var inp=document.getElementById('bn-logo-inp');
       var drop=document.getElementById('bn-logo-drop');
       inp.addEventListener('change',function(){
-        Array.from(this.files).forEach(function(f){doLoadLogo(f);});
+        handleLogoFiles(Array.from(this.files));
         inp.value='';
       });
       var _logoDragN = 0; /* dragenter counter — 防子元素 dragleave 誤觸 */
@@ -282,8 +365,7 @@
       drop.addEventListener('dragleave', function(){ _logoDragN--; if(_logoDragN<=0){ _logoDragN=0; this.classList.remove('drag'); } });
       drop.addEventListener('drop',function(e){
         e.preventDefault(); _logoDragN=0; this.classList.remove('drag');
-        Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/');})
-          .forEach(function(f){doLoadLogo(f);});
+        handleLogoFiles(Array.from(e.dataTransfer.files));
       });
     }
 
@@ -511,79 +593,100 @@
     }
 
     /* ── Logo 自動裁切：去除白底與透明邊框 ── */
-    function trimLogoSrc(src){
-      return new Promise(function(resolve){
-        var img = new Image();
-        img.onload = function(){
-          var w = img.naturalWidth, h = img.naturalHeight;
-          var c = document.createElement('canvas');
-          c.width = w; c.height = h;
-          var ctx = c.getContext('2d');
-          ctx.drawImage(img, 0, 0);
-          var data = ctx.getImageData(0, 0, w, h).data;
+    function trimLogoSrc(src, img){
+      var w = img.naturalWidth, h = img.naturalHeight;
+      var c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      var ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      var data = ctx.getImageData(0, 0, w, h).data;
 
-          var top = h, bottom = -1, left = w, right = -1;
-          for(var y = 0; y < h; y++){
-            for(var x = 0; x < w; x++){
-              var i = (y * w + x) * 4;
-              var r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
-              /* 跳過：完全透明（a<10）或近白色（RGB>240 且不透明）*/
-              if(a < 10) continue;
-              if(a > 200 && r > 240 && g > 240 && b > 240) continue;
-              /* 有效像素 → 更新邊界 */
-              if(y < top)    top    = y;
-              if(y > bottom) bottom = y;
-              if(x < left)   left   = x;
-              if(x > right)  right  = x;
-            }
-          }
+      var top = h, bottom = -1, left = w, right = -1;
+      for(var y = 0; y < h; y++){
+        for(var x = 0; x < w; x++){
+          var i = (y * w + x) * 4;
+          var r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
+          /* 跳過：完全透明（a<10）或近白色（RGB>240 且不透明）*/
+          if(a < 10) continue;
+          if(a > 200 && r > 240 && g > 240 && b > 240) continue;
+          /* 有效像素 → 更新邊界 */
+          if(y < top)    top    = y;
+          if(y > bottom) bottom = y;
+          if(x < left)   left   = x;
+          if(x > right)  right  = x;
+        }
+      }
 
-          /* 全部都是白/透明 → 原圖不動 */
-          if(bottom < 0 || right < 0){ resolve(src); return; }
+      /* 全部都是白/透明 → 原圖不動 */
+      if(bottom < 0 || right < 0) return src;
 
-          var cw = right - left + 1, ch = bottom - top + 1;
-          var out = document.createElement('canvas');
-          out.width = cw; out.height = ch;
-          out.getContext('2d').drawImage(img, left, top, cw, ch, 0, 0, cw, ch);
-          console.log('[bn-logo-trim] ' + w + 'x' + h + ' → ' + cw + 'x' + ch);
-          resolve(out.toDataURL('image/png'));
-        };
-        img.onerror = function(){ resolve(src); };
-        img.src = src;
-      });
+      var cw = right - left + 1, ch = bottom - top + 1;
+      var out = document.createElement('canvas');
+      out.width = cw; out.height = ch;
+      out.getContext('2d').drawImage(img, left, top, cw, ch, 0, 0, cw, ch);
+      console.log('[bn-logo-trim] ' + w + 'x' + h + ' → ' + cw + 'x' + ch);
+      return out.toDataURL('image/png');
     }
 
-    function doLoadLogo(file){
-      readFile(file).then(function(s){
-        trimLogoSrc(s).then(function(trimmed){
-          var slot = detectLogoSlot(file.name); /* 1–3 or null */
-          var slotIdx = slot !== null ? slot - 1 : null; /* 0–2 */
-          var id = 'logo_' + Date.now();
-          var newLogo = {id:id, src:trimmed};
+    function matchingExistingLogoIndex(filename){
+      for(var i=0;i<window._bnLogos.length;i++){
+        if(activeLogoFilenameForObject(window._bnLogos[i], i) === filename) return i;
+      }
+      return null;
+    }
 
-          if(slotIdx !== null){
-            /* 同編號替換，否則插入到對應位置 */
-            var replaced = false;
-            if(window._bnLogos[slotIdx]){
-              window._bnLogos[slotIdx] = newLogo;
-              replaced = true;
-            }
-            if(!replaced){
-              if(window._bnLogos.length < MAX_LOGOS){
-                window._bnLogos.splice(slotIdx, 0, newLogo);
-              }
-            }
-          } else {
-            /* 無編號：追加，不超過上限 */
-            if(window._bnLogos.length < MAX_LOGOS) window._bnLogos.push(newLogo);
-          }
+    async function doLoadLogo(file){
+      var slot = detectLogoSlot(file.name); /* 1–3 or null */
+      var existingIdx = matchingExistingLogoIndex(file.name);
+      var slotIdx = existingIdx !== null ? existingIdx : (slot !== null ? slot - 1 : null);
+      var existing = slotIdx !== null ? window._bnLogos[slotIdx] : null;
+      if(existing){
+        var expected = activeLogoFilenameForObject(existing, slotIdx);
+        if(expected && file.name !== expected) throw manualUploadError('filename_mismatch');
+      }else if(slotIdx === null && window._bnLogos.length >= MAX_LOGOS){
+        throw manualUploadError('filename_mismatch');
+      }
 
-          window._bnLogoDataUrl = window._bnLogos[0] ? window._bnLogos[0].src : null;
-          renderLogoList();
-          broadcast({type:'bn-logos', logos:window._bnLogos});
-          markStateDirty();
-        });
-      });
+      var validated = await validateManualImageFile(file);
+      var trimmed;
+      try{
+        trimmed = trimLogoSrc(validated.dataUrl, validated.image);
+      }catch(_){
+        throw manualUploadError('decode_failed');
+      }
+
+      var id = 'logo_' + Date.now();
+      var newLogo = {id:id, src:trimmed};
+      rememberManualObjectFilename(newLogo, file.name);
+
+      if(slotIdx !== null){
+        /* 同編號替換，否則插入到對應位置 */
+        if(window._bnLogos[slotIdx]){
+          window._bnLogos[slotIdx] = newLogo;
+        }else if(window._bnLogos.length < MAX_LOGOS){
+          window._bnLogos.splice(slotIdx, 0, newLogo);
+        }
+      }else if(window._bnLogos.length < MAX_LOGOS){
+        /* 無編號且仍有空位：維持既有追加行為 */
+        window._bnLogos.push(newLogo);
+      }
+
+      window._bnLogoDataUrl = window._bnLogos[0] ? window._bnLogos[0].src : null;
+      renderLogoList();
+      broadcast({type:'bn-logos', logos:window._bnLogos});
+      markStateDirty();
+    }
+
+    async function handleLogoFiles(files){
+      clearManualUploadError('logo');
+      for(var i=0;i<files.length;i++){
+        try{
+          await doLoadLogo(files[i]);
+          clearManualUploadError('logo');
+        }catch(error){
+          showManualUploadError('logo', error);
+        }
+      }
     }
 
     /* ── slot 追蹤（insertProductUI + renderProdList 共用，必須在外層）── */
@@ -605,8 +708,9 @@
         '<div class="bn-section">',
         '  <div id="bn-prod-drop" style="cursor:pointer;border:1.5px dashed var(--border,#30363d);border-radius:8px;padding:10px;text-align:center;font-size:12px;color:var(--text3,#687090)">',
         '    ＋ 點擊或拖曳上傳商品圖',
-        '    <input type="file" id="bn-prod-inp" accept="image/*" multiple style="display:none">',
+        '    <input type="file" id="bn-prod-inp" accept=".png,image/png" multiple style="display:none">',
         '  </div>',
+        '  <div id="bn-prod-upload-error" class="bn-upload-error" hidden aria-live="polite"></div>',
         '  <div class="bn-prod-list" id="bn-prod-list"></div>',
         '  <button type="button" class="bn-reset-transform-btn" id="bn-prod-reset-btn" disabled>恢復預設位置</button>',
         '</div>',
@@ -616,8 +720,9 @@
         '<div class="bn-section">',
         '  <div id="bn-pp-drop" style="cursor:pointer;border:1.5px dashed var(--border,#30363d);border-radius:8px;padding:10px;text-align:center;font-size:12px;color:var(--text3,#687090)">',
         '    ＋ 點擊或拖曳上傳圖片',
-        '    <input type="file" id="bn-pp-inp" accept="image/*" multiple style="display:none">',
+        '    <input type="file" id="bn-pp-inp" accept=".png,image/png" multiple style="display:none">',
         '  </div>',
+        '  <div id="bn-pp-upload-error" class="bn-upload-error" hidden aria-live="polite"></div>',
         '  <button type="button" class="bn-reset-transform-btn" id="bn-pp-reset-btn" disabled>恢復預設位置</button>',
         '</div>',
         '</div>',
@@ -664,13 +769,11 @@
          比對既有商品，找到相符者視為「取代既有商品」，不得只比對去除副檔名
          後的 basename（避免「商品.jpg」與「商品.png」被誤判為同一個既有商品）。*/
       function findExistingProductByFilename(filename){
-        var key = String(filename || '').trim().toLowerCase();
-        if(!key) return null;
+        if(!filename) return null;
         var found = null;
         window._bnProducts.forEach(function(p){
           if(found) return;
-          var existingKey = String(p.filename || '').trim().toLowerCase();
-          if(existingKey && existingKey === key) found = p;
+          if(p.filename === filename) found = p;
         });
         return found;
       }
@@ -698,30 +801,43 @@
          cloneJobForExport() 匯出 _embeddedAssets 時讀取，避免匯出「已處理
          過的 render 圖」被 buildProductPayloads() 在重新匯入時誤當原始
          素材、再處理一次造成陰影疊加與整組尺寸跑掉。*/
-      async function replaceExistingProductImage(existing, file){
-        var rawSrc = await readFile(file);
+      async function prepareProductImage(file, tpl, baselineRatio){
+        var validated = await validateManualImageFile(file);
+        var rawSrc = validated.dataUrl;
         var src = rawSrc;
-        var tpl = typeof window._bnGetActiveTemplateJson === 'function' ? window._bnGetActiveTemplateJson() : null;
         var useAutoShadow = !!(tpl && tpl.productZones && tpl.productZones.threeProducts &&
                                tpl.productZones.threeProducts.defaultLayout &&
                                tpl.productZones.threeProducts.defaultLayout.autoShadow);
-        var img = await loadImg(src);
-        var trimmed = autoTrim(img);
+        var trimmed;
+        try{
+          trimmed = autoTrim(validated.image);
+        }catch(_){
+          throw manualUploadError('decode_failed');
+        }
         src = trimmed.src;
         var ratio = trimmed.ratio;
-        var baselineRatio = existing.baselineRatio || 1;
+        var finalBaselineRatio = baselineRatio || 1;
         if(useAutoShadow){
-          var shadowed = await autoApplyShadow(src, ratio);
-          src = shadowed.src;
-          ratio = shadowed.ratio;
-          baselineRatio = shadowed.baselineRatio || 1;
+          try{
+            var shadowed = await autoApplyShadow(src, ratio);
+            src = shadowed.src;
+            ratio = shadowed.ratio;
+            finalBaselineRatio = shadowed.baselineRatio || 1;
+          }catch(_){
+            throw manualUploadError('decode_failed');
+          }
         }
+        return {rawSrc:rawSrc, src:src, ratio:ratio, baselineRatio:finalBaselineRatio};
+      }
+
+      function replaceExistingProductImage(existing, file, prepared){
+        var src = prepared.src;
         existing.src = src;
-        existing.manualReplaceRawSrc = rawSrc;
+        existing.manualReplaceRawSrc = prepared.rawSrc;
         existing.filename = file.name;
         existing.name = file.name.replace(/\.[^.]+$/, '');
-        existing.ratio = ratio || 1;
-        existing.baselineRatio = baselineRatio;
+        existing.ratio = prepared.ratio || 1;
+        existing.baselineRatio = prepared.baselineRatio;
         broadcast({type:'bn-product-image-update', id:existing.id, src:src, filename:existing.filename, ratio:existing.ratio, baselineRatio:existing.baselineRatio});
         broadcastZOrder();
         if(typeof window._bnInvalidateApprovedAssetForManualReplace === 'function'){
@@ -729,50 +845,70 @@
         }
       }
 
-      async function handleDirectProdFiles(files){
-        var imgs = files.filter(function(f){ return f.type.startsWith('image/'); });
-        if(!imgs.length) return;
-        /* 同檔名取代與全新上傳為兩條明確分支：完整檔名比對到既有商品者走
-           原地取代，其餘維持既有 _slotted/_unslotted 全新上傳流程不變。*/
-        var toReplace = [];
-        var toUpload = [];
-        imgs.forEach(function(f){
-          var existing = findExistingProductByFilename(f.name);
-          if(existing) toReplace.push({file:f, existing:existing});
-          else toUpload.push(f);
-        });
-        for(var r=0; r<toReplace.length; r++){
-          await replaceExistingProductImage(toReplace[r].existing, toReplace[r].file);
-        }
-        if(toReplace.length){
+      async function handleDirectProductFile(file){
+        var existing = findExistingProductByFilename(file.name);
+        if(existing){
+          var replaceTpl = typeof window._bnGetActiveTemplateJson === 'function' ? window._bnGetActiveTemplateJson() : null;
+          var replacement = await prepareProductImage(file, replaceTpl, existing.baselineRatio || 1);
+          replaceExistingProductImage(existing, file, replacement);
           renderProdList();
           markStateDirty();
+          updateMutualExclusion();
+          return;
         }
-        if(!toUpload.length){ updateMutualExclusion(); return; }
-        var newItems = await Promise.all(toUpload.map(function(f){
-          return readFile(f).then(function(src){
-            var position = window.BNProductSlotUtils.detectProductPosition(f.name);
-            return {src:src, name:f.name.replace(/\.[^.]+$/,''), filename:f.name, ratio:1, _slot:position};
-          });
-        }));
-        newItems.forEach(function(r){
-          if(r._slot !== null){ _slotted[r._slot] = r; }
-          else { _unslotted.push(r); }
+
+        var requestedPosition = window.BNProductSlotUtils.detectProductPosition(file.name);
+        var occupiedPositions = {};
+        window._bnProducts.forEach(function(product){
+          occupiedPositions[product.position !== undefined ? product.position : 0] = product;
         });
-        var byPosition = new Array(MAX_PROD).fill(null);
-        [0,1,2].forEach(function(pos){
-          if(_slotted[pos]) byPosition[pos] = Object.assign({}, _slotted[pos], {position:pos});
-        });
-        var unslottedIndex = 0;
-        for(var pos=0; pos<MAX_PROD && unslottedIndex<_unslotted.length; pos++){
-          if(!byPosition[pos]){
-            byPosition[pos] = Object.assign({}, _unslotted[unslottedIndex], {position:pos});
-            unslottedIndex++;
+        if(requestedPosition !== null && occupiedPositions[requestedPosition]){
+          throw manualUploadError('filename_mismatch');
+        }
+        if(window._bnProducts.length >= MAX_PROD){
+          throw manualUploadError('filename_mismatch');
+        }
+        var position = requestedPosition;
+        if(position === null){
+          for(var candidate=0;candidate<MAX_PROD;candidate++){
+            if(!occupiedPositions[candidate]){ position = candidate; break; }
           }
         }
-        var ordered = byPosition.filter(Boolean);
-        await applyWithOrder(ordered, false);
+        if(position === null || position === undefined){
+          throw manualUploadError('filename_mismatch');
+        }
+
+        /* 只 prepare 本次新檔案；既有商品 src／ratio／shadow 等資料完全不重算。 */
+        var additionTpl = window.__BN_TEMPLATE__;
+        var prepared = await prepareProductImage(file, additionTpl, 1);
+        var newItem = {
+          src:prepared.src,
+          name:file.name.replace(/\.[^.]+$/,''),
+          filename:file.name,
+          ratio:prepared.ratio,
+          baselineRatio:prepared.baselineRatio,
+          _slot:requestedPosition,
+          position:position,
+          prepared:true
+        };
+
+        /* 所有可能失敗的處理完成後，才更新 slot tracker 與 Canvas。 */
+        if(requestedPosition !== null) _slotted[requestedPosition] = newItem;
+        else _unslotted.push(newItem);
+        await applyWithOrder([newItem], false);
         updateMutualExclusion();
+      }
+
+      async function handleDirectProdFiles(files){
+        clearManualUploadError('prod');
+        for(var i=0;i<files.length;i++){
+          try{
+            await handleDirectProductFile(files[i]);
+            clearManualUploadError('prod');
+          }catch(error){
+            showManualUploadError('prod', error);
+          }
+        }
       }
 
       window._bnResetProdSlots = function(){ _slotted = {}; _unslotted = []; };
@@ -845,73 +981,68 @@
         var tpl = window.__BN_TEMPLATE__ || {};
         var personDefaults = (((tpl.productZones||{}).person)||{}).defaultLayout || {};
         var singleDefaults = (((tpl.productZones||{}).singleProduct)||{}).defaultLayout || {};
-        var matched = 0;
-        if(files.some(function(file){
-          var fname = file && file.name || '';
-          return file && file.type && file.type.startsWith('image/') && (fname.indexOf('_人') >= 0 || fname.indexOf('_品') >= 0);
-        })) updateTemplateModeLabel('person_product');
+        clearManualUploadError('pp');
         for(var i=0;i<files.length;i++){
           var file = files[i];
-          if(!file.type.startsWith('image/')) continue;
           var fname = file.name;
           var isPerson  = fname.indexOf('_人') >= 0;
           var isProduct = fname.indexOf('_品') >= 0;
-          if(!isPerson && !isProduct) continue; /* 檔名未含 _人 / _品，跳過 */
-          matched++;
-          var dataUrl = await readFile(file);
-          var img     = await loadImg(dataUrl);
-          var trimmed = autoTrim(img);
-          var src = trimmed.src, ratio = trimmed.ratio;
-          if(isPerson){
-            var fitW = personDefaults.fitWidth;
-            window._bnPerson = {src:src, displayWidth:fitW, objectFit:'contain'};
-            broadcast({type:'bn-person-add', src:src, displayWidth:fitW, objectFit:'contain', manualReplace:true});
-            /* 一人一品 Bug Fix：手動換圖後沿用三商品既有的 Asset Pipeline
-               record 失效化機制（window._bnInvalidateApprovedAssetForManualReplace，
-               不新增第二套邏輯），避免下載單張暫存並重新匯入後，Approved
-               Asset Resolver 命中換圖前仍標示 approved 的舊 record，蓋過剛
-               內嵌的新圖。Person 無 slot 概念，帶 null。 */
+          try{
+            if(!isPerson && !isProduct) throw manualUploadError('filename_mismatch');
+            var currentObject = isPerson ? window._bnPerson : window._bnSingleProd;
+            var role = isPerson ? 'person' : 'singleProduct';
+            if(currentObject){
+              var expected = rememberedManualObjectFilename(currentObject) || activeManualFilename(role, 0);
+              if(expected && fname !== expected) throw manualUploadError('filename_mismatch');
+            }
+
+            var validated = await validateManualImageFile(file);
+            var trimmed;
+            try{
+              trimmed = autoTrim(validated.image);
+            }catch(_){
+              throw manualUploadError('decode_failed');
+            }
+            var src = trimmed.src, ratio = trimmed.ratio;
+            var preparedState;
+            var preparedMessage;
+            if(isPerson){
+              var fitW = personDefaults.fitWidth;
+              preparedState = {src:src, displayWidth:fitW, objectFit:'contain'};
+              preparedMessage = {type:'bn-person-add', src:src, displayWidth:fitW, objectFit:'contain', manualReplace:true};
+            }else{
+              /* 保留既有可靠 Template source、shadow 與尺寸計算。 */
+              var reliableTpl = typeof window._bnGetActiveTemplateJson === 'function' ? window._bnGetActiveTemplateJson() : null;
+              var singleDefaultsReliable = (((reliableTpl || {}).productZones || {}).singleProduct || {}).defaultLayout || singleDefaults;
+              if(singleDefaultsReliable.autoShadow){
+                try{
+                  var shadowed = await autoApplyShadow(src, ratio);
+                  src = shadowed.src; ratio = shadowed.ratio;
+                }catch(_){
+                  throw manualUploadError('decode_failed');
+                }
+              }
+              var maxW = singleDefaultsReliable.maxWidth, maxH = singleDefaultsReliable.maxHeight;
+              preparedState = {src:src, ratio:ratio, displayW:maxW, displayH:maxH, zoneHeight:maxH, objectFit:'contain'};
+              preparedMessage = {type:'bn-single-product-add', src:src, ratio:ratio, displayW:maxW, displayH:maxH, zoneHeight:maxH, objectFit:'contain'};
+            }
+
+            /* validate／prepare 全部成功後才切換 mode 並 Commit。 */
+            updateTemplateModeLabel('person_product');
+            if(isPerson) window._bnPerson = preparedState;
+            else window._bnSingleProd = preparedState;
+            rememberManualObjectFilename(preparedState, fname);
+            broadcast(preparedMessage);
             if(typeof window._bnInvalidateApprovedAssetForManualReplace === 'function'){
-              window._bnInvalidateApprovedAssetForManualReplace(fname, null, 'person');
+              window._bnInvalidateApprovedAssetForManualReplace(fname, null, role);
             }
-          } else {
-            /* Single Product Shadow Bug Fix：換圖當下改用既有、可靠的
-               window._bnGetActiveTemplateJson()（直接回傳 activeTemplate._json
-               即時參照，src/app.js 提供，三商品 replaceExistingProductImage()
-               已使用同一個函式）重新取得 singleProduct 設定，取代原本讀取、
-               透過 selectJob()/selectStyle() 內未 await 的 .then() 非同步指派、
-               換圖當下可能仍是 null／不完整的 window.__BN_TEMPLATE__。只影響
-               這個分支內 autoShadow／maxWidth／maxHeight 的判斷來源，不影響
-               函式頂端的 tpl／personDefaults，Person 分支行為不變。 */
-            var reliableTpl = typeof window._bnGetActiveTemplateJson === 'function' ? window._bnGetActiveTemplateJson() : null;
-            var singleDefaultsReliable = (((reliableTpl || {}).productZones || {}).singleProduct || {}).defaultLayout || singleDefaults;
-            if(singleDefaultsReliable.autoShadow){
-              var shadowed = await autoApplyShadow(src, ratio);
-              src = shadowed.src; ratio = shadowed.ratio;
-            }
-            var maxW = singleDefaultsReliable.maxWidth, maxH = singleDefaultsReliable.maxHeight;
-            window._bnSingleProd = {src:src, ratio:ratio, displayW:maxW, displayH:maxH, zoneHeight:maxH, objectFit:'contain'};
-            broadcast({type:'bn-single-product-add', src:src, ratio:ratio, displayW:maxW, displayH:maxH, zoneHeight:maxH, objectFit:'contain'});
-            /* 一人一品 Bug Fix：同上，Single Product 帶 role:'singleProduct'，
-               無 slot 概念，帶 null。 */
-            if(typeof window._bnInvalidateApprovedAssetForManualReplace === 'function'){
-              window._bnInvalidateApprovedAssetForManualReplace(fname, null, 'singleProduct');
-            }
+            updateMutualExclusion();
+            markStateDirty();
+            clearManualUploadError('pp');
+          }catch(error){
+            showManualUploadError('pp', error);
           }
         }
-        /* 若所有圖片都未含 _人/_品，顯示提示 */
-        if(matched === 0 && files.length > 0){
-          var hint = document.getElementById('bn-pp-drop') && document.getElementById('bn-pp-drop').nextElementSibling;
-          if(hint){
-            var orig = hint.textContent;
-            hint.textContent = '⚠ 未找到含「_人」或「_品」的檔名，請重新命名後再上傳';
-            hint.style.color = '#e05c5c';
-            setTimeout(function(){ hint.textContent = orig; hint.style.color = ''; }, 3000);
-          }
-        }
-        updateMutualExclusion();
-        updateTemplateModeLabel('person_product');
-        markStateDirty();
       }
 
       window._bnRenderPersonProduct = function(){
@@ -964,7 +1095,7 @@
         var item=orderedItems[i];
         var src=item.src;
         /* 如果是已有的商品直接用，否則先 autoTrim */
-        if(!item.fromExisting){
+        if(!item.fromExisting && !item.prepared){
           var img=await loadImg(src);
           var trimmed=autoTrim(img);
           src=trimmed.src;
