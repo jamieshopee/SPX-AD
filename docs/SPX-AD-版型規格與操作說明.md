@@ -1,11 +1,12 @@
 # SPX AD 版型規格與操作說明
 
-Version: 2026.07.30-manual-image-validation
-Last Updated: 2026-07-30
+Version: 2026.07.31-master-layout-controls
+Last Updated: 2026-07-31
 Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數規格與操作流程。
 
 ## What's New
 
+- **右側欄手動 Master Layout 控制移除（Commit `a41913a`）**：控制面板不再顯示「更新 Master Layout」與「套用 Master Layout」，避免使用者手動建立或套用 Master Layout；「恢復預設位置」維持正常。底層 Master Layout capture／propagation、Smart Layout Modal，以及 Job／Template 切換時的自動 propagation 流程均維持不變。Browser Validation 與 Jamie Manual Validation PASS。
 - **CSV 匯入版位預設（Commit `d9cf130e8cee6c0f95e520f39a4c5bc1e4d45607`）**：實際入稿表 H6 的合法完整字串會成為此次普通 CSV 匯入的初始版位；H7:H11 仍是各 Job 原有 Style。這只是 Import Default，不會鎖定版位；匯入後仍可自由切換，切換 Job 不會自動切回。空白或非法值不顯示新錯誤或警告，沿用既有 fallback。實際 CSV、四個 mapping、Styles `01`／`02`／`05`／`07`／`10` 與 Jamie Manual Validation 全部 PASS。
 - **右側欄手動換圖驗證修正（Commit `8cb7c27c71d664ececb6b57487e921a3f0c44839`）**：對使用者的正式說明維持「手動換圖請使用已完成去背的 PNG，且檔名必須與要取代的圖片完全一致」。每個檔案會先完成檔名、實際格式、decode 與既有圖片預處理，全部成功後才換圖；失敗時原圖保持不變，並在對應 Upload Box 下方顯示紅色錯誤。Runtime 不只看副檔名或 `File.type`，可接受實際內容為有效且可 decode 的 PNG／WebP。完整檔名限制只適用於替換已存在素材；空 Logo slot、未滿三張的商品合法空位，以及尚無 Person／Single Product 時仍可新增。Static Check、Browser Validation、下載／暫存／匯入／完整專案／Batch 回歸與 Jamie Manual Validation 全部 PASS。
 - **Windows Photoshop 2026 WebP?PNG ?????????Commit `f37d37e13b0770acab0559dae318576c82458971`?**??????????????? `.png`??? magic bytes ? `RIFF....WEBP`?Photoshop JSX ?? `app.open()` ????????????????? Windows Photoshop 2026 ??? Crash?BEX64 / `0xc0000409`???????????????????? `background_removal_failed`??????????Review Workspace ??????????????????macOS ? Windows ????? JSX ???????????Jamie Manual Validation PASS?
@@ -253,6 +254,8 @@ CSV 欄位：
 - position 2：右配品
 
 視覺排列由 `layout-runtime.js` 依 Template 控制。使用者可拖曳、縮放、旋轉，也可以調整前後順序（▲／▼，誰蓋住誰），也可以恢復預設位置。恢復預設位置會清除 user transform，重新套用 Template 初始排版。
+
+右側控制面板不提供「更新 Master Layout」或「套用 Master Layout」手動操作。Master Layout 仍由既有底層能力與 Smart Layout 自動 propagation 流程使用；Job／Template 切換不會重新產生這兩個按鈕。
 
 商品圖 Upload Box 下方不顯示「01 主品置中最大；02 左側配品；03 右側配品。未編號時依上傳順序。」；不保留提示文字空白。商品上傳後，商品列表與移除／▲／▼操作正常保留，「恢復預設位置」按鈕與 1人＋1品雙向互斥行為不變。Logo 與商品圖素材列不顯示「編輯」按鈕；Editor 程式與圖片處理能力仍保留。
 

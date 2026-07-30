@@ -1,5 +1,14 @@
 # AI-HANDOFF.md
 
+## 右側欄手動 Master Layout 控制移除完成（2026-07-31）
+
+- Code Commit：`a41913a93e4474a6ee3ebbb9ce0e3e0d9000a166`（`feat: remove manual master layout controls`）。
+- Root Cause：「更新 Master Layout」與「套用 Master Layout」已不再作為正式 UI，避免使用者透過右側控制面板手動建立或套用 Master Layout。兩者原由 `ensureProductMasterControls()` 動態建立，只隱藏或事後移除會有 Job／Template 切換後重新產生的風險。
+- Current UI：右側控制面板不再建立兩個按鈕、兩者專用容器或 click listeners；「恢復預設位置」維持正常顯示與操作，不保留多餘空白容器。
+- Preserved Flow：底層 Master Layout capture／propagation 能力、Smart Layout Modal，以及 `selectJob()`／`selectTemplate()` 的自動 propagation 流程均維持不變。
+- Scope Boundary：只修改 `src/app.js` 的 `ensureProductMasterControls()`；未修改 Master Layout 演算法、Render Context、JSON／Project State、Canvas render、Photoshop Helper，亦未清除或重構底層 Master Layout 函式。
+- Validation：兩個按鈕不再顯示；「恢復預設位置」正常；Job／Template 切換不會重新產生按鈕；Smart Layout 自動 propagation 正常。Browser Validation 與 Jamie Manual Validation PASS。
+
 ## CSV 匯入版位預設完成（2026-07-30）
 
 - Code Commit：`d9cf130e8cee6c0f95e520f39a4c5bc1e4d45607`（`feat: support placement defaults from CSV imports`）。

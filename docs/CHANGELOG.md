@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 右側欄手動 Master Layout 控制移除 - 2026-07-31
+
+Status：**Completed — Browser Validation 與 Jamie Manual Validation 全部 PASS**
+Code Commit：`a41913a93e4474a6ee3ebbb9ce0e3e0d9000a166`
+Commit subject：`feat: remove manual master layout controls`
+
+### Root Cause
+
+- 「更新 Master Layout」與「套用 Master Layout」已不再作為正式 UI，避免使用者透過右側控制面板手動建立或套用 Master Layout。
+- 兩個按鈕原本由 `ensureProductMasterControls()` 動態建立；若只隱藏或事後移除，Job／Template 切換時仍可能因初始化流程再次產生。
+
+### Changed Behavior
+
+- 右側控制面板不再建立「更新 Master Layout」、「套用 Master Layout」、兩者專用容器及 click listeners。
+- 「恢復預設位置」維持原有顯示與操作，移除後不保留多餘空白容器。
+- 底層 Master Layout capture／propagation 能力保留；Smart Layout Modal 與 Job／Template 切換時的自動 propagation 流程維持不變。
+
+### Scope Boundary / Validation
+
+- 只修改 `src/app.js` 的 `ensureProductMasterControls()`；未修改 Master Layout 演算法、Smart Layout Modal、Render Context、JSON／Project State、Canvas render 或 Photoshop Helper。
+- 未修改 `updateProductMasterLayoutForActiveJob()`、`applyProductMasterLayoutForActiveJob()`、`captureProductMasterLayout()`、`propagateProductMasterLayout()`、`resolveSmartProductLayoutForMainCanvas()`，亦未修改 `selectJob()`／`selectTemplate()` 的自動 propagation 流程。
+- Manual Validation：兩個按鈕不再顯示；「恢復預設位置」正常；Job／Template 切換不會重新產生按鈕；Smart Layout 自動 propagation 正常。Browser Validation 與 Jamie Manual Validation PASS。
+
 ## CSV 匯入版位預設 - 2026-07-30
 
 Status：**Completed — Browser Validation 與 Jamie Manual Validation 全部 PASS**
