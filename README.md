@@ -5,7 +5,15 @@
 - 控制台：雙擊 `launch/啟動 AD 管理器（Chrome）.command`
 - 編輯器：雙擊 `launch/啟動編輯器_*.command`
 
-SPX Helper Runtime Productization Phase 1 Foundation、Phase 2 Windows Packaging 與 Phase 3 macOS Packaging 均已完成。macOS 正式產品以 PyInstaller 建立 `SPX Helper.app`，由 PKG 安裝至 `/Applications/SPX Helper.app`，並透過 `/Library/LaunchAgents/com.spxad.helper.plist` 在登入時啟動；Fresh Install、安裝後立即啟動、Menu Bar、Restart、Quit、Login Startup，以及 GitHub Pages → SPX Helper → Photoshop → Processed PNG 均已通過 Jamie Manual Validation。Phase 3 後續以 Commit `781df79c232a9644cc0bd69653e390ef70d12964`（`fix: launch macOS helper through LaunchAgent`）修正 PKG `postinstall` 直接使用 `/usr/bin/open` 所造成的 `PKInstallSandbox` environment 繼承問題；安裝完成改由 LaunchAgent bootstrap + 非強制 kickstart 啟動，Clean Install 與正式 Happy Path 已重新驗證 PASS。Product Host version 現為 `0.6.1`，Local PKG 為 `SPX Helper-0.6.1.pkg`。原先設定的 `0.5.5` 與既有 GitHub `v0.5.5` Release 編號衝突，且目前最新既有 Release 已為 `v0.6.0`；因此使用新增修正 Commit 將正式交付版本改為 `0.6.1`，不改寫已 Push Git 歷史。本次只重新執行 Local Packaging、不安裝新版 PKG；既有安裝、Helper 啟動與 Existing Transparency／JPG／不透明 PNG／Logo／Runtime Contract Manual Validation 均維持 PASS。Bundle ID、Package ID 與 LaunchAgent 不變；本次尚未 Push、建立 `v0.6.1` Tag 或 GitHub Release。下一步是尚未開始的 Phase 4 — Update + Uninstall；Phase 5 Final Validation 亦尚未開始。開發驗證入口仍為 `tools/photoshop-automation/spx_helper_product.py`，不是正式 Windows 或 macOS 使用者啟動方式。
+SPX Helper Runtime Productization Phase 1 Foundation、Phase 2 Windows Packaging 與 Phase 3 macOS Packaging 均已完成。Windows 與 macOS 正式產品版本現為 `0.6.2`；開發驗證入口仍為 `tools/photoshop-automation/spx_helper_product.py`，不是正式使用者啟動方式。Phase 4 — Update + Uninstall 與 Phase 5 Final Validation 尚未開始。
+
+## macOS SPX Helper 0.6.2 completion (2026-07-30)
+
+macOS Packaging Commit `3a8e925e773338491abb03b3c6cc7fdd60a0994f`（`chore: package macOS Helper 0.6.2`）已將 Product Host、App bundle、PKG metadata、輸出檔名與 validators 同步為 `0.6.2`，並產生 `SPX Helper.app` 與 `SPX Helper-0.6.2.pkg`。Bundle Identifier `com.spxad.helper`、Package Identifier `com.spxad.helper.pkg`、LaunchAgent `com.spxad.helper`、`/Applications/SPX Helper.app`、`RunAtLoad = true`、無 `KeepAlive`、component `upgrade` 與不可 relocation 均維持既有正式值。
+
+Static packaging、PyInstaller App build、structural codesign、component plist、`pkgbuild`、`productbuild`、PKG metadata／payload 與 Product Host lifecycle 29 項 regression 均 PASS；Jamie 已完成安裝與 Manual Validation，包含 Menu Bar、Version `0.6.2`、無 Dock icon／Terminal window、`/ready`、LaunchAgent、package receipt、Photoshop 2026 去背，以及 WebP content + `.png` filename 隔離為 `background_removal_failed` 後續素材繼續完成。Repository、App bundle 與 PKG payload 的 `remove-background.jsx` byte-for-byte 一致，SHA-256 為 `796680519c488f53587d385a06785d3aac6059e4530953c598ec6e56ee8e89a7`；PKG SHA-256 為 `32b55924db02074c35292a03edd564f3b98032e74565e4f1f310c8fbe50dd596`。
+
+本機沒有有效 Developer ID Application／Installer identity，因此 App 為 ad-hoc signature、PKG 未簽章，未執行 notarization／stapling；Gatekeeper rejection 是 local unsigned build 的預期結果，不得記為正式簽章或 notarization PASS。PyInstaller 僅有既有條件式、跨平台或 optional-module warnings，無 Build Error。尚未 Push；尚未建立 Tag／Release；亦未上傳 PKG。
 
 ## Windows SPX Helper 0.6.2 completion (2026-07-30)
 

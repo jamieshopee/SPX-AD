@@ -106,24 +106,49 @@ condition does not meet this project's no-additional-cost packaging requirement.
 
 Windows local packaging is PASS: the official PyInstaller onedir bundle and `SPX Helper-0.6.2-x64.msi` were built, and Jamie Manual Validation confirmed MSI install, Apps & Features `0.6.2`, Helper Ready, and Photoshop 2026 Remove Background. MSI metadata is Product Name `SPX Helper`, Product Version `0.6.2`, and unchanged UpgradeCode `{0E9BD5FB-A6F1-472B-8B6B-A395BDEDC941}`. Bundle and MSI payload contain `photoshop/remove-background.jsx`; the repository and bundle match after CRLF-to-LF normalization at SHA-256 `796680519c488f53587d385a06785d3aac6059e4530953c598ec6e56ee8e89a7`. The payload includes commit `f37d37e13b0770acab0559dae318576c82458971`: WebP content with a `.png` filename is stopped before `app.open()`, reported through the existing per-item failure path as `background_removal_failed`, and later assets continue. Existing Transparency Skip is included. Runtime Contract, Adapter architecture, WiX UpgradeCode, and Installer Flow remain unchanged. The packaging-local `obj/` directory is a WiX intermediate and is ignored. WiX emitted only the existing WIX1076 / ICE90 warning; PyInstaller emitted optional-module warnings that did not affect the build. No new Tag or Release was created, and the MSI was not uploaded.
 
+### macOS 0.6.2 packaging status
+
 macOS Packaging source is located in `packaging/macos/`. It uses PyInstaller to
 build the menu-bar-only `SPX Helper.app`, then `pkgbuild`／`productbuild` to create
-the PKG. Product Name is `SPX Helper`, bundle identifier is `com.spxad.helper`,
-package identifier is `com.spxad.helper.pkg`, and Product Version is `0.6.1`.
-The current local deliverable is `SPX Helper-0.6.1.pkg`. Version `0.5.5`
-conflicted with the existing GitHub `v0.5.5` Release while the latest existing
-Release was already `v0.6.0`, so additive correction commits moved the formal
-delivery version to `0.6.1` without rewriting pushed Git history. Local app and
-PKG packaging are rerun for `0.6.1`; the new PKG is not installed. Existing
-installation, Helper startup, and Jamie Manual Validation results remain valid,
-including Existing Transparency, JPG, opaque PNG, Logo copy, and Runtime Contract
-validation. Bundle ID, Package ID, LaunchAgent, Runtime, Adapter, and Packaging
-flow remain unchanged. The Phase 3 install-launch Bug Fix validation also remains
-valid: the installed Helper environment contains no `PKInstallSandbox` or
-installer variables and the production Photoshop pipeline produces Processed PNG.
-No `v0.6.1` tag or GitHub Release has been created yet.
-Release mode requires Developer ID Application／Installer identities and
-a notary profile, but those credential-dependent paths have not been validated.
+the PKG. Packaging Commit
+`3a8e925e773338491abb03b3c6cc7fdd60a0994f`
+(`chore: package macOS Helper 0.6.2`) synchronizes Product Host
+`PRODUCT_VERSION`, `CFBundleShortVersionString`, `CFBundleVersion`, PKG package
+version, output filename, static validator, installed-app validator, and receipt
+expectation to `0.6.2`. The local deliverable is `SPX Helper-0.6.2.pkg`, with
+SHA-256
+`32b55924db02074c35292a03edd564f3b98032e74565e4f1f310c8fbe50dd596`.
+
+Static packaging validation, PyInstaller App build, structural codesign
+verification, component plist validation, `pkgbuild`, `productbuild`, PKG
+expansion／metadata／payload validation, and all 29 Product Host lifecycle
+regression checks passed. Jamie Manual Validation passed installation, Menu Bar,
+Version `0.6.2`, no Dock icon, no Terminal window, `/ready`, LaunchAgent, package
+receipt `0.6.2`, and the Photoshop 2026 flow through Processed PNG, report,
+Matching, and Review. The WebP-content-with-`.png`-filename case is reported as
+`background_removal_failed`, and later assets continue.
+
+Repository source, App bundle, and PKG payload copies of
+`photoshop/remove-background.jsx` are byte-for-byte identical at SHA-256
+`796680519c488f53587d385a06785d3aac6059e4530953c598ec6e56ee8e89a7`. The
+payload includes functionality Commit
+`f37d37e13b0770acab0559dae318576c82458971` and its documented existing
+per-item failure behavior.
+
+Product Name `SPX Helper`, bundle identifier `com.spxad.helper`, package
+identifier `com.spxad.helper.pkg`, LaunchAgent `com.spxad.helper`, install path
+`/Applications/SPX Helper.app`, `RunAtLoad = true`, no `KeepAlive`, component
+overwrite action `upgrade`, and non-relocatable bundle behavior are unchanged.
+The Phase 3 install-launch Bug Fix remains intact.
+
+The build machine has no valid Developer ID Application／Installer identity.
+The App therefore uses an ad-hoc signature and the PKG is unsigned; Developer ID
+signing, notarization, and stapling were not performed. Gatekeeper rejection is
+expected for this local unsigned artifact and is not a signing or notarization
+PASS. PyInstaller emitted only the existing conditional, cross-platform, or
+optional-module warnings; the SDK-alignment message was informational, and
+there were no Build Errors. No Tag or GitHub Release was created, the PKG was not
+uploaded, and the commits remain unpushed.
 
 Known Issue: in the validated Windows environment, Version / About information
 dialogs and some Installer dialogs do not close through OK, Esc, or X. This does

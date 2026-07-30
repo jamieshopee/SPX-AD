@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## SPX Helper macOS Local Packaging 0.6.2 - 2026-07-30
+
+Status：**Completed — Build／Artifact Validation 與 Jamie Manual Validation PASS**
+Packaging Commit：`3a8e925e773338491abb03b3c6cc7fdd60a0994f`（`chore: package macOS Helper 0.6.2`）
+Functionality Commit：`f37d37e13b0770acab0559dae318576c82458971`（`fix: guard WebP content with PNG extension`）
+Functionality Docs Commit：`eb8e67ce09405bda4d22de766faf14138afca271`（`docs: document WebP PNG mismatch guard`）
+Cross-platform 0.6.2 context：Windows Packaging Commit `2099e22d9e2c7bdb685d903c893dded94f933b2f`；Windows Packaging Docs Commit `aa95d94d740ac646a19f73bce6a4d6a6a73c01ba`。
+
+- Version Sync：Product Host `PRODUCT_VERSION`、`CFBundleShortVersionString`、`CFBundleVersion`、PKG package version、macOS packaging validator、installed-app validator 與 package receipt expectation 均為 `0.6.2`；PKG 輸出檔名為 `SPX Helper-0.6.2.pkg`。
+- Deliverables：`SPX Helper.app` 與 `SPX Helper-0.6.2.pkg`。PKG SHA-256 為 `32b55924db02074c35292a03edd564f3b98032e74565e4f1f310c8fbe50dd596`。
+- Identity／Install Contract：Bundle Identifier `com.spxad.helper`、Package Identifier `com.spxad.helper.pkg`、LaunchAgent Identifier `com.spxad.helper`、安裝位置 `/Applications/SPX Helper.app`、LaunchAgent `/Library/LaunchAgents/com.spxad.helper.plist`、`RunAtLoad = true`、無 `KeepAlive`、component overwrite action `upgrade` 與 `BundleIsRelocatable = false` 均維持既有正式值。
+- Build／Artifact Validation：macOS static packaging validation、PyInstaller App build、App structural codesign verification、component plist validation、`pkgbuild`、`productbuild`、PKG expansion／metadata／payload validation 全部 PASS；Product Host lifecycle regression 29 項 PASS。
+- Jamie Manual Validation：安裝、Menu Bar、Version `0.6.2`、無 Dock icon、無 Terminal window、`/ready`、LaunchAgent、package receipt `0.6.2` 與 Photoshop 2026 去背流程全部 PASS。WebP content + `.png` filename 正確標記為 `background_removal_failed`，mismatch 後續素材持續完成，Processed PNG／report／Matching／Review 流程 PASS。
+- JSX Inclusion：Repository source、App bundle 與 PKG payload 的 `remove-background.jsx` 經 byte-for-byte `cmp` 與 SHA-256 驗證一致，共同 SHA-256 為 `796680519c488f53587d385a06785d3aac6059e4530953c598ec6e56ee8e89a7`。
+- Local Build Limitation：本機沒有有效 Developer ID Application／Installer identity；App 使用 ad-hoc signature，PKG 未簽章，未執行 Developer ID signing、notarization 或 stapling。Gatekeeper `spctl` rejection 符合 local unsigned build 預期，不得記為正式簽章或 notarization PASS。
+- Warnings：PyInstaller 僅有既有條件式、跨平台或 optional-module warnings；executable SDK version 對齊 bundled Python library 的訊息為 informational。無 Build Error，warnings 未影響 App build、structural verification、PKG validation 或 Product Host regression。
+- Scope Boundary：Packaging Commit 只同步 macOS packaging 版本。未修改 `tools/photoshop/remove-background.jsx`、Browser、Runtime Contract、macOS Adapter、Manifest、Pipeline State、Review Workspace、UI、`qrcode-demo`、Windows MSI、Auto Update 或 Upgrade／Uninstall Phase 範圍。
+- Delivery Status：macOS Packaging Commit 已建立，Jamie Manual Validation PASS；尚未 Push；尚未建立 Tag／Release；亦未上傳 PKG。
+
 ## Windows Photoshop 2026 WebP?PNG ???????? - 2026-07-30
 
 Status?**Completed ? Jamie Manual Validation PASS**
@@ -367,12 +386,13 @@ Commit subject：`feat: add Phase 3 macOS packaging`
 - `DoJavaScriptFile()` 為已完成實機驗證且失敗的歷史方案，不再採用；未建立 Windows 專用 JSX 副本。
 - Windows Validation：PASS。Jamie Manual Validation：PASS。真實 Windows + Photoshop 2025 環境已成功產生 `photoshop-run-report.json` 與 Processed PNG。此項是當時的 JavaScript Entry 驗證；後續 Phase 2 Windows Packaging 狀態見本文件頂端。
 
-Version: v0.6.1（Product Host `0.6.1`；SPX Helper Runtime Productization Phase 3 macOS Packaging Completed；Next: Phase 4 — Update + Uninstall）
-Last Updated: 2026-07-28
+Version: v0.6.2（Product Host `0.6.2`；Windows／macOS SPX Helper 0.6.2 Packaging Completed；Next: Phase 4 — Update + Uninstall）
+Last Updated: 2026-07-30
 Scope: 專案版本紀錄與重要設計決策。此文件不是 Git commit log，而是維護者交接用版本紀錄。
 
 ## What's New
 
+- **macOS SPX Helper 0.6.2 Packaging（Commit `3a8e925e773338491abb03b3c6cc7fdd60a0994f`）**：同步 App／PKG／validators 至 `0.6.2`，建立 `SPX Helper-0.6.2.pkg`；Build、artifact 與 Jamie Manual Validation PASS。Developer ID signing／Notarization 仍是未驗證的 credential-dependent 項目。
 - **手動換圖跨 Job 保留與 Products Render Race 修正（Bug Fix，Commit `4ff252f`）**：Products、Person、Single Product 的同檔名手動換圖會保存於各自 Job 的 runtime-only manual render state；切換 Job 後優先 overlay 該 Job 的手動圖片，原有 `layoutStates` 繼續保存位置、尺寸、旋轉與 z-order。Products 的非同步 render 固定綁定 `job`／`loadSeq`／`frameWindow`，stale transaction 不得寫入 globals 或 Canvas message。Browser Validation 與 Jamie Manual Validation 均 PASS。
 - **SPX Helper Runtime Productization Phase 3 macOS Packaging 完成（功能 Commit `ee55dd527a00361f1155ba45713ff2ce3957b06c`）**：新增正式 `SPX Helper.app` 與 macOS PKG build pipeline；Fresh Install、Login Startup、Menu Bar、Restart／Quit 及 GitHub Pages → Helper → Photoshop → Processed PNG 均 PASS。Developer ID／Notarization 仍是尚未驗證的 Credential-dependent validation；下一步為 Phase 4 — Update + Uninstall（Not Started）。
 - **SPX Helper Runtime Productization Phase 2 Windows Packaging 完成（功能 Commit `9240504`）**：新增 PyInstaller executable bundle 與 WiX Toolset SDK 5.0.2 per-machine MSI；Windows Packaging configuration、MSI Build／Install 與 GitHub Pages → Helper → Photoshop → Processed PNG 均 PASS。
