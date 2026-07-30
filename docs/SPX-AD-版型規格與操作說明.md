@@ -6,6 +6,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 
 ## What's New
 
+- **CSV 匯入版位預設（Commit `d9cf130e8cee6c0f95e520f39a4c5bc1e4d45607`）**：實際入稿表 H6 的合法完整字串會成為此次普通 CSV 匯入的初始版位；H7:H11 仍是各 Job 原有 Style。這只是 Import Default，不會鎖定版位；匯入後仍可自由切換，切換 Job 不會自動切回。空白或非法值不顯示新錯誤或警告，沿用既有 fallback。實際 CSV、四個 mapping、Styles `01`／`02`／`05`／`07`／`10` 與 Jamie Manual Validation 全部 PASS。
 - **右側欄手動換圖驗證修正（Commit `8cb7c27c71d664ececb6b57487e921a3f0c44839`）**：對使用者的正式說明維持「手動換圖請使用已完成去背的 PNG，且檔名必須與要取代的圖片完全一致」。每個檔案會先完成檔名、實際格式、decode 與既有圖片預處理，全部成功後才換圖；失敗時原圖保持不變，並在對應 Upload Box 下方顯示紅色錯誤。Runtime 不只看副檔名或 `File.type`，可接受實際內容為有效且可 decode 的 PNG／WebP。完整檔名限制只適用於替換已存在素材；空 Logo slot、未滿三張的商品合法空位，以及尚無 Person／Single Product 時仍可新增。Static Check、Browser Validation、下載／暫存／匯入／完整專案／Batch 回歸與 Jamie Manual Validation 全部 PASS。
 - **Windows Photoshop 2026 WebP?PNG ?????????Commit `f37d37e13b0770acab0559dae318576c82458971`?**??????????????? `.png`??? magic bytes ? `RIFF....WEBP`?Photoshop JSX ?? `app.open()` ????????????????? Windows Photoshop 2026 ??? Crash?BEX64 / `0xc0000409`???????????????????? `background_removal_failed`??????????Review Workspace ??????????????????macOS ? Windows ????? JSX ???????????Jamie Manual Validation PASS?
 
@@ -56,6 +57,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 15. [匯入素材資料夾（Direct Import）](#匯入素材資料夾direct-import)
 16. [素材審核 / 素材審閱](#素材審核--素材審閱)
 17. [AI Workflow 使用者流程](#ai-workflow-使用者流程)
+18. [CSV 匯入版位預設](#csv-匯入版位預設)
 
 ## 四個尺寸
 
@@ -65,6 +67,31 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 | `1080x1920` | `templates/1080x1920/template.json` | `templates/1080x1920/styles/` |
 | `1599x1080` | `templates/1599x1080/template.json` | `templates/1599x1080/styles/` |
 | `3189x3992` | `templates/3189x3992/template.json` | `templates/3189x3992/styles/` |
+
+## CSV 匯入版位預設
+
+實際入稿表的 H 欄同時承載整批版位與各 Job Style：
+
+- H6：此次匯入共用的 batch-level Placement。
+- H7:H11：每筆 Job 原有的 Style ID。
+- H6 不會建立 Job；H7:H11 維持既有 Style 解析與兩位數正規化。
+
+H6 只接受以下四個完整合法字串：
+
+| CSV 完整值 | placementId | 控制台初始版位 |
+|---|---|---|
+| `TVBN-智取店` | `tvbn-smart-store` | `TVBN-智取店_1080x1920` |
+| `TVBN-一般門市` | `tvbn-standard-store` | `TVBN-一般門市_1599x1080` |
+| `繳費機手機號碼輸入畫面下 BN` | `payment-phone-banner` | `繳費機手機號碼輸入畫面下 BN_984x309` |
+| `智取店繳費機 BN` | `smart-payment-banner` | `智取店繳費機 BN_3189x3992` |
+
+此值只決定普通 CSV 匯入完成後的初始版位：
+
+- 不是鎖定；版位下拉維持可用，使用者可自由切換。
+- 切換其他 Job 後不會自動切回 CSV 初始版位。
+- H6 空白或不是上表四個完整值時，匯入仍正常完成，且沿用既有 fallback；不新增錯誤或警告。
+- H7:H11 的數字只會作為各 Job Style，不會被當成 Placement。
+- JSON 暫存匯出／匯入仍沿用既有 Placement／Template／Style 保存與還原流程，不需要新的欄位或操作。
 
 ## Template
 

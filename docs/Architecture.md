@@ -8,6 +8,7 @@ SPX Helper Core（功能 Commit `9a71794`）、Runtime Productization Phase 1 Fo
 
 ## What's New
 
+- **CSV Placement Import Default（功能 Commit `d9cf130e8cee6c0f95e520f39a4c5bc1e4d45607`）**：普通 CSV 匯入會從完整 rows 的 H 欄解析一次 batch-level Placement。實際入稿表 H6 是 Placement，H7:H11 是各 Job Style；Placement 只接受四個完整合法字串並映射至既有 placementId，不用 UI 事件反查或模擬切換。合法值只在 Workspace 首次初始化且 `activePlacement` 尚未存在時成為初始 Placement；之後使用者仍可自由切換，Job 切換不會鎖回。空白／非法值沿用原本第一個可用 Placement fallback。既有 Job parser、Template／Style Runtime、JSON、Export、Canvas、Asset Pipeline、Review Workspace 與 Direct Import 均未修改。
 - **右側欄手動換圖 Commit 前驗證（Bug Fix，Commit `8cb7c27c71d664ececb6b57487e921a3f0c44839`）**：Logo、商品圖、Person／Single Product 統一採逐檔 `validate → prepare → commit`，不做多檔 transaction 或 rollback。Plugin 先依 replacement／empty-slot addition 規則檢查完整檔名，再讀取 Magic Number、decode，並完成既有 autoTrim、shadow 與尺寸計算；全部成功後才呼叫原有 Canvas message、Job／`_manualRenderState` 保存與 Approved Asset invalidation。Picker 對使用者仍宣告 PNG，Runtime 則依實際內容接受可辨識且能成功 decode 的 PNG／WebP，不以副檔名或 `File.type` 為唯一依據。失敗只更新對應 Upload Box 下方的 DOM-only inline error，不更新 Canvas、素材列表、Job、`_manualRenderState` 或 Asset Pipeline。`src/app.js` 只新增 active Job canonical filename 的唯讀 getter，以及 `selectJob()` 成功後清除 inline error 的 hook；未新增 state／schema／Canvas Contract／runtime bridge。Download／Export／ZIP、Import、Batch Render、Render Engine、Asset Resolver、Photoshop Automation 與圖片處理／排版演算法均未修改。Static Check、Browser Validation 與 Jamie Manual Validation PASS。
 - **AI Workflow 單向審核流程（Commit `8eefbb0924121f3a199c547186306c5eeb722a31`）**：Runtime phase 固定為 Photoshop First Run → `FirstReview` →（有 Needs Rerun 時）Photoshop Rerun → `SecondReview` → `Completed`。Rerun 只能由 `FirstReview` 啟動，第二輪不得寫入 `needs_rerun` 或建立第三輪；未完成時 Close／Esc 受 guard，`Completed` 後不得 reopen。Header 狀態改由 source mode 與 phase 控制；Direct Import 仍完全繞過 AI Workflow。
 - **匯入素材資料夾（Direct Import，功能 Commit `d5a22c86f203d1b5c795d808b1f6eb700a9c13d4`）**：Control Center Header 新增第二條素材入口，供已完成去背、四周透明且沿用正式資料夾結構／檔名規則的 PNG 直接進入既有 Approved Asset Runtime。兩個入口共用正式資料夾掃描；Direct Import 建立既有 `assetIndex`、`assetPipelineState`、`processedAssetIndex`，沿用 `importProcessedAssets()` Matching，只核准 matched 且存在 runtime handle 的 records。此路徑不啟動 SPX Helper、Photoshop 或 AI Workflow，不建立 Processed、不開啟 Review Workspace，也不進 Needs Rerun／Rerun。Resolver 之後沿用既有 Asset Resolver、autoTrim、Shadow、Canvas、手動換圖、Job 切換與輸出／還原流程。Jamie Manual Validation 全部 PASS。
@@ -336,6 +337,43 @@ Preview / Export
 6. `layout-runtime.js` 依 Template 排版 Logo、商品、Person、SingleProduct。
 7. `box-transform-utils.js` 控制可手動 transform 的物件。
 8. Capture 輸出 preview、thumbnail 或 PNG。
+
+### CSV Placement Import Default
+
+普通 CSV 的版位預設是 Import initialization，不是新的 Placement state owner：
+
+```text
+CSV / XLSX rows
+  ↓
+findHeaderRow()
+  ↓
+resolveCsvImportPlacement(rows, headerInfo.colMap)
+  ↓
+parseJobsFromRows()
+  ↓
+resetWorkspaceState()
+  ↓
+ensureWorkspaceReadyForJob(preferredPlacementId?)
+  ↓
+addJob() × N
+  ↓
+selectJob(firstNew.id)
+```
+
+- 實際入稿表的 H6 是 batch-level Placement；H7:H11 是各 Job 的 Style。兩者共用 H 欄，但 resolver 只接受下表完整字串，數字 Style 不會被視為 Placement。
+
+  | CSV 完整值 | placementId | 控制台 Placement |
+  |---|---|---|
+  | `TVBN-智取店` | `tvbn-smart-store` | `TVBN-智取店_1080x1920` |
+  | `TVBN-一般門市` | `tvbn-standard-store` | `TVBN-一般門市_1599x1080` |
+  | `繳費機手機號碼輸入畫面下 BN` | `payment-phone-banner` | `繳費機手機號碼輸入畫面下 BN_984x309` |
+  | `智取店繳費機 BN` | `smart-payment-banner` | `智取店繳費機 BN_3189x3992` |
+
+- `resolveCsvImportPlacement()` 只讀完整 rows 與 `colMap.styleId`，不修改 rows、Job 或 UI；找不到合法值時回傳空結果。
+- `parseJobsFromRows()` 維持原有 Job 與 Style 解析，因此 H6 不建立 Job，H7:H11 繼續正規化為 `01`／`02`／`05`／`07`／`10` 等 Style ID。
+- `ensureWorkspaceReadyForJob(preferredPlacementId)` 只在首次 Workspace 初始化、`activePlacement` 尚未存在時使用合法且 registry 中存在、並具有可用 Template 的 preferred Placement；否則沿用原本第一個可用 Placement fallback。無參數呼叫與 active Placement 已存在時的 short-circuit 均不變。
+- 初始 Placement 建立後仍是既有 global `activePlacement`；使用者可自由切換，切換 Job 不會重新讀取或鎖回 CSV 值。
+- JSON serializer／importer 不需特殊欄位或 schema 變更；既有 Placement／Template／Style state 繼續自然保存與還原。
 
 ### 右側欄文字同步
 

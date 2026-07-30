@@ -1,5 +1,15 @@
 # AI-HANDOFF.md
 
+## CSV 匯入版位預設完成（2026-07-30）
+
+- Code Commit：`d9cf130e8cee6c0f95e520f39a4c5bc1e4d45607`（`feat: support placement defaults from CSV imports`）。
+- CSV Contract：實際入稿表的 H6 是整批共用 Placement；H7:H11 是各 Job 原有 Style。兩者共用 H 欄，但 Placement 只接受四個完整合法字串，H6 不建立 Job，H7:H11 繼續沿用既有 Style 解析與正規化。
+- Mapping：`TVBN-智取店` → `tvbn-smart-store`（`TVBN-智取店_1080x1920`）；`TVBN-一般門市` → `tvbn-standard-store`（`TVBN-一般門市_1599x1080`）；`繳費機手機號碼輸入畫面下 BN` → `payment-phone-banner`（`繳費機手機號碼輸入畫面下 BN_984x309`）；`智取店繳費機 BN` → `smart-payment-banner`（`智取店繳費機 BN_3189x3992`）。
+- Behavior：合法 batch-level Placement 只作為普通 CSV Workspace 的首次 Import Default，不是鎖定。匯入後使用者仍可自由切換 Placement，切換 Job 不會自動切回 CSV 初始值；空白或非法值不新增錯誤或警告，完全沿用既有第一個可用 Placement fallback。
+- Implementation Boundary：只修改 `src/app.js`；新增 `resolveCsvImportPlacement()`、調整 `importFile()`，並讓 `ensureWorkspaceReadyForJob()` 接受 optional `preferredPlacementId`。Preferred 值只在首次 Workspace 初始化且 `activePlacement` 尚未存在時有效；無參數呼叫維持原行為。
+- Preserved Flow：未修改 `parseCsvToRows()`、`findHeaderRow()`、`parseJobsFromRows()`、`createJob()`、`selectJob()`、Template、Style Runtime、JSON Schema／Import／Export、Asset Pipeline、Review Workspace、Direct Import、Canvas Engine 或 `qrcode-demo`。JSON 仍以既有流程自然保存與還原 Placement／Template／Style state。
+- Validation：實際 CSV 建立 5 筆 Jobs，初始 Placement 為 `tvbn-smart-store`，Styles 為 `01`／`02`／`05`／`07`／`10`；四個合法 mapping、空白／非法 fallback、自由切換與 Job 切換不鎖回全部 PASS。Browser Console error 為 0，未發現 stale Canvas transaction 或額外 reload；Jamie Manual Validation 與 `git diff --check` PASS。
+
 ## 右側欄文字即時同步 Canvas 完成（2026-07-30）
 
 - Code Commit：`40227ca17d7b5c1bc067c8b52f96686c8f7f6092`（`feat: replace manual text apply with live canvas sync`）。
@@ -126,6 +136,7 @@ main
 已完成：
 
 - Core Editor：控制台、Canvas preview、CSV jobs、素材帶入、下載 PNG / ZIP。
+- CSV Placement Import Default：功能 Commit `d9cf130e8cee6c0f95e520f39a4c5bc1e4d45607`。實際入稿表 H6 的四個合法完整字串可決定普通 CSV Workspace 的首次 Placement；H7:H11 仍各自解析為 Job Style。此值只作為 Import Default，不鎖定 Placement；空白／非法值沿用既有 fallback。Jamie Manual Validation PASS。
 - Template System：Template 與 Style 分離，Template 作為排版結構來源。
 - Asset Pipeline Phase 2A：assetPipeline state、assetKey、manifest export、processed folder import。
 - Photoshop Adapter Phase 2B：Photoshop manifest runner、remove background prototype、run report。

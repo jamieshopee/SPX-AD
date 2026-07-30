@@ -1,5 +1,39 @@
 # CHANGELOG
 
+## CSV 匯入版位預設 - 2026-07-30
+
+Status：**Completed — Browser Validation 與 Jamie Manual Validation 全部 PASS**
+Code Commit：`d9cf130e8cee6c0f95e520f39a4c5bc1e4d45607`
+Commit subject：`feat: support placement defaults from CSV imports`
+
+### CSV Contract / Mapping
+
+- 實際入稿表 H6 是此次普通 CSV 匯入共用的 batch-level Placement；H7:H11 是各 Job 原有 Style。兩者共用 H 欄，但以完整合法字串區分。
+- H6 不建立 Job；H7:H11 繼續沿用既有 Style parser 與兩位數正規化。
+- Placement 只接受以下 exact mapping，不使用 contains、模糊比對或 UI 顯示名稱反查：
+
+  | CSV 完整值 | placementId | 控制台 Placement |
+  |---|---|---|
+  | `TVBN-智取店` | `tvbn-smart-store` | `TVBN-智取店_1080x1920` |
+  | `TVBN-一般門市` | `tvbn-standard-store` | `TVBN-一般門市_1599x1080` |
+  | `繳費機手機號碼輸入畫面下 BN` | `payment-phone-banner` | `繳費機手機號碼輸入畫面下 BN_984x309` |
+  | `智取店繳費機 BN` | `smart-payment-banner` | `智取店繳費機 BN_3189x3992` |
+
+### Changed Behavior
+
+- `resolveCsvImportPlacement(rows, colMap)` 從完整 rows 的 `colMap.styleId` 欄只解析一次合法 Placement，不修改 rows、Job 或 UI；找不到時回傳空結果。
+- `importFile()` 在既有 rows／header 取得後解析 batch-level Placement，仍沿用 `parseJobsFromRows()` 建立 Jobs；重設 Workspace 後，只有合法 resolver 結果才將 preferred Placement 傳入首次初始化。
+- `ensureWorkspaceReadyForJob()` 新增 optional `preferredPlacementId`。Preferred 只在 `activePlacement` 尚未建立且 Workspace 首次初始化時有效；ID 必須存在於 registry 且有可用 Template，否則完全沿用既有第一個可用 Placement fallback。無參數呼叫、Placement options 順序與 active Placement 已存在時的 short-circuit 均不變。
+- CSV Placement 只是 Import Default，不是鎖定。匯入後版位下拉仍可自由切換，切換 Job 不會重新套用或鎖回 CSV 初始值。
+- H6 空白或非法時不新增錯誤或警告，匯入照常完成並沿用既有 fallback。
+
+### Scope Boundary / Validation
+
+- 只修改 `src/app.js`；未修改 `parseCsvToRows()`、`findHeaderRow()`、`parseJobsFromRows()`、`createJob()`、`selectJob()`、Template、Style Runtime、JSON Schema／serializer／importer、Export、Asset Pipeline、Review Workspace、Direct Import、Canvas Engine 或 `qrcode-demo`。
+- JSON Import／Export 不需修改，既有流程會自然保存與還原 Placement／Template／Style state。
+- 實際 CSV 建立 5 筆 Jobs（`TVBN-A-1`～`TVBN-A-5`），初始 Placement 為 `tvbn-smart-store`，Styles 為 `01`／`02`／`05`／`07`／`10`。
+- 四個合法 mapping、空白／非法 fallback、Placement 自由切換、Job 切換不鎖回、Browser Console error 0、無 stale Canvas transaction／額外 reload、`git diff --check` 與 Jamie Manual Validation 全部 PASS。
+
 ## 右側欄文字即時同步 Canvas - 2026-07-30
 
 Status：**Completed — Browser Validation 與 Jamie Manual Validation 全部 PASS**
