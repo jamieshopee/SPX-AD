@@ -1,5 +1,16 @@
 # AI-HANDOFF.md
 
+## 右側欄手動換圖驗證修正完成（2026-07-30）
+
+- Code Commit：`8cb7c27c71d664ececb6b57487e921a3f0c44839`（`fix: validate manual image replacements before commit`）。
+- Root Cause：Logo、商品圖、Person／Single Product 缺少一致的 Commit 前驗證，部分流程可能在 decode／預處理完成前先修改 runtime 或 Canvas；既有判斷亦過度依賴副檔名／`File.type`，無法可靠識別實際 WebP、假 PNG 與損壞圖片。
+- Locked Flow：每個 File 獨立執行 `validate → prepare → commit`，不做多檔 transaction 或 rollback。檔名、Magic Number、decode、既有 trim／shadow／尺寸計算全部成功後，才進入既有 Commit；失敗檔案不得改變原圖，已成功的其他檔案不回復。
+- Format Contract：Picker 對使用者仍只宣告 PNG；正式使用者說明維持「手動換圖請使用已完成去背的 PNG，且檔名必須與要取代的圖片完全一致」。Runtime 依實際內容接受可辨識且能成功 decode 的 PNG／WebP，不以副檔名或 `File.type` 作為唯一依據；其他格式、假 PNG、損壞或無法 decode 的圖片均拒絕。
+- Filename / Addition：只有替換已存在素材時才要求完整檔名（含大小寫與副檔名）完全一致。Logo 空 slot、商品未滿三張且有合法空位、Person／Single Product 尚無素材時維持既有新增能力；商品已滿三張或指定 slot 已被不同檔名占用時不得覆蓋。
+- Error UI：三個 Upload Box 各自使用具名紅色 transient inline error，不使用 Modal；再次選檔、成功或切換 Job 時清除。錯誤只存在 DOM，不得進入 Job、Project State、`_manualRenderState`、JSON 或 Download。
+- Scope Boundary：未修改 Download／Export／ZIP、Import、Batch Render、Project State／`_manualRenderState` schema、Canvas Contract／handler、Render Engine、Asset Resolver、Photoshop Automation 或任何圖片排版／尺寸／陰影／裁切／排序演算法。
+- Validation：Static Check、Browser Validation 與 Jamie Manual Validation 全部 PASS；單張 PNG、單張暫存 JSON、匯入暫存、完整專案與 Batch Render 回歸 PASS。
+
 ## macOS SPX Helper 0.6.2 Packaging Completion（2026-07-30）
 
 - Packaging Commit：`3a8e925e773338491abb03b3c6cc7fdd60a0994f`（`chore: package macOS Helper 0.6.2`）。
@@ -128,6 +139,7 @@ main
 - LayoutState Restore：依 `placementId|templateId` 保存與恢復 transform。
 - Product identity restore by filename：三商品 restore 使用 `id → filename → position`。
 - Approved Asset Resolver：Main Canvas / Thumbnail / Batch 共用 `BNAssetResolver` 與 Render Context。
+- 手動換圖 Commit 前驗證：Bug Fix Commit `8cb7c27c71d664ececb6b57487e921a3f0c44839`。Logo、Products、Person／Single Product 共用實際內容 Magic Number + decode 驗證，每檔完成既有 prepare 後才 Commit；replacement 使用大小寫及副檔名完全一致的完整檔名，empty slot addition 維持既有能力。失敗只顯示 Upload Box 下方的 DOM-only inline error，不更新 Canvas、Job、`_manualRenderState` 或 Asset Pipeline。不得擴大成 transaction framework、Project State、Canvas Contract、Resolver、Download／Import／Batch 或 Photoshop 變更。
 - 手動換圖跨 Job 保留：Bug Fix Commit `4ff252f`。Products／Person／Single Product 同檔名手動換圖會寫入該 Job 的 runtime-only `_manualRenderState`；切回 Job 時先完成既有 Approved processed → original asset payload，再 overlay 手動 render source，最後照原順序套用 `layoutStates`。三商品 `applyProductsToCanvas()` 固定綁定 `job`／`loadSeq`／`frameWindow`，stale render 不得寫入 `_bnProducts` 或送 `bn-product-add`。Browser Validation 與 Jamie Manual Validation PASS；不得把此 state 擴大成 Project Persistence schema、source manager 或第二套 layout state。
 - 1人＋1品 Accordion mode：UI Bug Fix。`handlePersonProductFiles()` 結尾必須以 `updateTemplateModeLabel('person_product')` 明確維持模式；若省略 mode，Plugin 的共用 accordion defaults 會以預設狀態覆寫並誤展開商品圖區域。修正只影響 accordion UI，未修改手動換圖、`_manualRenderState`、autoTrim／Shadow、Canvas、Approved Asset invalidation、Job restore 或三商品流程。初始載入、Person／Single Product 手動換圖、Job 切換與三商品版型均由 Jamie Manual Validation 確認 PASS。
 - 1人＋1品 Person 垂直位置控制：Bug Fix Commit `f890e73d8372dd2736a7e2eac48486901aa0ca2e`。Person 採 Y-only drag，X 軸固定且不提供縮放、旋轉或 handles；Template 原始 top 是可上移的最上界。`personZone.dataset.bnPersonInitialTop` 僅是目前 Canvas 的 runtime-only Template 基準，不得寫入 Job、JSON 或 layout state schema。Person Reset 與手動換圖均回到該 top，並以既有 `_bnNotifyLayoutState()` 同步 Person `left`／`top`。`manualReplace` runtime flag 只能由使用者手動換 Person 的 `bn-person-add` 傳送；初始載入、Job restore 與一般 rebroadcast 不得帶入。`bn-reset-person-position` 只能重設 Person `top`，不得修改 source、尺寸、比例、left 或其他 transform；Single Product reset、autoTrim、Render Context 與 Download 均維持不變。

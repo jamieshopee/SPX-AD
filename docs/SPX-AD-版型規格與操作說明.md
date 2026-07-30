@@ -1,11 +1,12 @@
 # SPX AD 版型規格與操作說明
 
-Version: 2026.07.30-ai-review-flow
+Version: 2026.07.30-manual-image-validation
 Last Updated: 2026-07-30
 Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數規格與操作流程。
 
 ## What's New
 
+- **右側欄手動換圖驗證修正（Commit `8cb7c27c71d664ececb6b57487e921a3f0c44839`）**：對使用者的正式說明維持「手動換圖請使用已完成去背的 PNG，且檔名必須與要取代的圖片完全一致」。每個檔案會先完成檔名、實際格式、decode 與既有圖片預處理，全部成功後才換圖；失敗時原圖保持不變，並在對應 Upload Box 下方顯示紅色錯誤。Runtime 不只看副檔名或 `File.type`，可接受實際內容為有效且可 decode 的 PNG／WebP。完整檔名限制只適用於替換已存在素材；空 Logo slot、未滿三張的商品合法空位，以及尚無 Person／Single Product 時仍可新增。Static Check、Browser Validation、下載／暫存／匯入／完整專案／Batch 回歸與 Jamie Manual Validation 全部 PASS。
 - **Windows Photoshop 2026 WebP?PNG ?????????Commit `f37d37e13b0770acab0559dae318576c82458971`?**??????????????? `.png`??? magic bytes ? `RIFF....WEBP`?Photoshop JSX ?? `app.open()` ????????????????? Windows Photoshop 2026 ??? Crash?BEX64 / `0xc0000409`???????????????????? `background_removal_failed`??????????Review Workspace ??????????????????macOS ? Windows ????? JSX ???????????Jamie Manual Validation PASS?
 
 - **AI Workflow 單向審核流程（Commit `8eefbb0924121f3a199c547186306c5eeb722a31`）**：正式流程為 Photoshop First Run → FirstReview →（有 Needs Rerun 時）Photoshop Rerun → SecondReview → Completed。第一輪顯示核准／重新去背／之後手動換圖；第二輪只顯示核准／之後手動換圖，不得產生第三輪。未完成時 Close／Esc 不得離開；Completed 後顯示「AI 去背完成」，不得重新開啟素材審閱。Header 入口與狀態亦同步收斂。Manual Validation A1–E2 與 Code Review 全部 PASS。
@@ -162,6 +163,8 @@ assets/source/{size}/guide_1人1品.png
 
 Logo 最多 3 張，依 `LOGO_01 / LOGO_02 / LOGO_03` 排序。上傳後會做白底裁切，實際位置與尺寸由 Template 的 Logo 區域控制。
 
+手動換圖請使用已完成去背的 PNG；替換既有 Logo 時，檔名必須與目前 Logo 完全一致，包含大小寫及副檔名。Logo slot 尚無素材時仍可沿用既有規則新增。檔案格式、decode 與白底裁切全部成功後才更新 Logo；失敗時原 Logo 保持不變。
+
 ## 文字
 
 主標、小字使用 `ShopeeNotoSans(content)-Medium.ttf`，`fontWeight: 400`。副標依 Template 設定。文字位置、尺寸與行高由 Template 控制；文字顏色由 Style 控制。
@@ -220,7 +223,7 @@ CSV 欄位：
 
 調整前後順序不會改變商品的角色身份（主品／左配品／右配品固定不變），只改變視覺堆疊順序；右側商品清單依前後順序顯示，角色標籤仍依實際角色顯示。前後順序會隨其他調整一起保存於工單，下載單張暫存或完整專案後重新匯入時會正確還原（Bug Fix，Commit `ff1d97b`）。
 
-手動換圖：拖曳一張與既有商品完整檔名（含副檔名）相符的新圖片到商品圖區塊，會視為取代該商品，商品角色身份、id 與前後順序皆不變，僅更新圖片內容與檔名；Canvas 立即更新，並整組重新套用排版，換圖後比例、間距、overlap 與商品區域 fit（不超出邊界）皆與其餘兩張商品一致。下載單張暫存並重新開啟後，換圖結果維持一致（Bug Fix，Commit `3269b67`）。同一頁面 session 中切換到其他 Job 再切回，手動換入的圖片與原本大小、位置、旋轉、前後順序仍會保留；快速切換完成後也不會被原始或 processed 圖片覆蓋（Bug Fix，Commit `4ff252f`）。
+手動換圖請使用已完成去背的 PNG。替換既有商品時，完整檔名必須完全一致，包含大小寫及副檔名；商品未滿三張且有合法空位時，仍可新增不同檔名的新商品。商品已滿三張或指定 slot 已被不同檔名占用時，不允許不同檔名覆蓋。每個新選檔案獨立完成實際格式、decode、autoTrim、shadow 與尺寸計算後才 Commit，不重新處理其他既有商品；失敗檔案不移除或改變原商品，已成功的其他檔案不受影響。成功取代時商品角色身份、id 與前後順序皆不變，僅更新圖片內容與檔名；Canvas 沿用既有排版流程。下載單張暫存並重新開啟後，換圖結果維持一致（Bug Fix，Commit `3269b67`、驗證修正 Commit `8cb7c27`）。同一頁面 session 中切換到其他 Job 再切回，手動換入的圖片與原本大小、位置、旋轉、前後順序仍會保留；快速切換完成後也不會被原始或 processed 圖片覆蓋（Bug Fix，Commit `4ff252f`）。
 
 ## 1人＋1品
 
@@ -242,7 +245,13 @@ SingleProduct：
 - 是否加陰影由 `singleProduct.autoShadow` 控制。
 - 支援拖曳、縮放、旋轉與恢復預設位置。
 
-手動換圖（Person／Single Product 皆適用）：拖曳與既有圖片檔名同角色（含 `_人`／`_品`）的新圖片，會視為取代該角色並更新圖片內容。Person 仍沿用既有 autoTrim、尺寸、比例與適配方式，換圖完成後位置回到 Template 預設 top，不保留換圖前的垂直微調位置；Single Product 則維持既有尺寸規則，依新圖比例重新調整大小，換圖前的位置與旋轉角度維持不變，仍可繼續拖曳、縮放、旋轉；Shadow 依 `singleProduct.autoShadow` 正確套用。下載單張暫存並重新開啟後，換圖結果維持一致，不會還原成換圖前的舊圖（Bug Fix，Commit `c390a61`）。同一頁面 session 中切換到其他 Job 再切回，Person 與 Single Product 仍使用各自 Job 的手動換入圖片；Person 的目前 Y 位置沿用既有 layout state，Single Product 尺寸不會重新放大（Bug Fix，Commit `4ff252f`、Person 位置控制 Commit `f890e73`）。
+手動換圖（Person／Single Product 皆適用）：請使用已完成去背的 PNG。角色已有素材時，完整檔名必須與目前素材完全一致，包含大小寫及副檔名；只有角色尚無素材時才沿用既有 `_人`／`_品` 規則新增。實際格式、decode、autoTrim、Single Product shadow 與尺寸計算全部成功後才切換 Template mode／Accordion 並更新圖片；失敗時原圖、模式與 Accordion 均不變。Person 仍沿用既有 autoTrim、尺寸、比例與適配方式，換圖完成後位置回到 Template 預設 top，不保留換圖前的垂直微調位置；Single Product 則維持既有尺寸規則，依新圖比例重新調整大小，換圖前的位置與旋轉角度維持不變，仍可繼續拖曳、縮放、旋轉；Shadow 依 `singleProduct.autoShadow` 正確套用。下載單張暫存並重新開啟後，換圖結果維持一致，不會還原成換圖前的舊圖（Bug Fix，Commit `c390a61`、驗證修正 Commit `8cb7c27`）。同一頁面 session 中切換到其他 Job 再切回，Person 與 Single Product 仍使用各自 Job 的手動換入圖片；Person 的目前 Y 位置沿用既有 layout state，Single Product 尺寸不會重新放大（Bug Fix，Commit `4ff252f`、Person 位置控制 Commit `f890e73`）。
+
+手動換圖 Picker 對使用者只宣告 PNG；Runtime 會依實際檔案內容確認 PNG／WebP Magic Number，並要求成功 decode，不以副檔名或 `File.type` 作為唯一依據。JPG／JPEG／GIF／BMP／AVIF、假 PNG、損壞或無法 decode 的圖片均拒絕。錯誤顯示於對應 Upload Box 下方，不使用彈跳視窗；再次選檔、成功或切換 Job 時自動清除。固定訊息如下：
+
+- `換圖失敗，檔名必須與目前素材完全一致。`
+- `手動換圖僅支援已完成去背的 PNG，且檔名必須與要取代的圖片完全一致。`
+- `圖片損壞無法讀取，原圖片未被更換。`
 
 ## 商品角色命名
 

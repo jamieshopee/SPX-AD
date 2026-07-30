@@ -1,11 +1,12 @@
 # UI Design Guideline
 
-Version: 2026.07.30-ai-review-flow
+Version: 2026.07.30-manual-image-validation
 Last Updated: 2026-07-30
 Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
 
+- **右側欄手動換圖 inline error（Commit `8cb7c27c71d664ececb6b57487e921a3f0c44839`）**：Logo、商品圖、1人＋1品各自使用 Upload Box 正下方的具名紅色 transient error；不使用 Modal、不常駐、不保留空白。再次選檔、成功換圖或切換 Job 時清除，且錯誤只存在 DOM。圖片驗證與預處理全部成功後才更新既有 UI／Canvas state；Jamie Manual Validation 全部 PASS。
 - **AI Workflow 單向審核與 Header 狀態收斂（Commit `8eefbb0924121f3a199c547186306c5eeb722a31`）**：Header 入口順序更新；素材審核只在 `FirstReview`／`SecondReview` 顯示，Photoshop 實際執行時顯示處理中，`Completed` 顯示「AI 去背完成」。Decision Area 第一輪為核准／重新去背／之後手動換圖，第二輪為核准／之後手動換圖；未完成時 Close／Esc 不得離開。Manual Validation A1–E2 與 Code Review 全部 PASS。
 - **素材審閱新增 `skipped` 決策（Commit `c2151987fae163d6e1c8af7f660f2823908846ca`）**：Review Decision Undo 已完整移除；`skipped` 保留 Auto Next，是目前 Project 不可解除的 Terminal State，不加入 Needs Rerun。其目前正式 UI 名稱與兩輪按鈕規則由 Commit `8eefbb0924121f3a199c547186306c5eeb722a31` 更新為「之後手動換圖」。
 - **1人＋1品 Person 垂直位置控制（Commit `f890e73`）**：Person 僅提供 Y 軸上下微調，X 軸固定，不顯示 Transform handles，也不提供縮放或旋轉；上移不得超過 Template 預設 top。1人＋1品「恢復預設位置」會將 Person top 回復至 Template 預設值，手動換 Person 圖片後亦回到同一預設位置。Single Product 與既有圖片處理行為不變，Jamie Manual Validation PASS。
@@ -180,13 +181,19 @@ Toolbar 顯示：
 
 文字欄位固定在上方，QRCode 區塊固定於文字欄位之後、Logo 之前。Logo、商品圖、1人＋1品使用 Accordion。
 
-素材上傳區塊固定使用以下精簡文案，不在 Upload Box 下方顯示額外說明文字：
+素材上傳區塊固定使用以下精簡文案，不在 Upload Box 下方顯示常駐說明文字：
 
 - Logo 標題：`Logo（最多3張）`；Upload Box：`＋ 點擊或拖曳上傳 Logo`。
 - 商品圖標題：`商品圖（最多3張）`；Upload Box：`＋ 點擊或拖曳上傳商品圖`。
 - 1人＋1品標題：`1人＋1品`；Upload Box：`＋ 點擊或拖曳上傳圖片`。
 
-Products 與 1人＋1品 Upload Box 下方不建立或保留提示文字占位；後續清單與「恢復預設位置」按鈕自然接續排列。互斥狀態只調整既有 Upload Box 與 Reset button 狀態，不得以 sibling lookup 寫入商品清單或 Reset button 文字。
+Logo、Products 與 1人＋1品 Upload Box 下方各有具名的 transient inline error 節點；平時完全隱藏且不保留空白，後續清單與「恢復預設位置」按鈕自然接續排列。錯誤發生時才顯示紅色小字，不使用 Modal，也不得透過 `nextElementSibling` 或其他 DOM 順序推定節點。再次選檔、成功換圖或切換 Job 時清除；錯誤只存在 DOM，不寫入 Job、Project State、`_manualRenderState`、JSON 或 Download。互斥狀態只調整既有 Upload Box 與 Reset button 狀態，不得寫入商品清單或 Reset button 文字。
+
+手動換圖固定錯誤訊息：
+
+- 檔名不一致：`換圖失敗，檔名必須與目前素材完全一致。`
+- 格式不支援：`手動換圖僅支援已完成去背的 PNG，且檔名必須與要取代的圖片完全一致。`
+- 圖片損壞：`圖片損壞無法讀取，原圖片未被更換。`
 
 ### QRCode 區塊（Completed）
 

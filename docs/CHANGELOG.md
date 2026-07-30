@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## 右側欄手動換圖 Commit 前驗證與失敗保護 - 2026-07-30
+
+Status：**Completed — Static Check、Browser Validation 與 Jamie Manual Validation 全部 PASS**
+Code Commit：`8cb7c27c71d664ececb6b57487e921a3f0c44839`
+Commit subject：`fix: validate manual image replacements before commit`
+
+### Root Cause
+
+- Logo、商品圖、Person／Single Product 的手動換圖流程原本缺少一致的 Commit 前驗證；部分分支可能在圖片 decode 或預處理完成前先修改 runtime／Canvas state。
+- 既有流程過度依賴副檔名或 `File.type`，無法可靠區分實際 WebP 內容但使用 `.png` 檔名、假 PNG 與損壞圖片。
+
+### Fixed Behavior
+
+- 每個檔案獨立執行 `validate → prepare → commit`；不建立多檔整批 transaction 或 rollback。檔名、Magic Number、decode、既有 autoTrim／shadow 與尺寸計算全部成功後，才進入既有素材、Canvas、Job state、`_manualRenderState` 與 Asset Pipeline Commit 流程。
+- 單一檔案失敗時不移除或改變原圖；先前已成功的其他檔案維持成功，不因後續失敗回復。
+- Picker 對使用者仍宣告 PNG。Runtime 不以副檔名或 `File.type` 作為唯一依據，依實際檔案內容只接受可辨識且能成功 decode 的 PNG 或 WebP；JPG／JPEG／GIF／BMP／AVIF、假 PNG、損壞或無法 decode 的圖片均拒絕。
+- 替換已存在素材時，完整檔名必須完全一致，包含大小寫及副檔名。此限制不套用至空位置新增：Logo 空 slot、商品未滿三張且有合法空位、Person／Single Product 尚無素材時，保留既有新增能力。商品已滿三張或指定 slot 已被不同檔名占用時，不允許不同檔名覆蓋。
+- 商品新增只處理本次 File；不重新 decode、autoTrim、套用 shadow 或重建其他既有商品的圖片資料與 Canvas payload。
+
+### Error UI
+
+- 錯誤顯示於對應 Upload Box 下方的紅色 transient inline message，不使用 Modal。再次選檔、成功換圖或切換 Job 時清除。
+- 錯誤只存在 DOM，不寫入 Job、Project State、`_manualRenderState`、JSON 或 Download。
+- 固定訊息：
+  - 檔名不一致：`換圖失敗，檔名必須與目前素材完全一致。`
+  - 格式不支援：`手動換圖僅支援已完成去背的 PNG，且檔名必須與要取代的圖片完全一致。`
+  - 圖片損壞：`圖片損壞無法讀取，原圖片未被更換。`
+
+### Scope Boundary / Validation
+
+- 未修改 Download／Export／ZIP、Import、Batch Render、Project State schema、`_manualRenderState` schema、Canvas Contract／Canvas handler、Render Engine、Asset Resolver、Photoshop Automation，亦未修改 autoTrim、shadow、ratio、baselineRatio、sizeScale、position、zOrder 演算法。
+- `node --check`、`git diff --check`、Browser Validation 與 Jamie Manual Validation 全部 PASS。單張 PNG、單張暫存 JSON、匯入暫存、完整專案與 Batch Render 回歸測試 PASS。
+
 ## SPX Helper macOS Local Packaging 0.6.2 - 2026-07-30
 
 Status：**Completed — Build／Artifact Validation 與 Jamie Manual Validation PASS**
