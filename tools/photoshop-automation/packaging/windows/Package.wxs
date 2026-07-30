@@ -3,7 +3,7 @@
   <Package
     Name="SPX Helper"
     Manufacturer="SPX AD"
-    Version="0.6.1"
+    Version="0.6.2"
     UpgradeCode="{0E9BD5FB-A6F1-472B-8B6B-A395BDEDC941}"
     Scope="perMachine"
     Compressed="yes">

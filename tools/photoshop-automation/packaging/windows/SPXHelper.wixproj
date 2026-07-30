@@ -1,7 +1,7 @@
 <Project Sdk="WixToolset.Sdk/5.0.2">
   <PropertyGroup>
     <InstallerPlatform>x64</InstallerPlatform>
-    <OutputName>SPX Helper-0.6.1-x64</OutputName>
+    <OutputName>SPX Helper-0.6.2-x64</OutputName>
     <OutputPath>$(MSBuildThisFileDirectory)dist\</OutputPath>
     <IntermediateOutputPath>$(MSBuildThisFileDirectory)build\wix\</IntermediateOutputPath>
     <DefineConstants>BundleDir=$(BundleDir);IconPath=$(IconPath)</DefineConstants>

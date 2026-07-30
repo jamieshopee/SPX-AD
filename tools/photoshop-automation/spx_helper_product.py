@@ -25,7 +25,7 @@ from platform_adapter import get_platform_adapter
 
 
 PRODUCT_NAME = "SPX Helper"
-PRODUCT_VERSION = "0.6.1"
+PRODUCT_VERSION = "0.6.2"
 PRODUCT_URL = "https://jamieshopee.github.io/SPX-AD/"
 
 STATE_RUNNING = "Running"

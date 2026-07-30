@@ -8,7 +8,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $ProductName = "SPX Helper"
-$ProductVersion = "0.6.1"
+$ProductVersion = "0.6.2"
 $Publisher = "SPX AD"
 $InstallDir = Join-Path $env:ProgramFiles $ProductName
 $Executable = Join-Path $InstallDir "SPX Helper.exe"
@@ -61,7 +61,7 @@ if ($Mode -eq "Validate") {
             Where-Object { $_.DisplayName -eq $ProductName }
     )
     Assert-True ($ArpEntries.Count -eq 1) "Exactly one Apps & Features entry exists"
-    Assert-True ($ArpEntries[0].DisplayVersion -eq $ProductVersion) "Apps & Features version is 0.6.1"
+    Assert-True ($ArpEntries[0].DisplayVersion -eq $ProductVersion) "Apps & Features version is 0.6.2"
     Assert-True ($ArpEntries[0].Publisher -eq $Publisher) "Apps & Features publisher is SPX AD"
     Assert-True (-not [string]::IsNullOrWhiteSpace($ArpEntries[0].UninstallString)) "Apps & Features exposes standard MSI removal"
 
