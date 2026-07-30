@@ -21,7 +21,7 @@ ICON_PATH="$BUILD_DIR/icon/SPXHelper.icns"
 STAGING_ROOT="$BUILD_DIR/pkg-root"
 COMPONENT_PLIST="$BUILD_DIR/component.plist"
 COMPONENT_PKG="$BUILD_DIR/SPXHelper-component.pkg"
-FINAL_PKG="$DIST_DIR/SPX Helper-0.6.1.pkg"
+FINAL_PKG="$DIST_DIR/SPX Helper-0.6.2.pkg"
 LAUNCH_AGENT_SOURCE="$PACKAGING_DIR/resources/com.spxad.helper.plist"
 ENTITLEMENTS="$PACKAGING_DIR/entitlements.plist"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
@@ -110,7 +110,7 @@ fi
   --component-plist "$COMPONENT_PLIST" \
   --scripts "$PACKAGING_DIR/scripts" \
   --identifier "com.spxad.helper.pkg" \
-  --version "0.6.1" \
+  --version "0.6.2" \
   --install-location "/" \
   "$COMPONENT_PKG"
 
