@@ -6,6 +6,8 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 
 ## What's New
 
+- **Windows Photoshop 2026 WebP?PNG ?????????Commit `f37d37e13b0770acab0559dae318576c82458971`?**??????????????? `.png`??? magic bytes ? `RIFF....WEBP`?Photoshop JSX ?? `app.open()` ????????????????? Windows Photoshop 2026 ??? Crash?BEX64 / `0xc0000409`???????????????????? `background_removal_failed`??????????Review Workspace ??????????????????macOS ? Windows ????? JSX ???????????Jamie Manual Validation PASS?
+
 - **AI Workflow 單向審核流程（Commit `8eefbb0924121f3a199c547186306c5eeb722a31`）**：正式流程為 Photoshop First Run → FirstReview →（有 Needs Rerun 時）Photoshop Rerun → SecondReview → Completed。第一輪顯示核准／重新去背／之後手動換圖；第二輪只顯示核准／之後手動換圖，不得產生第三輪。未完成時 Close／Esc 不得離開；Completed 後顯示「AI 去背完成」，不得重新開啟素材審閱。Header 入口與狀態亦同步收斂。Manual Validation A1–E2 與 Code Review 全部 PASS。
 - **匯入素材資料夾（Direct Import，Commit `d5a22c86f203d1b5c795d808b1f6eb700a9c13d4`）**：Header 新增第二條素材入口「匯入素材資料夾」，供已完成去背、四周透明的 PNG 直接匯入。資料夾結構與檔名規則需和正式素材資料夾相同；此流程不啟動 SPX Helper、Photoshop 或 AI Workflow，不建立 Processed，也不進入素材審閱。素材完成 Matching 後直接進入既有 Approved Asset Runtime，後續沿用 Asset Resolver、autoTrim、Shadow、Canvas、手動換圖、Job 切換、PNG、單張暫存與完整專案。Jamie Manual Validation 全部 PASS。
 - **素材審閱在 Processed 不可用時顯示 Original（Bug Fix，Commit `c21c79e5e762598a35d6368fff5013ffd6ee21df`）**：有可用 Processed 的素材仍預設顯示 Processed；去背失敗、沒有 Processed，或 Processed 讀取失敗時，只要 Original 成功，中央預覽會直接建立 Editor 並顯示 Original，不需要手動切換。Original 讀取失敗維持既有錯誤處理。快速切換素材的既有防競態保護與 Original／Processed 切換不變；Navigator、Decision、Crop、Eraser 及其他流程均未修改。Jamie Manual Validation PASS。
