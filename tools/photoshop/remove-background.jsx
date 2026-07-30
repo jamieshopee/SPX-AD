@@ -82,6 +82,10 @@ function processItem(item, originalFolder, outputFolder, report) {
     var sourceFile = new File(joinPath(originalFolder.fsName, sourceFilename));
     if (!sourceFile.exists) throw new Error('source file not found: ' + sourceFilename);
 
+    if (isWebpContentWithPngFilename(sourceFile, sourceFilename)) {
+      throw new Error('source format/extension mismatch: WebP content has a .png filename');
+    }
+
     doc = app.open(sourceFile);
     var backgroundResult = { attempted: false, removed: false, method: 'copy', error: '' };
     if (shouldRemoveBackground(item)) {
@@ -129,6 +133,26 @@ function processItem(item, originalFolder, outputFolder, report) {
   }
 }
 
+function isWebpContentWithPngFilename(sourceFile, sourceFilename) {
+  if (!/\.png$/i.test(String(sourceFilename || ''))) return false;
+
+  var header = '';
+  try {
+    sourceFile.encoding = 'BINARY';
+    if (!sourceFile.open('r')) return false;
+    header = sourceFile.read(12);
+  } catch (_) {
+    return false;
+  } finally {
+    try {
+      sourceFile.close();
+    } catch (_) {}
+  }
+
+  return header.length >= 12 &&
+    header.substr(0, 4) === 'RIFF' &&
+    header.substr(8, 4) === 'WEBP';
+}
 function shouldRemoveBackground(item) {
   if (!item) return false;
   if (item.role === 'logo') return false;
