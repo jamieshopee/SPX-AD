@@ -2207,21 +2207,6 @@ function mergeProductsIntoLayoutState(baseState, productsState) {
 }
 
 function ensureProductMasterControls() {
-  const resetBtn = document.getElementById('bn-prod-reset-btn');
-  if (!resetBtn || document.getElementById('bn-product-master-actions')) {
-    updateProductMasterControls();
-    return;
-  }
-  const wrap = document.createElement('div');
-  wrap.id = 'bn-product-master-actions';
-  wrap.className = 'bn-product-master-actions';
-  wrap.innerHTML = [
-    '<button type="button" class="bn-master-layout-btn" id="bn-update-master-layout-btn">更新 Master Layout</button>',
-    '<button type="button" class="bn-master-layout-btn" id="bn-apply-master-layout-btn">套用 Master Layout</button>',
-  ].join('');
-  resetBtn.insertAdjacentElement('afterend', wrap);
-  document.getElementById('bn-update-master-layout-btn')?.addEventListener('click', updateProductMasterLayoutForActiveJob);
-  document.getElementById('bn-apply-master-layout-btn')?.addEventListener('click', () => applyProductMasterLayoutForActiveJob({ manual: true }));
   updateProductMasterControls();
 }
 
