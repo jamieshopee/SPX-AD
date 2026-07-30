@@ -78,18 +78,19 @@ Commit subject：`feat: add skipped review decision`
 - Scope Boundary：本次只修改 Browser 端 Review Workspace、Asset Pipeline、Manifest、Project JSON 串接與對應 UI cache key；未修改 SPX Helper、Python Runtime、Photoshop JSX、Windows／macOS Helper、Ready／Execute／Status Contract、Packaging 或 Installer。
 - Validation：`node --check`、`git diff --check`、Decision／Persistence／Import／Manifest 自動驗證、Review Workspace Auto Next／第二輪排除／重開 Terminal State／Keyboard Guard Browser 驗證均 PASS。
 
-## Windows SPX Helper Local Packaging 0.6.1 - 2026-07-29
+## Windows SPX Helper Local Packaging 0.6.2 - 2026-07-30
 
-Status: **Completed — Local Packaging, MSI Install, and Jamie Manual Validation PASS**
+Status: **Completed ? Local Packaging, MSI Install, and Jamie Manual Validation PASS**
+Packaging Commit: `2099e22d9e2c7bdb685d903c893dded94f933b2f` (`chore: package Windows Helper 0.6.2`)
 
-- Deliverables: PyInstaller onedir bundle and `SPX Helper-0.6.1-x64.msi`.
-- MSI identity: Product Name `SPX Helper`; Product Version `0.6.1`; UpgradeCode `{0E9BD5FB-A6F1-472B-8B6B-A395BDEDC941}` unchanged.
-- Payload integrity: bundle and MSI payload include `photoshop/remove-background.jsx`. Repo, bundle, and MSI payload match after CRLF-to-LF normalization at SHA-256 `467bb19a80850c6a63fe1a40d469727ea396b1d629019b934cffc7e905b3f8fc`.
-- Validation: MSI Install PASS; Helper Launch PASS; Photoshop Remove Background PASS. Existing Transparency Skip is included.
-- Scope: Phase 2 architecture was not redesigned; Runtime Contract, Adapter architecture, WiX UpgradeCode, and Installer Flow remain unchanged. WiX `obj/` is an ignored intermediate, not a deliverable.
-- Release state: existing `v0.6.1` Tag and GitHub Release remain unchanged; no push or Release asset upload occurred. Adding the Windows MSI to that Release remains a later decision.
-
-
+- Deliverables: PyInstaller onedir bundle and `SPX Helper-0.6.2-x64.msi`.
+- MSI identity: Product Name `SPX Helper`; Product Version `0.6.2`; UpgradeCode `{0E9BD5FB-A6F1-472B-8B6B-A395BDEDC941}` unchanged.
+- Payload integrity: bundle and MSI payload include `photoshop/remove-background.jsx`. The repository and bundle match after CRLF-to-LF normalization at SHA-256 `796680519c488f53587d385a06785d3aac6059e4530953c598ec6e56ee8e89a7`; MSI File table confirms `remove-background.jsx` is included.
+- Included behavior: code commit `f37d37e13b0770acab0559dae318576c82458971` guards `.png` filenames whose magic bytes are `RIFF....WEBP` before `app.open()`. Windows Photoshop 2026 no longer crashes; the affected asset follows the existing `background_removal_failed` path, later assets continue, and Review Workspace behavior is unchanged.
+- Validation: MSI Install PASS; Apps & Features `0.6.2` PASS; Helper Ready PASS; Photoshop 2026 Remove Background PASS; Existing Transparency Skip remains included.
+- Build: Error 0. WiX emitted only the existing WIX1076 / ICE90 warning; PyInstaller optional-module warnings did not affect the build.
+- Scope: Phase 2 architecture was not redesigned; Runtime Contract, Adapter architecture, WiX UpgradeCode, Installer Flow, Browser, Manifest, Pipeline State, Review Workspace, UI, and `qrcode-demo` remain unchanged. WiX `obj/` is an ignored intermediate, not a deliverable.
+- Release state: no new Tag or GitHub Release was created, and the Windows MSI was not uploaded.
 
 ## 已有有效透明背景素材略過 Remove Background - 2026-07-28
 
