@@ -1167,12 +1167,15 @@ async function resetWorkspace() {
   console.log('[CC][reset] workspace reset complete');
 }
 
-function ensureWorkspaceReadyForJob() {
+function ensureWorkspaceReadyForJob(preferredPlacementId = '') {
   if (!registry || activePlacement) return;
   el.placement.replaceChildren();
   const displayPlacements = orderedPlacementsForDisplay(registry.placements || []);
   displayPlacements.forEach(p => el.placement.add(new Option(p.name, p.id)));
-  const first = displayPlacements.find(p => p.templates.length) || displayPlacements[0];
+  const preferred = preferredPlacementId
+    ? displayPlacements.find(p => p.id === preferredPlacementId && p.templates.length)
+    : null;
+  const first = preferred || displayPlacements.find(p => p.templates.length) || displayPlacements[0];
   if (!first) return;
   el.placement.disabled = false;
   el.placement.value = first.id;
@@ -2918,6 +2921,22 @@ function findHeaderRow(rows) {
   return null;
 }
 
+function resolveCsvImportPlacement(rows, colMap) {
+  if (colMap?.styleId == null) return '';
+  const placementIds = new Map([
+    ['TVBN-智取店', 'tvbn-smart-store'],
+    ['TVBN-一般門市', 'tvbn-standard-store'],
+    ['繳費機手機號碼輸入畫面下 BN', 'payment-phone-banner'],
+    ['智取店繳費機 BN', 'smart-payment-banner'],
+  ]);
+  for (const row of rows) {
+    const value = String(row[colMap.styleId] ?? '').trim();
+    const placementId = placementIds.get(value);
+    if (placementId) return placementId;
+  }
+  return '';
+}
+
 function splitMultiline(cell) {
   return String(cell || '').split(/[\n\r]+/).map(s => s.trim()).filter(Boolean);
 }
@@ -2988,10 +3007,12 @@ async function importFile(file) {
     const headerInfo = findHeaderRow(rows);
     if (!headerInfo) { setStatus('找不到標題列（需含「案件編號」欄）', 'error'); return; }
 
+    const preferredPlacementId = resolveCsvImportPlacement(rows, headerInfo.colMap);
     const parsed = parseJobsFromRows(rows, headerInfo);
     if (!parsed.length) { setStatus('沒有可用的工單資料', 'error'); return; }
 
     await resetWorkspaceState({ keepAssetsFolder: true });
+    if (preferredPlacementId) ensureWorkspaceReadyForJob(preferredPlacementId);
     parsed.forEach(d => addJob(d));
     setTopbarBadge(el.csvStatus, el.csvStatusText, `已匯入工單（${parsed.length}）`);
     setStatus(`已匯入 ${parsed.length} 筆工單。`, 'success');
