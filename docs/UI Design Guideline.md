@@ -376,6 +376,8 @@ Decision actions 固定為：
 
 第一輪 Completion 判斷使用全域 Reviewable Assets；第二輪只依本輪 Needs Rerun 素材集合判斷。去背失敗素材完全不計入 Reviewable Assets 或完成判斷，也不計入「重新去背素材（N）」的 N。
 
+第一輪完成後，使用者仍可切換 Navigator Filter 查看素材。若因此離開 Completion Screen，且目前仍有 Needs Rerun，按右上角「關閉」不得卡在 Detail View，也不得直接關閉 Workspace；必須恢復既有 Completion Screen，讓「重新去背素材（N）」與「返回控制台」再次可見。此規則只恢復既有完成畫面，不改變 Filter、Review Decision、Completion Screen 設計或第二輪規則。
+
 ### Completed State（Review Workspace UI Upgrade）
 
 - Completion Screen 不提供 Review Decision Undo。

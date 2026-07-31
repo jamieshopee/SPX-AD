@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## Review Workspace Close 恢復 Completion Screen - 2026-08-01
+
+Status：**Completed — Browser Validation 與 Jamie Manual Validation 全部 PASS**
+Code Commit：`7157b2a5294cbcc31e9dc84af32c424d7e288e18`
+Commit subject：`fix: restore review completion screen on close`
+
+### Root Cause / Changed Behavior
+
+- 第一輪所有必要素材完成 Review 後，切換左側 Filter 會清除 Workspace 內的 Completion 顯示旗標並回到 Detail View；Review Decision、Pipeline State 與 Workflow phase 仍完整存在。
+- 第一輪仍有 `needs_rerun` 時，右上角 Close 會被既有 `canClose()` guard 拒絕，但先前不會恢復 Completion Screen，導致「重新去背素材（N）」與「返回控制台」入口不可見。
+- 修正後，上述唯一情況會回到既有 `all` mode、刷新既有素材清單並重新執行 Completion Screen render；不真正關閉 Workspace，使用者可再次操作既有 Completion actions。
+
+### Scope Boundary / Validation
+
+- 只修改 `js/asset-review-workspace.js` 的 `requestClose()`；未修改 `setReviewMode()`、Filter 行為、Completion Screen UI、Review Decision、Asset Pipeline、AI Workflow Orchestrator、`src/app.js` 或第二輪規則。
+- Browser Validation：從「待重新去背」與「去背失敗」Filter 按 Close 均可恢復 Completion Screen；未完成 Review 的 Close guard、第一輪無 rerun 的正常關閉、第二輪關閉規則與 Browser Console error 0 全部 PASS。Jamie Manual Validation 全部 PASS。
+
 ## 右側欄手動 Master Layout 控制移除 - 2026-07-31
 
 Status：**Completed — Browser Validation 與 Jamie Manual Validation 全部 PASS**

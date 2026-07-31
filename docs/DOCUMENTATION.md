@@ -424,6 +424,7 @@ Review Workspace UI Upgrade 已完成並列入 Locked Completed Phase。後續�
 - Header 僅保留素材審閱／關閉；上一張／下一張只移除可見 UI，底層 Navigator 點擊、Keyboard ← / →、Auto Next、非循環導航皆保留。Review Decision Undo 已移除。
 - 第一輪 Decision Area：核准（Primary）、重新去背（Warning / Danger）、之後手動換圖（灰色 Outline）。第二輪只顯示核准／之後手動換圖；「之後手動換圖」仍使用 `skipped`。
 - 未完成本輪應審核素材時，右上角 Close 與 `Esc` 必須阻止關閉並顯示「請先完成全部素材審核後再關閉。」第二輪完成判斷只依本輪 Needs Rerun 素材集合；去背失敗素材（`background_removal_failed`）不計入完成判斷或 Needs Rerun 數量。
+- 第一輪已完成所有必要 Review、但仍有 Needs Rerun 時，使用者若切換 Filter 離開 Completion Screen，右上角 Close 必須恢復既有 Completion Screen，不得卡在 Detail View 或直接關閉 Workspace；「重新去背素材（N）」與「返回控制台」需再次可見。此行為不得改寫 Review Decision、Pipeline State、AI Workflow phase、Completion Screen 設計或第二輪規則（Code Commit `7157b2a5294cbcc31e9dc84af32c424d7e288e18`）。
 - `SecondReview` 是最後一輪，不顯示重新去背、不接受 `needs_rerun`；完成後進入 `Completed`，不得重新進入 Review Workspace。
 - 「重新去背素材（N）」（Review Workspace Completion Screen 內）現已呼叫 AI Workflow Orchestrator，與 First Run 共用同一套 Ready Check／Execute／Status Polling／Auto Import 資料流；原本呼叫 `exportPhotoshopRerunManifest` 的人工匯出流程仍保留為 Control Center 選單的獨立備援入口，未被移除。系統不會自動啟動 Photoshop App；使用者需自行先開啟 Photoshop，系統只負責 Ready Check。
 - Review Workspace UI 正式中文化；internal values（`approved` / `needs_rerun` / `pending` / `processed` / `all` / `crop` / `eraser`）維持不變。

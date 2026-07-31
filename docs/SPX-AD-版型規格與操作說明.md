@@ -469,6 +469,8 @@ Review Summary（進度、核准數、重新去背數、略過數、去背失敗
 
 第一輪完成判斷使用全域可審閱素材；第二輪只依本輪 Needs Rerun 素材集合判斷。去背失敗素材不計入可審閱素材或完成判斷，也不計入「重新去背素材（N）」的 N。
 
+第一輪完成後仍可切換左側 Filter 查看素材。若切換後離開 Completion Screen，且仍有待重新去背素材，按右上角「關閉」會回到既有 Completion Screen，不會停留在 Detail View 或直接關閉 Workspace；使用者可再次操作「重新去背素材（N）」與「返回控制台」。此行為不會重設或改寫任何 Review Decision。
+
 Completion Screen 不提供 Review Decision Undo。AI Workflow 進入 `Completed` 後不得重新開啟 Review Workspace；`skipped` 維持 Terminal State，不提供解除或改回其他決策。
 
 ### 快捷鍵與工具

@@ -1,5 +1,13 @@
 # AI-HANDOFF.md
 
+## Review Workspace Close 恢復 Completion Screen 完成（2026-08-01）
+
+- Code Commit：`7157b2a5294cbcc31e9dc84af32c424d7e288e18`（`fix: restore review completion screen on close`）。
+- Root Cause：第一輪完成所有必要素材 Review 後，切換 Filter 會清除 Completion 顯示旗標並回到 Detail View；若仍有 `needs_rerun`，右上角 Close 又會被既有 `canClose()` guard 拒絕，但先前不會恢復 Completion Screen。Review Decision、Pipeline State 與 Workflow phase 均未遺失。
+- Current Behavior：在「第一輪已完成、仍有 Needs Rerun、Close 被 guard 拒絕」的唯一情況下，Close 會回到既有 Completion Screen，讓使用者再次操作「重新去背素材（N）」與「返回控制台」。
+- Scope Boundary：只修改 `js/asset-review-workspace.js` 的 `requestClose()`；未修改 Filter、Completion Screen 設計、Review Decision、Asset Pipeline、AI Workflow、`src/app.js`、第二輪規則或任何架構邊界。
+- Validation：Browser Validation、Browser Console error 0、`node --check`、`git diff --check` 與 Jamie Manual Validation 全部 PASS。
+
 ## 右側欄手動 Master Layout 控制移除完成（2026-07-31）
 
 - Code Commit：`a41913a93e4474a6ee3ebbb9ce0e3e0d9000a166`（`feat: remove manual master layout controls`）。
