@@ -360,10 +360,18 @@
     runGuarded(function () {
       var complete = isRequiredReviewComplete();
       if (complete && typeof currentOptions.canClose === 'function') {
+        var needsRerunCount = getNeedsRerunAssets().length;
         complete = currentOptions.canClose({
           reviewStage: currentOptions.aiReviewStage || '',
-          needsRerunCount: getNeedsRerunAssets().length,
+          needsRerunCount: needsRerunCount,
         }) !== false;
+        if (!complete && currentOptions.aiReviewStage === 'first' && needsRerunCount > 0) {
+          currentReviewMode = 'all';
+          refreshAssets();
+          updateCompleteMessage();
+          render();
+          return;
+        }
       }
       if (!complete && currentOptions.requireCompleteBeforeClose) {
         showToast('請先完成全部素材審核後再關閉。');
