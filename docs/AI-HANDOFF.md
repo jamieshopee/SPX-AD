@@ -1,5 +1,16 @@
 # AI-HANDOFF.md
 
+## SPX AD Banner WOFF2 字型遷移完成（2026-08-06）
+
+- Code Commit：`df623db42faab41bf651e4cb226fd7c677b2f0cd`（`perf: replace TTF fonts with WOFF2`）。
+- Current Stable Behavior：正式 Banner 字型已由舊 TTF 全面遷移為 WOFF2；四份正式 Template 與 generated `templates/template-registry.js` 均使用 WOFF2，Canvas 動態 `@font-face` 使用 `format("woff2")`。
+- Preserved Font Contract：Regular／Medium／Bold 字型家族與 300／400／700 weight mapping 不變；既有 `document.fonts.load()`、`document.fonts.ready`、Canvas 初始化與 Capture 流程不變。
+- Assets：舊 TTF 已刪除，`assets/fonts/` 只有 Regular／Medium／Bold 三個正式 WOFF2 字型。
+- Validation：984×309、1080×1920、1599×1080、3189×3992 四尺寸 Canvas、Regular 300／Medium 400／Bold 700、單張 PNG、2 筆工單完整專案／Batch、舊 Project JSON、Project State v5 single-state JSON、Registry 離線載入邏輯，以及 Jamie Manual Validation 全部 PASS。
+- Integration Boundary：SPX Helper、Photoshop Automation 與 AI Workflow 不參與 Banner Browser 字型載入，因此不受影響，也不需要重新 Build／Packaging SPX Helper。
+- Scope Boundary：未修改 Template 排版數值或文字樣式規格；未修改 Style、Project State、Import／Export、Batch 架構；未修改 SPX Helper、Photoshop Automation、AI Workflow 或 `qrcode-demo`。
+- Roadmap Boundary：本次是 Performance／Asset Format Migration，不構成新 Phase，不改變 Roadmap、版本號或任何 Locked Completed Phase 狀態。
+
 ## Review Workspace Close 恢復 Completion Screen 完成（2026-08-01）
 
 - Code Commit：`7157b2a5294cbcc31e9dc84af32c424d7e288e18`（`fix: restore review completion screen on close`）。

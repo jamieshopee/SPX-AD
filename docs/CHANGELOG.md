@@ -1,5 +1,49 @@
 # CHANGELOG
 
+## SPX AD Banner 字型遷移至 WOFF2 - 2026-08-06
+
+Status：**Completed — Browser Validation 與 Jamie Manual Validation PASS**
+Code Commit：`df623db42faab41bf651e4cb226fd7c677b2f0cd`
+Commit subject：`perf: replace TTF fonts with WOFF2`
+
+### Root Cause / 目的
+
+- 四個正式 Template 原本由 `fonts[].src` 指向 `.ttf` 字型；`js/canvas-entry.js` 動態建立 `@font-face` 時亦固定使用 `format("truetype")`。
+- 本次屬於 Performance／Asset Format Migration，不是 Bug Fix、UX 或 Architecture 改版。
+- 目的為降低 Browser 首次字型下載，以及 Canvas／Batch 第一次啟動時的字型傳輸成本；未建立正式時間基準，因此不宣稱提升特定秒數。
+
+### Changed Behavior
+
+- `templates/984x309/template.json`、`templates/1080x1920/template.json`、`templates/1599x1080/template.json`、`templates/3189x3992/template.json` 的 Regular／Medium／Bold 字型 URL 全部改為同名 `.woff2`。
+- Canvas 動態 `@font-face` format hint 改為 `woff2`；既有 `document.fonts.load()`、`document.fonts.ready` 與 Canvas 初始化順序維持不變。
+- `templates/template-registry.js` 透過正式 `scripts/build-template-registry.js` 重建。
+- 三個 WOFF2 字型納入版本控制；三個已無 Runtime 引用的舊 TTF 字型已刪除。`assets/fonts/` 目前正式字型只有 Regular／Medium／Bold 三個 WOFF2。
+
+### Performance Result
+
+- Regular：約 17.4 MB → 7.5 MB，縮小約 57.0%。
+- Medium：約 17.4 MB → 7.6 MB，縮小約 56.3%。
+- Bold：約 17.4 MB → 7.7 MB，縮小約 55.5%。
+- 三檔合計約由 52.2 MB 降至 22.8 MB；未宣稱頁面速度提升特定秒數。
+
+### Validation
+
+- 四尺寸 Canvas：984×309、1080×1920、1599×1080、3189×3992 全部 PASS。
+- Regular 300／Medium 400／Bold 700 均成功載入；HTTP response Content-Type 為 `font/woff2`；TTF Runtime request 為 0；Browser Console error 為 0。
+- 單張 PNG PASS；2 筆工單完整專案／Batch PASS。
+- 舊 Project JSON、Project State v5 single-state JSON、Registry 離線載入邏輯全部 PASS。
+- Jamie Manual Validation PASS。
+
+### Scope Boundary
+
+- 未修改字型 family、300／400／700 weight mapping、文字內容、尺寸、座標、換行或 Template 排版數值。
+- 未修改 Style、Project State、JSON schema、Import／Export、Batch Render 或 html2canvas 邏輯。
+- 未修改 Launcher MIME mapping、SPX Helper、Photoshop Automation、AI Workflow 或 `qrcode-demo`；不需要重新 Packaging SPX Helper。
+
+### Known Issue
+
+- `layout-runtime.js` 既有的 4 秒字型等待 timer，可能在字型已成功載入並完成 Capture 後仍顯示 false-positive warning。本次依 Scope 未修改；這不是 WOFF2 遷移造成的新問題。
+
 ## Review Workspace Close 恢復 Completion Screen - 2026-08-01
 
 Status：**Completed — Browser Validation 與 Jamie Manual Validation 全部 PASS**

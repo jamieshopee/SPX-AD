@@ -1,11 +1,12 @@
 # SPX AD 版型規格與操作說明
 
-Version: 2026.07.31-master-layout-controls
-Last Updated: 2026-07-31
+Version: 2026.08.06-woff2-font-migration
+Last Updated: 2026-08-06
 Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數規格與操作流程。
 
 ## What's New
 
+- **正式 Banner 字型遷移至 WOFF2（Commit `df623db42faab41bf651e4cb226fd7c677b2f0cd`）**：正式 Banner 字型已由舊 `.ttf` 改為 `.woff2`，四尺寸 Template、Canvas 動態 `@font-face` 與離線 Registry 已同步。字型家族、300／400／700 字重 mapping、文字尺寸、位置、換行與 Style 規則不變；舊 TTF 已移除。Browser、單張 PNG、2 筆工單完整專案／Batch、舊 Project JSON、Project State v5 single-state JSON、Registry 離線載入邏輯與 Jamie Manual Validation 全部 PASS；不影響 SPX Helper、Photoshop Automation 或 AI Workflow。
 - **右側欄手動 Master Layout 控制移除（Commit `a41913a`）**：控制面板不再顯示「更新 Master Layout」與「套用 Master Layout」，避免使用者手動建立或套用 Master Layout；「恢復預設位置」維持正常。底層 Master Layout capture／propagation、Smart Layout Modal，以及 Job／Template 切換時的自動 propagation 流程均維持不變。Browser Validation 與 Jamie Manual Validation PASS。
 - **CSV 匯入版位預設（Commit `d9cf130e8cee6c0f95e520f39a4c5bc1e4d45607`）**：實際入稿表 H6 的合法完整字串會成為此次普通 CSV 匯入的初始版位；H7:H11 仍是各 Job 原有 Style。這只是 Import Default，不會鎖定版位；匯入後仍可自由切換，切換 Job 不會自動切回。空白或非法值不顯示新錯誤或警告，沿用既有 fallback。實際 CSV、四個 mapping、Styles `01`／`02`／`05`／`07`／`10` 與 Jamie Manual Validation 全部 PASS。
 - **右側欄手動換圖驗證修正（Commit `8cb7c27c71d664ececb6b57487e921a3f0c44839`）**：對使用者的正式說明維持「手動換圖請使用已完成去背的 PNG，且檔名必須與要取代的圖片完全一致」。每個檔案會先完成檔名、實際格式、decode 與既有圖片預處理，全部成功後才換圖；失敗時原圖保持不變，並在對應 Upload Box 下方顯示紅色錯誤。Runtime 不只看副檔名或 `File.type`，可接受實際內容為有效且可 decode 的 PNG／WebP。完整檔名限制只適用於替換已存在素材；空 Logo slot、未滿三張的商品合法空位，以及尚無 Person／Single Product 時仍可新增。Static Check、Browser Validation、下載／暫存／匯入／完整專案／Batch 回歸與 Jamie Manual Validation 全部 PASS。
@@ -195,7 +196,12 @@ Logo 最多 3 張，依 `LOGO_01 / LOGO_02 / LOGO_03` 排序。上傳後會做�
 
 ## 文字
 
-主標、小字使用 `ShopeeNotoSans(content)-Medium.ttf`，`fontWeight: 400`。副標依 Template 設定。文字位置、尺寸與行高由 Template 控制；文字顏色由 Style 控制。
+主標、小字使用 `assets/fonts/ShopeeNotoSans(content)-Medium.woff2`，`fontWeight: 400`。副標依 Template 設定使用對應的 ShopeeNotoSans WOFF2 字型與字重。文字位置、尺寸與行高由 Template 控制；文字顏色由 Style 控制。
+
+- Regular／Medium／Bold 正式資產位於 `assets/fonts/`。
+- Template 的 `fonts[]` 是正式字型 URL 來源。
+- Browser 由 Canvas Runtime 動態註冊 `@font-face`，字型載入完成後才初始化 Canvas／進行 Capture。
+- 既有 300／400／700 weight mapping 是正式規格，不得改變。
 
 控制台右側欄的主標、副標、日期／警語會直接同步目前 Job 與 Canvas，不再提供「套用文字到模板」按鈕：
 
