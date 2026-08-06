@@ -1675,6 +1675,7 @@ async function buildMainCanvasProductPayloadForJob(job) {
     handleToDataUrl,
     trim: autoTrim,
     imageUtils: window.BNImageUtils,
+    productShadowEnabled: job.productShadowEnabled !== false,
     resolvedAssets,
     createId: (kind, index) => 'cc_refresh_' + Date.now() + '_' + index,
   });
@@ -1686,8 +1687,12 @@ async function updateMainCanvasImageSourcesForJob(job, reason = '') {
   if (!job || !frameWindow) return { updated: 0, type: '' };
   const payload = await buildMainCanvasProductPayloadForJob(job);
   if (!payload) return { updated: 0, type: '' };
+  if (payload.missing?.length || payload.errors?.length) {
+    throw new Error('商品素材重新整理失敗');
+  }
   const doc = frameWindow.document;
   let updated = 0;
+  const updatedImages = [];
 
   if (payload.type === 'three_products') {
     for (const product of payload.products || []) {
@@ -1695,22 +1700,37 @@ async function updateMainCanvasImageSourcesForJob(job, reason = '') {
       const img = box?.querySelector('img');
       if (!img || !product.src) continue;
       img.src = product.src;
+      updatedImages.push(img);
       box.dataset.filename = product.filename || box.dataset.filename || '';
       if (product.ratio) box.dataset.ratio = String(product.ratio);
       if (product.baselineRatio) box.dataset.baselineRatio = String(product.baselineRatio);
+      const runtimeProduct = (window._bnProducts || []).find(item =>
+        item.filename === product.filename || Number(item.position) === Number(product.position)
+      );
+      if (runtimeProduct) {
+        runtimeProduct.src = product.src;
+        runtimeProduct.ratio = product.ratio;
+        runtimeProduct.baselineRatio = product.baselineRatio;
+      }
       updated++;
     }
   } else {
     const personImg = doc.querySelector('#bn-zone-person img.bn-pp-img');
     if (personImg && payload.person?.src) {
       personImg.src = payload.person.src;
+      updatedImages.push(personImg);
       updated++;
     }
     const singleImg = doc.querySelector('#bn-zone-singleprod .bn-single-product-box img, #bn-zone-singleprod img.bn-pp-img');
     if (singleImg && payload.singleProduct?.src) {
       singleImg.src = payload.singleProduct.src;
+      updatedImages.push(singleImg);
       const singleBox = singleImg.closest('.bn-single-product-box');
       if (singleBox && payload.singleProduct.ratio) singleBox.dataset.ratio = String(payload.singleProduct.ratio);
+      if (window._bnSingleProd) {
+        window._bnSingleProd.src = payload.singleProduct.src;
+        window._bnSingleProd.ratio = payload.singleProduct.ratio;
+      }
       updated++;
     }
   }
@@ -1723,7 +1743,7 @@ async function updateMainCanvasImageSourcesForJob(job, reason = '') {
     type: payload.type,
     updated,
   });
-  return { updated, type: payload.type };
+  return { updated, type: payload.type, updatedImages };
 }
 
 async function refreshMainCanvasApprovedAssetsForActiveJob(reason = '') {
@@ -1733,7 +1753,12 @@ async function refreshMainCanvasApprovedAssetsForActiveJob(reason = '') {
   console.log('[CC][assetResolver] refresh main canvas start', { reason, job: job.jobId || job.id, key: layoutKey });
   await syncActiveLayoutState();
   const result = await updateMainCanvasImageSourcesForJob(job, reason);
-  if (result.updated) await waitForFrameImages(el.frame.contentWindow, 4000);
+  if (result.updated) {
+    await waitForFrameImages(el.frame.contentWindow, 4000, result.updatedImages);
+    if (result.updatedImages.some(image => !image.complete || !image.naturalWidth)) {
+      throw new Error('商品圖片載入逾時');
+    }
+  }
   console.log('[CC][assetResolver] refresh main canvas done', {
     reason,
     job: job.jobId || job.id,
@@ -1741,6 +1766,7 @@ async function refreshMainCanvasApprovedAssetsForActiveJob(reason = '') {
     updated: result.updated,
     type: result.type,
   });
+  return result;
 }
 
 function openAssetReviewWorkspace(options = {}) {
@@ -1928,6 +1954,10 @@ window._bnGetActiveTemplateJson = function() {
   return activeTemplate?._json || null;
 };
 
+window._bnGetActiveProductShadowEnabled = function() {
+  return activeJob()?.productShadowEnabled !== false;
+};
+
 // 右側手動換圖只需要目前 Job 的單一 canonical filename。此 getter 僅讀取
 // 既有 Job arrays 與 classifier，不回傳 Job／Asset state，也不寫入任何 state。
 window._bnGetActiveManualImageFilename = function(role, index = 0) {
@@ -1997,6 +2027,7 @@ function saveJobManualRenderState(job, filename, slot, role) {
     nextState.singleProduct = {
       filename,
       src: singleProduct.src,
+      manualReplaceRawSrc: singleProduct.manualReplaceRawSrc,
       ratio: singleProduct.ratio,
       displayW: singleProduct.displayW,
       displayH: singleProduct.displayH,
@@ -2052,6 +2083,7 @@ function applyJobManualRenderStateToPayload(job, payload) {
   const singleProduct = state.singleProduct;
   if (singleProduct && (payload.info?.singles || []).includes(singleProduct.filename) && payload.singleProduct) {
     payload.singleProduct.src = singleProduct.src;
+    payload.singleProduct.manualReplaceRawSrc = singleProduct.manualReplaceRawSrc;
     payload.singleProduct.ratio = singleProduct.ratio;
     payload.singleProduct.displayW = singleProduct.displayW;
     payload.singleProduct.displayH = singleProduct.displayH;
@@ -2158,6 +2190,130 @@ function inferMaterialModeFromJob(job) {
 function activeJob() {
   return jobs.find(j => j.id === activeJobId) || null;
 }
+
+function updateProductShadowControls() {
+  const job = activeJob();
+  const label = job?.productShadowEnabled !== false ? '關閉商品影子' : '開啟商品影子';
+  const productButton = document.getElementById('bn-prod-shadow-btn');
+  const singleProductButton = document.getElementById('bn-pp-shadow-btn');
+  if (productButton) {
+    productButton.textContent = label;
+    productButton.disabled = !job || !(window._bnProducts && window._bnProducts.length);
+  }
+  if (singleProductButton) {
+    singleProductButton.textContent = label;
+    singleProductButton.disabled = !job || !window._bnSingleProd;
+  }
+}
+window.updateProductShadowControls = updateProductShadowControls;
+
+window._bnToggleActiveProductShadow = async function() {
+  const job = activeJob();
+  if (!job || (!(window._bnProducts && window._bnProducts.length) && !window._bnSingleProd)) return;
+
+  const productButton = document.getElementById('bn-prod-shadow-btn');
+  const singleProductButton = document.getElementById('bn-pp-shadow-btn');
+  if (productButton) productButton.disabled = true;
+  if (singleProductButton) singleProductButton.disabled = true;
+
+  const previousEnabled = job.productShadowEnabled !== false;
+  const nextEnabled = !previousEnabled;
+  const manualState = job._manualRenderState || null;
+  const previousManualProducts = {};
+  const preparedManualProducts = {};
+  const previousSingleProduct = manualState?.singleProduct ? { ...manualState.singleProduct } : null;
+  let preparedSingleProduct = null;
+
+  try {
+    if (activeTemplate) await ensureTemplateJson(activeTemplate, job.styleId || '01');
+    const templateJson = activeTemplate?._json || {};
+    const threeAutoShadow = !!templateJson.productZones?.threeProducts?.defaultLayout?.autoShadow;
+    const singleAutoShadow = !!templateJson.productZones?.singleProduct?.defaultLayout?.autoShadow;
+
+    for (const [slot, manual] of Object.entries(manualState?.products || {})) {
+      if (!manual?.manualReplaceRawSrc) continue;
+      previousManualProducts[slot] = { ...manual };
+      const trimmed = await autoTrim(manual.manualReplaceRawSrc);
+      const processed = nextEnabled && threeAutoShadow
+        ? await window.BNImageUtils.autoApplyShadow(trimmed.src, trimmed.ratio)
+        : { src: trimmed.src, ratio: trimmed.ratio, baselineRatio: 1 };
+      preparedManualProducts[slot] = {
+        ...manual,
+        src: processed.src,
+        ratio: processed.ratio,
+        baselineRatio: processed.baselineRatio || 1,
+      };
+    }
+
+    if (manualState?.singleProduct?.manualReplaceRawSrc) {
+      const manual = manualState.singleProduct;
+      const trimmed = await autoTrim(manual.manualReplaceRawSrc);
+      const processed = nextEnabled && singleAutoShadow
+        ? await window.BNImageUtils.autoApplyShadow(trimmed.src, trimmed.ratio)
+        : { src: trimmed.src, ratio: trimmed.ratio };
+      preparedSingleProduct = {
+        ...manual,
+        src: processed.src,
+        ratio: processed.ratio,
+      };
+    }
+
+    job.productShadowEnabled = nextEnabled;
+    Object.entries(preparedManualProducts).forEach(([slot, prepared]) => {
+      manualState.products[slot] = prepared;
+      const runtimeProduct = (window._bnProducts || []).find(item =>
+        Number(item.position) === Number(slot) && item.filename === prepared.filename
+      );
+      if (runtimeProduct) {
+        runtimeProduct.src = prepared.src;
+        runtimeProduct.ratio = prepared.ratio;
+        runtimeProduct.baselineRatio = prepared.baselineRatio;
+      }
+    });
+    if (preparedSingleProduct) {
+      manualState.singleProduct = preparedSingleProduct;
+      if (window._bnSingleProd) {
+        window._bnSingleProd.src = preparedSingleProduct.src;
+        window._bnSingleProd.ratio = preparedSingleProduct.ratio;
+        window._bnSingleProd.manualReplaceRawSrc = preparedSingleProduct.manualReplaceRawSrc;
+      }
+    }
+
+    await refreshMainCanvasApprovedAssetsForActiveJob('product-shadow-toggle');
+    updateProductShadowControls();
+    document.dispatchEvent(new CustomEvent('bn-state-dirty'));
+    setStatus(nextEnabled ? '商品影子已開啟。' : '商品影子已關閉。', 'success');
+  } catch (error) {
+    job.productShadowEnabled = previousEnabled;
+    Object.entries(previousManualProducts).forEach(([slot, previous]) => {
+      manualState.products[slot] = previous;
+      const runtimeProduct = (window._bnProducts || []).find(item =>
+        Number(item.position) === Number(slot) && item.filename === previous.filename
+      );
+      if (runtimeProduct) {
+        runtimeProduct.src = previous.src;
+        runtimeProduct.ratio = previous.ratio;
+        runtimeProduct.baselineRatio = previous.baselineRatio;
+      }
+    });
+    if (previousSingleProduct && manualState) {
+      manualState.singleProduct = previousSingleProduct;
+      if (window._bnSingleProd) {
+        window._bnSingleProd.src = previousSingleProduct.src;
+        window._bnSingleProd.ratio = previousSingleProduct.ratio;
+        window._bnSingleProd.manualReplaceRawSrc = previousSingleProduct.manualReplaceRawSrc;
+      }
+    }
+    try {
+      await refreshMainCanvasApprovedAssetsForActiveJob('product-shadow-toggle-rollback');
+    } catch (rollbackError) {
+      console.error('[CC] 商品影子切換 rollback 失敗:', rollbackError);
+    }
+    updateProductShadowControls();
+    console.error('[CC] 商品影子切換失敗:', error);
+    setStatus('商品影子切換失敗，已恢復原設定。', 'error');
+  }
+};
 
 
 function isThreeProductJob(job) {
@@ -2676,6 +2832,7 @@ function createJob(data = {}) {
     // 「網址驗證」：輸入框、Project State、QRCode、檢查網址連結四處皆用補完後網址）；
     // 空值／非法網址維持原始字串，讓使用者能看到並修正。
     qrCodeUrl:        (window.BNQrCodeUrl?.normalize(data.qrCodeUrl || '')) || (data.qrCodeUrl || ''),
+    productShadowEnabled: data.productShadowEnabled !== false,
     logoFilenames:    data.logoFilenames    || [],
     productFilenames: data.productFilenames || [],
     outputFilename:   data.outputFilename   || '',
@@ -2798,6 +2955,7 @@ async function selectJob(id, options = {}) {
   if (typeof window._bnResetProdSlots === 'function') window._bnResetProdSlots();
   if (typeof window._bnRenderProdList  === 'function') window._bnRenderProdList();
   if (typeof window._bnRenderLogoList  === 'function') window._bnRenderLogoList();
+  updateProductShadowControls();
   updateProductModeLock();
   ensureProductMasterControls();
   updateProductMasterControls();
@@ -3125,6 +3283,7 @@ async function applyProductsToCanvas(productFilenames, options = {}) {
     handleToDataUrl,
     trim: autoTrim,
     imageUtils: window.BNImageUtils,
+    productShadowEnabled: renderJob?.productShadowEnabled !== false,
     resolvedAssets,
     createId: (kind, index) => 'cc_p' + Date.now() + '_' + index,
   });
@@ -3190,6 +3349,7 @@ async function applyProductsToCanvas(productFilenames, options = {}) {
       } else if (message.type === 'bn-single-product-add' && payload.singleProduct) {
         window._bnSingleProd = {
           src: payload.singleProduct.src,
+          manualReplaceRawSrc: payload.singleProduct.manualReplaceRawSrc,
           ratio: payload.singleProduct.ratio,
           displayW: payload.singleProduct.displayW,
           displayH: payload.singleProduct.displayH,
@@ -3359,11 +3519,11 @@ function captureFromHiddenFrame(frame, timeout = 5000, label = '') {
   });
 }
 
-async function waitForFrameImages(frameWindow, timeout = 5000) {
+async function waitForFrameImages(frameWindow, timeout = 5000, targetImages = null) {
   const start = Date.now();
   while (Date.now() - start < timeout) {
     try {
-      const images = Array.from(frameWindow.document.images || []);
+      const images = targetImages || Array.from(frameWindow.document.images || []);
       const pending = images.filter(img => !img.complete || !img.naturalWidth);
       if (!pending.length) return true;
     } catch (_) {
@@ -3406,6 +3566,7 @@ async function postProductsToFrame(frameWindow, productFilenames, templateJson, 
     handleToDataUrl,
     trim: autoTrim,
     imageUtils: window.BNImageUtils,
+    productShadowEnabled: options.job?.productShadowEnabled !== false,
     resolvedAssets: options.resolvedAssets || null,
     createId: (kind, index) => 'thumb_p_' + Date.now() + '_' + index,
   });
@@ -4277,6 +4438,7 @@ function serializeJobBase(job) {
     disclaimer:       job.disclaimer || '',
     qrCodeUrl:        job.qrCodeUrl || '',
     outputFilename:   job.outputFilename || '',
+    productShadowEnabled: job.productShadowEnabled !== false,
     layoutState:      getJobLayoutState(job),
     layoutStates:     exportableLayoutStatesForJob(job),
     thumbnail:        job.thumbnail || job.quickThumbnail || '',
@@ -4346,9 +4508,10 @@ function cloneJobForExport(job) {
       copy.productFilenames.push(name);
     }
     if (window._bnSingleProd?.src) {
-      const ext = extFromMime(dataUrlMime(window._bnSingleProd.src, 'image/png'));
+      const embedSrc = window._bnSingleProd.manualReplaceRawSrc || window._bnSingleProd.src;
+      const ext = extFromMime(dataUrlMime(embedSrc, 'image/png'));
       const name = `${key}_PRODUCT_品.${ext}`;
-      copy._embeddedAssets[name] = { dataUrl: window._bnSingleProd.src, category: 'products', type: dataUrlMime(window._bnSingleProd.src, 'image/png') };
+      copy._embeddedAssets[name] = { dataUrl: embedSrc, category: 'products', type: dataUrlMime(embedSrc, 'image/png') };
       copy.productFilenames.push(name);
     }
   }
@@ -4727,6 +4890,7 @@ async function stageStateImports(fileList) {
         subheadline: saved.subheadline || '',
         disclaimer: saved.disclaimer || '',
         qrCodeUrl: saved.qrCodeUrl || '',
+        productShadowEnabled: saved.productShadowEnabled !== false,
         outputFilename: saved.outputFilename || '',
         logoFilenames: (saved.logoAssetIds || []).map(id => assetsById.get(id)?.name || id),
         productFilenames: (saved.productAssetIds || []).map(id => assetsById.get(id)?.name || id),

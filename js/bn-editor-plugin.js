@@ -712,6 +712,7 @@
         '  </div>',
         '  <div id="bn-prod-upload-error" class="bn-upload-error" hidden aria-live="polite"></div>',
         '  <div class="bn-prod-list" id="bn-prod-list"></div>',
+        '  <button type="button" class="bn-reset-transform-btn" id="bn-prod-shadow-btn" disabled>關閉商品影子</button>',
         '  <button type="button" class="bn-reset-transform-btn" id="bn-prod-reset-btn" disabled>恢復預設位置</button>',
         '</div>',
         '</div>',
@@ -723,6 +724,7 @@
         '    <input type="file" id="bn-pp-inp" accept=".png,image/png" multiple style="display:none">',
         '  </div>',
         '  <div id="bn-pp-upload-error" class="bn-upload-error" hidden aria-live="polite"></div>',
+        '  <button type="button" class="bn-reset-transform-btn" id="bn-pp-shadow-btn" disabled>關閉商品影子</button>',
         '  <button type="button" class="bn-reset-transform-btn" id="bn-pp-reset-btn" disabled>恢復預設位置</button>',
         '</div>',
         '</div>',
@@ -734,6 +736,7 @@
       /* ── 商品圖：直接帶入（slot 追蹤支援逐張追加＋同號替換）── */
       var prodDrop = document.getElementById('bn-prod-drop');
       var prodInp  = document.getElementById('bn-prod-inp');
+      var prodShadowBtn = document.getElementById('bn-prod-shadow-btn');
       var prodResetBtn = document.getElementById('bn-prod-reset-btn');
       var _prodDragN = 0; /* dragenter counter — 防子元素 dragleave 誤觸 */
       prodDrop.addEventListener('click', function(e){ if(e.target !== prodInp) prodInp.click(); });
@@ -747,6 +750,11 @@
       prodInp.addEventListener('change', function(){
         handleDirectProdFiles(Array.from(this.files)); this.value='';
       });
+      if(prodShadowBtn){
+        prodShadowBtn.addEventListener('click', function(){
+          if(typeof window._bnToggleActiveProductShadow === 'function') window._bnToggleActiveProductShadow();
+        });
+      }
       if(prodResetBtn){
         prodResetBtn.addEventListener('click', function(){
           if(!(window._bnProducts && window._bnProducts.length)) return;
@@ -816,8 +824,8 @@
         }
         src = trimmed.src;
         var ratio = trimmed.ratio;
-        var finalBaselineRatio = baselineRatio || 1;
-        if(useAutoShadow){
+        var finalBaselineRatio = 1;
+        if(useAutoShadow && (typeof window._bnGetActiveProductShadowEnabled !== 'function' || window._bnGetActiveProductShadowEnabled())){
           try{
             var shadowed = await autoApplyShadow(src, ratio);
             src = shadowed.src;
@@ -936,6 +944,7 @@
           prodDrop.style.cursor        = hasPP ? 'not-allowed' : 'pointer';
         }
         if(prodReset) prodReset.disabled = !(window._bnProducts && window._bnProducts.length);
+        if(typeof window.updateProductShadowControls === 'function') window.updateProductShadowControls();
       }
       window._bnUpdateMutualExclusion = updateMutualExclusion;
       function updateTemplateModeLabel(mode){
@@ -946,6 +955,7 @@
       /* ── 1人+1品 上傳 ── */
       var ppDrop = document.getElementById('bn-pp-drop');
       var ppInp  = document.getElementById('bn-pp-inp');
+      var ppShadowBtn = document.getElementById('bn-pp-shadow-btn');
       var ppResetBtn = document.getElementById('bn-pp-reset-btn');
 
       var _ppDragN = 0; /* dragenter counter — 防子元素 dragleave 誤觸 */
@@ -960,6 +970,11 @@
       ppInp.addEventListener('change', function(){
         handlePersonProductFiles(Array.from(this.files)); this.value='';
       });
+      if(ppShadowBtn){
+        ppShadowBtn.addEventListener('click', function(){
+          if(typeof window._bnToggleActiveProductShadow === 'function') window._bnToggleActiveProductShadow();
+        });
+      }
       if(ppResetBtn){
         ppResetBtn.addEventListener('click', function(){
           if(!window._bnPerson && !window._bnSingleProd) return;
@@ -1014,7 +1029,7 @@
               /* 保留既有可靠 Template source、shadow 與尺寸計算。 */
               var reliableTpl = typeof window._bnGetActiveTemplateJson === 'function' ? window._bnGetActiveTemplateJson() : null;
               var singleDefaultsReliable = (((reliableTpl || {}).productZones || {}).singleProduct || {}).defaultLayout || singleDefaults;
-              if(singleDefaultsReliable.autoShadow){
+              if(singleDefaultsReliable.autoShadow && (typeof window._bnGetActiveProductShadowEnabled !== 'function' || window._bnGetActiveProductShadowEnabled())){
                 try{
                   var shadowed = await autoApplyShadow(src, ratio);
                   src = shadowed.src; ratio = shadowed.ratio;
@@ -1023,7 +1038,7 @@
                 }
               }
               var maxW = singleDefaultsReliable.maxWidth, maxH = singleDefaultsReliable.maxHeight;
-              preparedState = {src:src, ratio:ratio, displayW:maxW, displayH:maxH, zoneHeight:maxH, objectFit:'contain'};
+              preparedState = {src:src, manualReplaceRawSrc:validated.dataUrl, ratio:ratio, displayW:maxW, displayH:maxH, zoneHeight:maxH, objectFit:'contain'};
               preparedMessage = {type:'bn-single-product-add', src:src, ratio:ratio, displayW:maxW, displayH:maxH, zoneHeight:maxH, objectFit:'contain'};
             }
 
@@ -1086,7 +1101,8 @@
       var tpl = window.__BN_TEMPLATE__;
       var useAutoShadow = !!(tpl && tpl.productZones && tpl.productZones.threeProducts &&
                              tpl.productZones.threeProducts.defaultLayout &&
-                             tpl.productZones.threeProducts.defaultLayout.autoShadow);
+                             tpl.productZones.threeProducts.defaultLayout.autoShadow) &&
+                            (typeof window._bnGetActiveProductShadowEnabled !== 'function' || window._bnGetActiveProductShadowEnabled());
 
       var threeProductDefaults = (((tpl || {}).productZones || {}).threeProducts || {}).defaultLayout || {};
       var templateSizeRatios = (tpl && tpl.sizeRatios) || threeProductDefaults.sizeRatios;

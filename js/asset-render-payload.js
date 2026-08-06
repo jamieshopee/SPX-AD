@@ -94,6 +94,7 @@
     var handleToDataUrl = options.handleToDataUrl;
     var trim = options.trim || (global.BNAssetProcessing && global.BNAssetProcessing.autoTrim);
     var imageUtils = options.imageUtils || global.BNImageUtils || {};
+    var productShadowEnabled = options.productShadowEnabled !== false;
     var resolvedAssets = options.resolvedAssets || null;
     var idPrefix = options.idPrefix || 'asset_p';
     var createId = options.createId || function (kind, index) { return defaultCreateId(idPrefix, index); };
@@ -108,7 +109,7 @@
     if (info.type === 'three_products') {
       var layout = (((templateJson.productZones || {}).threeProducts || {}).defaultLayout) || {};
       var sizeRatios = layout.sizeRatios || templateJson.sizeRatios || [1, 0.85, 0.72];
-      var useAutoShadow = !!layout.autoShadow;
+      var useAutoShadow = !!layout.autoShadow && productShadowEnabled;
 
       for (var i = 0; i < info.products.length; i++) {
         var item = info.products[i];
@@ -213,7 +214,7 @@
           var trimmedSingle = await trim(singleSource.src);
           var finalSrc = trimmedSingle.src;
           var finalRatio = trimmedSingle.ratio;
-          if (singleCfg.autoShadow && typeof imageUtils.autoApplyShadow === 'function') {
+          if (singleCfg.autoShadow && productShadowEnabled && typeof imageUtils.autoApplyShadow === 'function') {
             var shadowed = await imageUtils.autoApplyShadow(trimmedSingle.src, trimmedSingle.ratio);
             finalSrc = shadowed.src;
             finalRatio = shadowed.ratio;
