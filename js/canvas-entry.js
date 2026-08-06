@@ -25,7 +25,7 @@
     var style = document.createElement('style');
     style.textContent = fonts.map(function (font) {
       return '@font-face{font-family:"' + font.family + '";font-weight:' + font.weight +
-        ';src:url("' + font.src + '") format("truetype");}';
+        ';src:url("' + font.src + '") format("woff2");}';
     }).join('\n');
     document.head.appendChild(style);
   }

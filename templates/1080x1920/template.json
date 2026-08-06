@@ -26,17 +26,17 @@
     {
       "family": "ShopeeNotoSans (content)",
       "weight": "300",
-      "src": "assets/fonts/ShopeeNotoSans(content)-Regular.ttf"
+      "src": "assets/fonts/ShopeeNotoSans(content)-Regular.woff2"
     },
     {
       "family": "ShopeeNotoSans (content)",
       "weight": "400",
-      "src": "assets/fonts/ShopeeNotoSans(content)-Medium.ttf"
+      "src": "assets/fonts/ShopeeNotoSans(content)-Medium.woff2"
     },
     {
       "family": "ShopeeNotoSans (content)",
       "weight": "700",
-      "src": "assets/fonts/ShopeeNotoSans(content)-Bold.ttf"
+      "src": "assets/fonts/ShopeeNotoSans(content)-Bold.woff2"
     }
   ],
   "textFields": {

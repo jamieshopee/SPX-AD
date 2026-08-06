@@ -34,17 +34,17 @@
       {
         "family": "ShopeeNotoSans (content)",
         "weight": "300",
-        "src": "assets/fonts/ShopeeNotoSans(content)-Regular.ttf"
+        "src": "assets/fonts/ShopeeNotoSans(content)-Regular.woff2"
       },
       {
         "family": "ShopeeNotoSans (content)",
         "weight": "400",
-        "src": "assets/fonts/ShopeeNotoSans(content)-Medium.ttf"
+        "src": "assets/fonts/ShopeeNotoSans(content)-Medium.woff2"
       },
       {
         "family": "ShopeeNotoSans (content)",
         "weight": "700",
-        "src": "assets/fonts/ShopeeNotoSans(content)-Bold.ttf"
+        "src": "assets/fonts/ShopeeNotoSans(content)-Bold.woff2"
       }
     ],
     "textFields": {
@@ -240,6 +240,18 @@
         }
       }
     },
+    "qrZone": {
+      "className": "QRCode範圍",
+      "style": {
+        "position": "absolute",
+        "left": "880px",
+        "top": "183px",
+        "width": "85px",
+        "height": "85px",
+        "zIndex": "48",
+        "pointerEvents": "none"
+      }
+    },
     "layerOrder": {
       "background": 1,
       "smallText": 13,
@@ -249,7 +261,8 @@
       "singleProduct": 22,
       "person": 24,
       "products": 25,
-      "info": 47
+      "info": 47,
+      "qrCode": 48
     },
     "output": {
       "format": "png",
@@ -450,17 +463,17 @@
       {
         "family": "ShopeeNotoSans (content)",
         "weight": "300",
-        "src": "assets/fonts/ShopeeNotoSans(content)-Regular.ttf"
+        "src": "assets/fonts/ShopeeNotoSans(content)-Regular.woff2"
       },
       {
         "family": "ShopeeNotoSans (content)",
         "weight": "400",
-        "src": "assets/fonts/ShopeeNotoSans(content)-Medium.ttf"
+        "src": "assets/fonts/ShopeeNotoSans(content)-Medium.woff2"
       },
       {
         "family": "ShopeeNotoSans (content)",
         "weight": "700",
-        "src": "assets/fonts/ShopeeNotoSans(content)-Bold.ttf"
+        "src": "assets/fonts/ShopeeNotoSans(content)-Bold.woff2"
       }
     ],
     "textFields": {
@@ -647,6 +660,18 @@
         }
       }
     },
+    "qrZone": {
+      "className": "QRCode範圍",
+      "style": {
+        "position": "absolute",
+        "left": "46px",
+        "top": "1667px",
+        "width": "165px",
+        "height": "165px",
+        "zIndex": "48",
+        "pointerEvents": "none"
+      }
+    },
     "layerOrder": {
       "background": 1,
       "smallText": 13,
@@ -656,7 +681,8 @@
       "singleProduct": 21,
       "person": 22,
       "products": 23,
-      "info": 47
+      "info": 47,
+      "qrCode": 48
     },
     "output": {
       "format": "png",
@@ -867,17 +893,17 @@
       {
         "family": "ShopeeNotoSans (content)",
         "weight": "300",
-        "src": "assets/fonts/ShopeeNotoSans(content)-Regular.ttf"
+        "src": "assets/fonts/ShopeeNotoSans(content)-Regular.woff2"
       },
       {
         "family": "ShopeeNotoSans (content)",
         "weight": "400",
-        "src": "assets/fonts/ShopeeNotoSans(content)-Medium.ttf"
+        "src": "assets/fonts/ShopeeNotoSans(content)-Medium.woff2"
       },
       {
         "family": "ShopeeNotoSans (content)",
         "weight": "700",
-        "src": "assets/fonts/ShopeeNotoSans(content)-Bold.ttf"
+        "src": "assets/fonts/ShopeeNotoSans(content)-Bold.woff2"
       }
     ],
     "textFields": {
@@ -1073,6 +1099,18 @@
         }
       }
     },
+    "qrZone": {
+      "className": "QRCode範圍",
+      "style": {
+        "position": "absolute",
+        "left": "82px",
+        "top": "808px",
+        "width": "175px",
+        "height": "175px",
+        "zIndex": "48",
+        "pointerEvents": "none"
+      }
+    },
     "layerOrder": {
       "background": 1,
       "smallText": 13,
@@ -1082,7 +1120,8 @@
       "singleProduct": 22,
       "person": 23,
       "products": 24,
-      "info": 47
+      "info": 47,
+      "qrCode": 48
     },
     "output": {
       "format": "png",
@@ -1288,17 +1327,17 @@
       {
         "family": "ShopeeNotoSans (content)",
         "weight": "300",
-        "src": "assets/fonts/ShopeeNotoSans(content)-Regular.ttf"
+        "src": "assets/fonts/ShopeeNotoSans(content)-Regular.woff2"
       },
       {
         "family": "ShopeeNotoSans (content)",
         "weight": "400",
-        "src": "assets/fonts/ShopeeNotoSans(content)-Medium.ttf"
+        "src": "assets/fonts/ShopeeNotoSans(content)-Medium.woff2"
       },
       {
         "family": "ShopeeNotoSans (content)",
         "weight": "700",
-        "src": "assets/fonts/ShopeeNotoSans(content)-Bold.ttf"
+        "src": "assets/fonts/ShopeeNotoSans(content)-Bold.woff2"
       }
     ],
     "textFields": {
@@ -1493,6 +1532,18 @@
         }
       }
     },
+    "qrZone": {
+      "className": "QRCode範圍",
+      "style": {
+        "position": "absolute",
+        "left": "151px",
+        "top": "3213px",
+        "width": "500px",
+        "height": "500px",
+        "zIndex": "48",
+        "pointerEvents": "none"
+      }
+    },
     "layerOrder": {
       "background": 1,
       "smallText": 13,
@@ -1502,7 +1553,8 @@
       "singleProduct": 22,
       "person": 23,
       "products": 24,
-      "info": 47
+      "info": 47,
+      "qrCode": 48
     },
     "output": {
       "format": "png",
