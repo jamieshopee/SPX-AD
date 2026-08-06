@@ -1,11 +1,12 @@
 # SPX AD 版型規格與操作說明
 
-Version: 2026.08.06-woff2-font-migration
-Last Updated: 2026-08-06
+Version: 2026.08.07-job-product-shadow-toggle
+Last Updated: 2026-08-07
 Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數規格與操作流程。
 
 ## What's New
 
+- **每個 Job 獨立控制商品影子（Commit `7c3bc27`）**：新 Job 預設開啟商品影子；使用者可在右側商品圖或 1人＋1品區塊針對目前 Job 關閉並重新開啟。三商品與 Single Product 共用此狀態，不同 Job 可各自不同；Person、Logo、背景與 Info Graphic 不受影響。Direct Import、Photoshop approved assets 與手動換圖都遵守目前 Job 設定。`productShadowEnabled` 保存於 Project State v5 的 Job root，單張暫存與完整專案逐 Job single-state JSON 都會保存；舊 version 5 JSON 缺欄位時預設開啟。Shadow 是 render payload 中烘焙進圖片 data URL 的效果，不是 CSS；既有 Shadow 視覺與 Template `autoShadow` 未修改。Browser Validation 與 Jamie Manual Validation PASS。
 - **正式 Banner 字型遷移至 WOFF2（Commit `df623db42faab41bf651e4cb226fd7c677b2f0cd`）**：正式 Banner 字型已由舊 `.ttf` 改為 `.woff2`，四尺寸 Template、Canvas 動態 `@font-face` 與離線 Registry 已同步。字型家族、300／400／700 字重 mapping、文字尺寸、位置、換行與 Style 規則不變；舊 TTF 已移除。Browser、單張 PNG、2 筆工單完整專案／Batch、舊 Project JSON、Project State v5 single-state JSON、Registry 離線載入邏輯與 Jamie Manual Validation 全部 PASS；不影響 SPX Helper、Photoshop Automation 或 AI Workflow。
 - **右側欄手動 Master Layout 控制移除（Commit `a41913a`）**：控制面板不再顯示「更新 Master Layout」與「套用 Master Layout」，避免使用者手動建立或套用 Master Layout；「恢復預設位置」維持正常。底層 Master Layout capture／propagation、Smart Layout Modal，以及 Job／Template 切換時的自動 propagation 流程均維持不變。Browser Validation 與 Jamie Manual Validation PASS。
 - **CSV 匯入版位預設（Commit `d9cf130e8cee6c0f95e520f39a4c5bc1e4d45607`）**：實際入稿表 H6 的合法完整字串會成為此次普通 CSV 匯入的初始版位；H7:H11 仍是各 Job 原有 Style。這只是 Import Default，不會鎖定版位；匯入後仍可自由切換，切換 Job 不會自動切回。空白或非法值不顯示新錯誤或警告，沿用既有 fallback。實際 CSV、四個 mapping、Styles `01`／`02`／`05`／`07`／`10` 與 Jamie Manual Validation 全部 PASS。
@@ -261,6 +262,8 @@ CSV 欄位：
 
 視覺排列由 `layout-runtime.js` 依 Template 控制。使用者可拖曳、縮放、旋轉，也可以調整前後順序（▲／▼，誰蓋住誰），也可以恢復預設位置。恢復預設位置會清除 user transform，重新套用 Template 初始排版。
 
+每個 Job 的三商品共用商品影子狀態。新 Job 預設開啟；右側「商品圖」區塊可按「關閉商品影子」或「開啟商品影子」，主品、左配品、右配品會同步更新。此操作不改變商品 id、角色、前後順序、位置、尺寸或旋轉；切換 Job 後依各 Job 自己的狀態顯示。
+
 右側控制面板不提供「更新 Master Layout」或「套用 Master Layout」手動操作。Master Layout 仍由既有底層能力與 Smart Layout 自動 propagation 流程使用；Job／Template 切換不會重新產生這兩個按鈕。
 
 商品圖 Upload Box 下方不顯示「01 主品置中最大；02 左側配品；03 右側配品。未編號時依上傳順序。」；不保留提示文字空白。商品上傳後，商品列表與移除／▲／▼操作正常保留，「恢復預設位置」按鈕與 1人＋1品雙向互斥行為不變。Logo 與商品圖素材列不顯示「編輯」按鈕；Editor 程式與圖片處理能力仍保留。
@@ -286,10 +289,12 @@ Person：
 SingleProduct：
 
 - 初始尺寸由 `singleProduct.maxWidth / maxHeight` 控制。
-- 是否加陰影由 `singleProduct.autoShadow` 控制。
+- Template `singleProduct.autoShadow` 允許 Shadow 時，是否實際顯示再由目前 Job 的 `productShadowEnabled` 控制；新 Job 預設開啟。
 - 支援拖曳、縮放、旋轉與恢復預設位置。
 
-手動換圖（Person／Single Product 皆適用）：請使用已完成去背的 PNG。角色已有素材時，完整檔名必須與目前素材完全一致，包含大小寫及副檔名；只有角色尚無素材時才沿用既有 `_人`／`_品` 規則新增。實際格式、decode、autoTrim、Single Product shadow 與尺寸計算全部成功後才切換 Template mode／Accordion 並更新圖片；失敗時原圖、模式與 Accordion 均不變。Person 仍沿用既有 autoTrim、尺寸、比例與適配方式，換圖完成後位置回到 Template 預設 top，不保留換圖前的垂直微調位置；Single Product 則維持既有尺寸規則，依新圖比例重新調整大小，換圖前的位置與旋轉角度維持不變，仍可繼續拖曳、縮放、旋轉；Shadow 依 `singleProduct.autoShadow` 正確套用。下載單張暫存並重新開啟後，換圖結果維持一致，不會還原成換圖前的舊圖（Bug Fix，Commit `c390a61`、驗證修正 Commit `8cb7c27`）。同一頁面 session 中切換到其他 Job 再切回，Person 與 Single Product 仍使用各自 Job 的手動換入圖片；Person 的目前 Y 位置沿用既有 layout state，Single Product 尺寸不會重新放大（Bug Fix，Commit `4ff252f`、Person 位置控制 Commit `f890e73`）。
+右側「1人＋1品」區塊的商品影子按鈕只控制 Single Product，與「商品圖」區塊共用同一 Job 狀態。Person 不受影響；開關 Shadow 不改變 Single Product 的位置、尺寸、旋轉或 handles。
+
+手動換圖（Person／Single Product 皆適用）：請使用已完成去背的 PNG。角色已有素材時，完整檔名必須與目前素材完全一致，包含大小寫及副檔名；只有角色尚無素材時才沿用既有 `_人`／`_品` 規則新增。實際格式、decode、autoTrim、Single Product shadow 與尺寸計算全部成功後才切換 Template mode／Accordion 並更新圖片；失敗時原圖、模式與 Accordion 均不變。Person 仍沿用既有 autoTrim、尺寸、比例與適配方式，換圖完成後位置回到 Template 預設 top，不保留換圖前的垂直微調位置；Single Product 則維持既有尺寸規則，依新圖比例重新調整大小，換圖前的位置與旋轉角度維持不變，仍可繼續拖曳、縮放、旋轉；Shadow 同時遵守 `singleProduct.autoShadow` 與目前 Job 的 `productShadowEnabled`，手動換圖不會把已關閉的 Shadow 重新開啟。下載單張暫存並重新開啟後，換圖結果維持一致，不會還原成換圖前的舊圖（Bug Fix，Commit `c390a61`、驗證修正 Commit `8cb7c27`）。同一頁面 session 中切換到其他 Job 再切回，Person 與 Single Product 仍使用各自 Job 的手動換入圖片；Person 的目前 Y 位置沿用既有 layout state，Single Product 尺寸不會重新放大（Bug Fix，Commit `4ff252f`、Person 位置控制 Commit `f890e73`）。
 
 手動換圖 Picker 對使用者只宣告 PNG；Runtime 會依實際檔案內容確認 PNG／WebP Magic Number，並要求成功 decode，不以副檔名或 `File.type` 作為唯一依據。JPG／JPEG／GIF／BMP／AVIF、假 PNG、損壞或無法 decode 的圖片均拒絕。錯誤顯示於對應 Upload Box 下方，不使用彈跳視窗；再次選檔、成功或切換 Job 時自動清除。固定訊息如下：
 
@@ -517,6 +522,7 @@ ZIP 內包含：
 
 - 每個成功 Job 的最終 PNG。
 - 與該 PNG 同 basename 的 version 5 single-state JSON；每份 JSON 只包含一個 Job、不包含 `jobs[].thumbnail`，並保存該 Job 既有的完整還原資料。
+- 每份 JSON 的 Job root 都保存 `productShadowEnabled`；不同 Job 可分別為開啟或關閉，對應 PNG 使用各自狀態。
 
 ZIP 根目錄不包含單一 Project JSON，也不建立 Assets、Processed、Thumbnail、Hidden、Manifest 或其他子資料夾。使用者可從 ZIP 取出任一 JSON，直接使用既有「匯入暫存」重新開啟對應 Job。
 
@@ -538,7 +544,9 @@ Imported Job 匯入後若由使用者更換 Style，該 Job 會同步保存目�
 
 下載單張暫存用於保存單張工單；輸出檔名與該 Job 的單張 PNG 使用相同 basename，只將副檔名改為 `.json`（例如 `Banner_A.png` 對應 `Banner_A.json`，空 `outputFilename` 使用 `banner.json`）。JSON 不包含僅供舊左側 Job List 縮圖使用的 `jobs[].thumbnail`，也不執行 on-demand thumbnail capture。
 
-匯入後仍會恢復該工單需要的 Placement、Template、Style、assets data URL、processed image、`layoutState`／`layoutStates`、手動換圖、Crop、Eraser、Shadow 與其他既有資料，因此不需要保留原素材資料夾或 processed folder。多選時每份 single-state 只建立一個 Job，並以 Atomic Append 加入既有 Workspace。此流程不變更 Project State schema，也不影響完整專案、Batch Download 或單張 PNG。
+匯入後仍會恢復該工單需要的 Placement、Template、Style、assets data URL、processed image、`layoutState`／`layoutStates`、手動換圖、Crop、Eraser、Shadow 與其他既有資料，因此不需要保留原素材資料夾或 processed folder。多選時每份 single-state 只建立一個 Job，並以 Atomic Append 加入既有 Workspace。此流程不升級 Project State version，也不影響完整專案、Batch Download 或單張 PNG。
+
+Job root 的 `productShadowEnabled` 會隨 single-state 保存並在匯入後還原；舊 Project State v5 JSON 若沒有此欄位，視為開啟。這是向下相容的 additive 欄位，Project State version 維持 `5`。
 
 ### Review Workspace Restore
 

@@ -1,5 +1,36 @@
 # CHANGELOG
 
+## Job-scoped 商品影子開關 - 2026-08-07
+
+Status：**Completed — Browser Validation 與 Jamie Manual Validation PASS**
+Code Commit：`7c3bc27`
+Commit subject：`feat: add job-scoped product shadow toggle`
+
+### Root Cause
+
+- 商品 Shadow 不是 CSS 或 Canvas Runtime filter；三商品與 Single Product 都在建立 render payload 時，依 Template `autoShadow` 呼叫既有 `autoApplyShadow()`，將 Shadow 烘焙進圖片 data URL 後再送入 Canvas。
+- 過去 Template `autoShadow` 是唯一開關，因此 Direct Import、Photoshop approved assets 與手動換圖都會依正式流程自動加上商品影子，無法讓不同 Job 保存不同狀態。
+
+### Changed Behavior
+
+- Job root 新增 `productShadowEnabled`。新 Job 預設為 `true`；使用者可在目前 active Job 關閉或重新開啟商品影子，不同 Job 可保存不同狀態。
+- 三商品（主品、左配品、右配品）與 Single Product 共用同一 Job 狀態；Person、Logo、背景與 Info Graphic 不受影響。
+- Template `autoShadow === true` 且 `job.productShadowEnabled !== false` 時才呼叫既有 `autoApplyShadow()`；Job 關閉時直接使用 `autoTrim()` 結果。Direct Import、Photoshop approved assets 與右側欄手動換圖共用此判斷。
+- 右側「商品圖」與「1人＋1品」Accordion 各有一顆狀態按鈕，皆讀寫同一個 Job boolean、共用同一 handler 與 UI update；切換 Job 時文字、enabled 狀態與 Canvas 一起更新。
+- Canvas 切換沿用既有 approved product refresh flow，只更新圖片來源；不重設商品、不呼叫 `layoutProducts()`，不修改 id、position、z-order、位置、尺寸、旋轉或 `layoutState`／`layoutStates`。
+
+### Persistence / Compatibility
+
+- `productShadowEnabled` 直接保存於 Project State v5 Job root；下載單張暫存與完整專案內每個 Job 的 single-state JSON 都會保存此欄位。
+- 匯入暫存會還原各 Job 狀態；新建與 restore 均使用 `value !== false`，因此舊 version 5 JSON 缺少欄位時預設開啟，明確保存的 `false` 不會被改回 `true`。
+- Project State version 維持 `5`，未建立新的 schema version。
+
+### Validation / Scope Boundary
+
+- Jamie Manual Validation：Direct Import、Photoshop approved asset、三商品與 Single Product 開關／手動換圖、Job 切換、單張暫存匯出／匯入、單張 PNG、完整專案各 Job PNG／JSON 全部 PASS；Browser Console error 0。
+- 商品位置、大小、旋轉、角色與前後順序不變；Person、Logo、背景、Info Graphic、QRCode 不受影響。
+- 未修改 Shadow 演算法或視覺參數、`autoApplyShadow()`、Template `autoShadow`、Photoshop Automation、SPX Helper、Review Workspace、Approved Asset Resolver 或 `qrcode-demo`。
+
 ## SPX AD Banner 字型遷移至 WOFF2 - 2026-08-06
 
 Status：**Completed — Browser Validation 與 Jamie Manual Validation PASS**

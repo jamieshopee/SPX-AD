@@ -1,11 +1,12 @@
 # UI Design Guideline
 
-Version: 2026.07.31-master-layout-controls
-Last Updated: 2026-07-31
+Version: 2026.08.07-job-product-shadow-toggle
+Last Updated: 2026-08-07
 Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
 
+- **Job-scoped 商品影子開關（Commit `7c3bc27`）**：右側「商品圖」與「1人＋1品」Accordion 各新增一顆按鈕，位於各自「恢復預設位置」上方。兩顆按鈕共用 active Job 的 `productShadowEnabled`、同一 handler 與同一 UI update；有影子顯示「關閉商品影子」，無影子顯示「開啟商品影子」。三商品按鈕只在 Job 有商品時可用；1人＋1品按鈕只在有 Single Product 時可用，Person 不參與 enabled 判斷。Job 切換時按鈕與 Canvas 同步；既有 Accordion defaults、互斥、Reset 與商品清單規則不變。Jamie Manual Validation PASS。
 - **右側欄手動 Master Layout 控制移除（Commit `a41913a`）**：右側控制面板不再建立或顯示「更新 Master Layout」、「套用 Master Layout」及兩者專用容器；不得以 CSS 隱藏或先建立再移除。底層 capture／propagation、Smart Layout Modal 與 Job／Template 切換時的自動 propagation 維持不變；「恢復預設位置」正常顯示且底部不保留多餘空白。Browser Validation 與 Jamie Manual Validation PASS。
 - **右側欄手動換圖 inline error（Commit `8cb7c27c71d664ececb6b57487e921a3f0c44839`）**：Logo、商品圖、1人＋1品各自使用 Upload Box 正下方的具名紅色 transient error；不使用 Modal、不常駐、不保留空白。再次選檔、成功換圖或切換 Job 時清除，且錯誤只存在 DOM。圖片驗證與預處理全部成功後才更新既有 UI／Canvas state；Jamie Manual Validation 全部 PASS。
 - **AI Workflow 單向審核與 Header 狀態收斂（Commit `8eefbb0924121f3a199c547186306c5eeb722a31`）**：Header 入口順序更新；素材審核只在 `FirstReview`／`SecondReview` 顯示，Photoshop 實際執行時顯示處理中，`Completed` 顯示「AI 去背完成」。Decision Area 第一輪為核准／重新去背／之後手動換圖，第二輪為核准／之後手動換圖；未完成時 Close／Esc 不得離開。Manual Validation A1–E2 與 Code Review 全部 PASS。
@@ -234,6 +235,13 @@ Accordion 規則：
 
 - 商品圖區塊：重設三商品。
 - 1人＋1品區塊：Person 回到 Template 預設 top；Single Product 維持既有 transform reset。Person 或 Single Product 任一存在時按鈕可用。
+
+商品影子按鈕固定放在對應「恢復預設位置」按鈕上方：
+
+- 商品圖區塊：Job 有任一三商品時啟用；只控制主品、左配品、右配品。
+- 1人＋1品區塊：Job 有 Single Product 時啟用；Person 不參與 enabled 判斷，也不受操作影響。
+- 目前有影子時文字為「關閉商品影子」；目前無影子時文字為「開啟商品影子」。兩顆按鈕是同一 Job 狀態的兩個 UI 入口，不得建立兩套 Shadow state。
+- 點擊後沿用既有商品 refresh，Canvas 立即反映；不得重設商品位置、大小、旋轉、前後順序或 Reset enabled 條件。
 
 右側控制面板不提供「更新 Master Layout」或「套用 Master Layout」按鈕，也不建立兩者專用的空白容器。底層 Master Layout 與 Smart Layout 自動 propagation 不屬於本項 UI 移除範圍。
 

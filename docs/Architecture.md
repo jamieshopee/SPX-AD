@@ -1,13 +1,14 @@
 # Architecture
 
 Version: v0.6.1（Product Host `0.6.1`；Runtime Productization Phase 3 macOS Packaging Completed；Next: Phase 4 — Update + Uninstall）
-Last Updated: 2026-07-30
+Last Updated: 2026-08-07
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界、新增 Style 流程，以及 SPX Helper / Photoshop Automation / AI Workflow / QR Code 架構。
 
 SPX Helper Core（功能 Commit `9a71794`）、Runtime Productization Phase 1 Foundation（功能 Commit `51c4828`）、Phase 2 Windows Packaging（功能 Commit `9240504`）與 Phase 3 macOS Packaging（功能 Commit `ee55dd527a00361f1155ba45713ff2ce3957b06c`）均已完成。Phase 3 以 PyInstaller 建立 `SPX Helper.app`，並由 PKG 固定安裝到 `/Applications/SPX Helper.app`；LaunchAgent 提供登入自動啟動。macOS local build／install 與 Jamie Manual Validation 已完成，正式 GitHub Pages → SPX Helper → Photoshop → Processed PNG PASS。Developer ID signing 與 Apple Notarization 因缺少 credentials 尚未驗證。下一步為尚未開始的 Phase 4 Update + Uninstall；Phase 5 Final Validation 亦尚未開始。
 
 ## What's New
 
+- **Job-scoped 商品影子開關（功能 Commit `7c3bc27`）**：Job root 新增向下相容的 `productShadowEnabled` boolean，新 Job 與舊 JSON 缺欄位均視為 `true`。三商品與 Single Product 的 render payload 只有在 Template `autoShadow` 與此 Job 狀態都允許時才呼叫既有 `autoApplyShadow()`；關閉時直接使用 `autoTrim()` 結果。Shadow 是烘焙進圖片 data URL 的 payload 結果，不是 CSS／Canvas Runtime filter。Direct Import、Photoshop approved assets、手動換圖、Main Canvas refresh、單張／完整專案輸出與 restore 都沿用既有 flow。Project State 維持 version 5；未修改 Shadow 演算法、Template、Canvas message contract、layout geometry、Photoshop、SPX Helper、Review Workspace 或 Approved Asset Resolver。
 - **CSV Placement Import Default（功能 Commit `d9cf130e8cee6c0f95e520f39a4c5bc1e4d45607`）**：普通 CSV 匯入會從完整 rows 的 H 欄解析一次 batch-level Placement。實際入稿表 H6 是 Placement，H7:H11 是各 Job Style；Placement 只接受四個完整合法字串並映射至既有 placementId，不用 UI 事件反查或模擬切換。合法值只在 Workspace 首次初始化且 `activePlacement` 尚未存在時成為初始 Placement；之後使用者仍可自由切換，Job 切換不會鎖回。空白／非法值沿用原本第一個可用 Placement fallback。既有 Job parser、Template／Style Runtime、JSON、Export、Canvas、Asset Pipeline、Review Workspace 與 Direct Import 均未修改。
 - **右側欄手動換圖 Commit 前驗證（Bug Fix，Commit `8cb7c27c71d664ececb6b57487e921a3f0c44839`）**：Logo、商品圖、Person／Single Product 統一採逐檔 `validate → prepare → commit`，不做多檔 transaction 或 rollback。Plugin 先依 replacement／empty-slot addition 規則檢查完整檔名，再讀取 Magic Number、decode，並完成既有 autoTrim、shadow 與尺寸計算；全部成功後才呼叫原有 Canvas message、Job／`_manualRenderState` 保存與 Approved Asset invalidation。Picker 對使用者仍宣告 PNG，Runtime 則依實際內容接受可辨識且能成功 decode 的 PNG／WebP，不以副檔名或 `File.type` 為唯一依據。失敗只更新對應 Upload Box 下方的 DOM-only inline error，不更新 Canvas、素材列表、Job、`_manualRenderState` 或 Asset Pipeline。`src/app.js` 只新增 active Job canonical filename 的唯讀 getter，以及 `selectJob()` 成功後清除 inline error 的 hook；未新增 state／schema／Canvas Contract／runtime bridge。Download／Export／ZIP、Import、Batch Render、Render Engine、Asset Resolver、Photoshop Automation 與圖片處理／排版演算法均未修改。Static Check、Browser Validation 與 Jamie Manual Validation PASS。
 - **AI Workflow 單向審核流程（Commit `8eefbb0924121f3a199c547186306c5eeb722a31`）**：Runtime phase 固定為 Photoshop First Run → `FirstReview` →（有 Needs Rerun 時）Photoshop Rerun → `SecondReview` → `Completed`。Rerun 只能由 `FirstReview` 啟動，第二輪不得寫入 `needs_rerun` 或建立第三輪；未完成時 Close／Esc 受 guard，`Completed` 後不得 reopen。Header 狀態改由 source mode 與 phase 控制；Direct Import 仍完全繞過 AI Workflow。
@@ -475,6 +476,7 @@ Project State 是控制台目前工作區的資料來源。
 - CSV jobs
 - 文字
 - QR Code 網址（`qrCodeUrl`）
+- 商品影子狀態（Job root `productShadowEnabled`）
 - size
 - template
 - style
@@ -491,6 +493,7 @@ Project State 是控制台目前工作區的資料來源。
 Project State v5（Completed）：
 
 - Project State v5 建立 Project Persistence contract。
+- `productShadowEnabled` 以 Job root boolean 保存；單張暫存與 Download Complete Project 內每份逐 Job single-state JSON 都會保存。Import／`createJob()` 以 `value !== false` restore，因此舊 version 5 JSON 缺欄位時為 `true`，明確保存的 `false` 維持關閉；version 仍為 `5`。
 - `single-state.json` 可保存單張工單需要的 latest processed image `dataUrl`。
 - Download Complete Project 的 ZIP 會為每個成功 Job 保存同 basename 的 PNG 與 single-state JSON。
 - 每份 JSON 只包含一個 Job，可在 `processedAssets` 保存該 Job 還原所需的 `filename` 與 `dataUrl`，且不包含 `jobs[].thumbnail`。
@@ -642,6 +645,14 @@ Approved assets：
 - Main Canvas、Thumbnail 與 Batch Render 共用 `BNAssetResolver` 解析 approved processed assets。
 - `asset-render-payload.js` 接收 resolved assets；有 processed dataUrl 時使用 processed source，否則 fallback original。
 - Batch Render 可透過 `BNAssetResolver` 讀取 approved processed assets，但仍不得寫入 `layoutStates` 或 Project State schema。
+
+### Job-scoped Product Shadow
+
+- Shadow 是 render payload 的圖片處理結果：既有 `autoApplyShadow()` 產生含影子的 data URL，再由 Canvas 顯示；不是 CSS 或 Canvas Runtime filter。
+- 三商品由 `js/asset-render-payload.js` 在既有 payload build 呼叫層判斷；Single Product 與手動換圖由 `js/bn-editor-plugin.js` 的既有呼叫層判斷。兩者規則一致：Template `autoShadow === true` 且 `job.productShadowEnabled !== false` 才加影子，否則使用 `autoTrim()` 結果。
+- Direct Import 與 Photoshop approved assets 經既有 Asset Resolver／payload flow；手動換圖保留 raw source。切換關閉／開啟時沿用 `refreshMainCanvasApprovedAssetsForActiveJob()` → `syncActiveLayoutState()` → `buildMainCanvasProductPayloadForJob()` → `updateMainCanvasImageSourcesForJob()` → `waitForFrameImages()`，從未加影子的 canonical／raw source 重建 payload，避免重複疊加影子。
+- Refresh 只替換目前商品圖片來源，不呼叫 `layoutProducts()`、不 reset、不 remove／re-add DOM，不修改 Product Identity、z-order、位置、尺寸、旋轉、`layoutState` 或 `layoutStates`。
+- Person、Logo、背景與 Info Graphic 不讀取此欄位；Plugin 建立按鈕並轉送 click，但不是 state owner。
 
 
 ## Smart Layout Propagation

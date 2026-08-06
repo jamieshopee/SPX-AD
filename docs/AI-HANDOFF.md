@@ -1,5 +1,15 @@
 # AI-HANDOFF.md
 
+## Job-scoped 商品影子開關完成（2026-08-07）
+
+- Code Commit：`7c3bc27`（`feat: add job-scoped product shadow toggle`）。Browser Validation 與 Jamie Manual Validation 全部 PASS。
+- Current Behavior：每個新 Job 的 `productShadowEnabled` 預設為 `true`；使用者可只針對 active Job 關閉／重新開啟商品影子。三商品與 Single Product 共用此狀態，不同 Job 可各自不同。
+- Render Root Cause：Shadow 不是 CSS／Canvas Runtime filter，而是在 render payload 建立階段由既有 `autoApplyShadow()` 烘焙進商品圖片 data URL。Template `autoShadow` 與 Job `productShadowEnabled` 都允許時才套用；Job 關閉時使用 `autoTrim()` 結果。
+- Source Flows：Direct Import、Photoshop approved assets 與右側欄手動換圖都在既有呼叫層遵守目前 Job 狀態；手動換圖不會把已關閉的 Shadow 重新開啟，重新開啟亦從未加影子的 canonical／raw source 重新產生，避免雙重 Shadow。
+- UI / Canvas：商品圖與 1人＋1品 Accordion 各有一顆按鈕，但共用同一 Job boolean、同一 handler 與同一 UI update。Canvas 沿用既有 approved product refresh flow；不 reset、不重建商品 DOM、不修改 geometry 或 `layoutState`／`layoutStates`。
+- Persistence：`productShadowEnabled` 是 Project State v5 的 additive Job root boolean。單張暫存與完整專案逐 Job single-state JSON 都保存；匯入 restore 使用 `value !== false`，舊 version 5 JSON 缺欄位時預設開啟，version 維持 `5`。
+- Scope Boundary：Person、Logo、背景、Info Graphic 與 QRCode 不受影響；未修改 Shadow 演算法／視覺參數、Template `autoShadow`、Photoshop Automation、SPX Helper、Review Workspace、Approved Asset Resolver 或 `qrcode-demo`。
+
 ## SPX AD Banner WOFF2 字型遷移完成（2026-08-06）
 
 - Code Commit：`df623db42faab41bf651e4cb226fd7c677b2f0cd`（`perf: replace TTF fonts with WOFF2`）。
