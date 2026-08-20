@@ -3042,8 +3042,10 @@ function findHeaderRow(rows) {
     const hits = TARGET_KEYS.filter(k => row.some(cell => String(cell).includes(k)));
     if (hits.length >= 2) {
       const colMap = {};
+      const newColMap = {};
       row.forEach((cell, ci) => {
-        const c = String(cell).replace(/\n.*/gs, '').trim();
+        const fullHeader = String(cell).trim();
+        const c = fullHeader.replace(/\n.*/gs, '').trim();
         if (c.includes('案件編號'))                  colMap.jobId      = ci;
         if (c.includes('版型') || c.includes('樣式')) colMap.styleId = ci;
         if (c.includes('主標'))                      colMap.headline   = ci;
@@ -3057,7 +3059,13 @@ function findHeaderRow(rows) {
         // 「剛好等於」QRcode，才是使用者實際填寫網址的那一欄，避免被後面同樣
         // 含「QRcode」字樣、但屬於 SPX 內部流程、通常是空的欄位覆蓋掉。
         if (/^qrcode$/i.test(c))                      colMap.qrCodeUrl  = ci;
+        if (fullHeader.includes('曝光門市組別') && fullHeader.includes('SPX填寫') && newColMap.jobId == null) newColMap.jobId = ci;
+        if (fullHeader.includes('風格填寫') && newColMap.styleId == null) newColMap.styleId = ci;
+        if (fullHeader.includes('原廠視覺') && newColMap.factoryVisual == null) newColMap.factoryVisual = ci;
+        if (fullHeader.includes('主視覺素材名稱') && newColMap.products == null) newColMap.products = ci;
+        if (c === '縮短網址' && newColMap.qrCodeUrl == null) newColMap.qrCodeUrl = ci;
       });
+      if (newColMap.jobId != null) Object.assign(colMap, newColMap);
       return { rowIndex: i, colMap };
     }
   }
@@ -3065,13 +3073,16 @@ function findHeaderRow(rows) {
 }
 
 function resolveCsvImportPlacement(rows, colMap) {
-  if (colMap?.styleId == null) return '';
   const placementIds = new Map([
     ['TVBN-智取店', 'tvbn-smart-store'],
     ['TVBN-一般門市', 'tvbn-standard-store'],
     ['繳費機手機號碼輸入畫面下 BN', 'payment-phone-banner'],
     ['智取店繳費機 BN', 'smart-payment-banner'],
   ]);
+  const newPlacement = String(rows?.[2]?.[7] ?? '').trim();
+  const newPlacementId = placementIds.get(newPlacement);
+  if (newPlacementId) return newPlacementId;
+  if (colMap?.styleId == null) return '';
   for (const row of rows) {
     const value = String(row[colMap.styleId] ?? '').trim();
     const placementId = placementIds.get(value);
@@ -3089,6 +3100,9 @@ function parseJobsFromRows(rows, headerInfo) {
   const result = [];
   for (let i = rowIndex + 1; i < rows.length; i++) {
     const row = rows[i];
+    const factoryVisual = colMap.factoryVisual != null ? String(row[colMap.factoryVisual] ?? '').trim() : '';
+    if (factoryVisual) continue;
+
     const jobId    = String(row[colMap.jobId]    ?? '').trim();
     const headline = String(row[colMap.headline] ?? '').trim();
     if (!jobId || !headline) continue;
@@ -4178,7 +4192,7 @@ async function batchRender() {
         zip.file(pair.jsonFilename, pair.json);
       });
       const blob = await zip.generateAsync({ type: 'blob' });
-      downloadBlob(blob, `project_${new Date().toISOString().slice(0, 10)}.zip`);
+      downloadBlob(blob, `SPX AD_${new Date().toISOString().slice(5, 10)}.zip`);
     }
   } finally {
     thumbnailPaused = thumbnailPausedBeforeBatch;
