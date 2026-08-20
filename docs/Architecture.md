@@ -9,7 +9,7 @@ SPX Helper Core（功能 Commit `9a71794`）、Runtime Productization Phase 1 Fo
 ## What's New
 
 - **Job-scoped 商品影子開關（功能 Commit `7c3bc27`）**：Job root 新增向下相容的 `productShadowEnabled` boolean，新 Job 與舊 JSON 缺欄位均視為 `true`。三商品與 Single Product 的 render payload 只有在 Template `autoShadow` 與此 Job 狀態都允許時才呼叫既有 `autoApplyShadow()`；關閉時直接使用 `autoTrim()` 結果。Shadow 是烘焙進圖片 data URL 的 payload 結果，不是 CSS／Canvas Runtime filter。Direct Import、Photoshop approved assets、手動換圖、Main Canvas refresh、單張／完整專案輸出與 restore 都沿用既有 flow。Project State 維持 version 5；未修改 Shadow 演算法、Template、Canvas message contract、layout geometry、Photoshop、SPX Helper、Review Workspace 或 Approved Asset Resolver。
-- **CSV Placement Import Default（功能 Commit `d9cf130e8cee6c0f95e520f39a4c5bc1e4d45607`）**：普通 CSV 匯入會從完整 rows 的 H 欄解析一次 batch-level Placement。實際入稿表 H6 是 Placement，H7:H11 是各 Job Style；Placement 只接受四個完整合法字串並映射至既有 placementId，不用 UI 事件反查或模擬切換。合法值只在 Workspace 首次初始化且 `activePlacement` 尚未存在時成為初始 Placement；之後使用者仍可自由切換，Job 切換不會鎖回。空白／非法值沿用原本第一個可用 Placement fallback。既有 Job parser、Template／Style Runtime、JSON、Export、Canvas、Asset Pipeline、Review Workspace 與 Direct Import 均未修改。
+- **新版正式工單 CSV Import 相容（功能 Commit `42bc8d28949d3152216eff4369fddde6751f8515`）**：新版 batch-level Placement 讀 H3；Job ID／Style／原廠視覺排除／文字／商品／Logo／輸出檔名／QR URL 分別由 O／I／J／K-L-M／P／Q／R／第一個 exact `縮短網址`（S）提供。J 欄 trim 後非空的 row 在 parser boundary 直接 skip。只新增 semantic header mapping 與新版 Placement source；舊 H6 Placement、H7:H11 Style、legacy Job／文字／素材 mapping 與第一行 exact `QRcode` 全部保留。未修改 Project State、Placement Registry、Template／Style、Asset Resolver、Canvas、Render 或 QR Runtime。
 - **右側欄手動換圖 Commit 前驗證（Bug Fix，Commit `8cb7c27c71d664ececb6b57487e921a3f0c44839`）**：Logo、商品圖、Person／Single Product 統一採逐檔 `validate → prepare → commit`，不做多檔 transaction 或 rollback。Plugin 先依 replacement／empty-slot addition 規則檢查完整檔名，再讀取 Magic Number、decode，並完成既有 autoTrim、shadow 與尺寸計算；全部成功後才呼叫原有 Canvas message、Job／`_manualRenderState` 保存與 Approved Asset invalidation。Picker 對使用者仍宣告 PNG，Runtime 則依實際內容接受可辨識且能成功 decode 的 PNG／WebP，不以副檔名或 `File.type` 為唯一依據。失敗只更新對應 Upload Box 下方的 DOM-only inline error，不更新 Canvas、素材列表、Job、`_manualRenderState` 或 Asset Pipeline。`src/app.js` 只新增 active Job canonical filename 的唯讀 getter，以及 `selectJob()` 成功後清除 inline error 的 hook；未新增 state／schema／Canvas Contract／runtime bridge。Download／Export／ZIP、Import、Batch Render、Render Engine、Asset Resolver、Photoshop Automation 與圖片處理／排版演算法均未修改。Static Check、Browser Validation 與 Jamie Manual Validation PASS。
 - **AI Workflow 單向審核流程（Commit `8eefbb0924121f3a199c547186306c5eeb722a31`）**：Runtime phase 固定為 Photoshop First Run → `FirstReview` →（有 Needs Rerun 時）Photoshop Rerun → `SecondReview` → `Completed`。Rerun 只能由 `FirstReview` 啟動，第二輪不得寫入 `needs_rerun` 或建立第三輪；未完成時 Close／Esc 受 guard，`Completed` 後不得 reopen。Header 狀態改由 source mode 與 phase 控制；Direct Import 仍完全繞過 AI Workflow。
 - **匯入素材資料夾（Direct Import，功能 Commit `d5a22c86f203d1b5c795d808b1f6eb700a9c13d4`）**：Control Center Header 新增第二條素材入口，供已完成去背、四周透明且沿用正式資料夾結構／檔名規則的 PNG 直接進入既有 Approved Asset Runtime。兩個入口共用正式資料夾掃描；Direct Import 建立既有 `assetIndex`、`assetPipelineState`、`processedAssetIndex`，沿用 `importProcessedAssets()` Matching，只核准 matched 且存在 runtime handle 的 records。此路徑不啟動 SPX Helper、Photoshop 或 AI Workflow，不建立 Processed、不開啟 Review Workspace，也不進 Needs Rerun／Rerun。Resolver 之後沿用既有 Asset Resolver、autoTrim、Shadow、Canvas、手動換圖、Job 切換與輸出／還原流程。Jamie Manual Validation 全部 PASS。
@@ -22,7 +22,7 @@ SPX Helper Core（功能 Commit `9a71794`）、Runtime Productization Phase 1 Fo
 - **一人一品（Person + Single Product）手動換圖修正（Bug Fix，Commit `c390a61`）**：修正三個問題。手動換圖後下載單張暫存重新匯入會還原成舊圖——因為換圖只更新畫布內容，從未讓 Approved Asset Pipeline 內對應角色仍標示 `approved` 的舊 record 失效；修正沿用三商品既有的 `window._bnInvalidateApprovedAssetForManualReplace()`，新增 `role` 參數（`'person'`／`'singleProduct'`，三商品預設 `'product'` 不變），換圖後精確失效化對應 record。Single Product 換圖後 Handle／拖曳／縮放／旋轉失效——因為換圖流程每次清空並重建整個 Canvas box，先前綁定的事件跟著被移除；`js/canvas-entry.js` 的 `bn-single-product-add` handler 新增判斷，box 已存在時改為原地更新（只換圖片、依既有尺寸規則以新圖比例更新 box 尺寸、以換圖前中心點反推新位置、位置與旋轉角度不變），不清空、不重建、不重新綁定，box 尚不存在時（初次帶入）維持既有流程。Single Product 換圖後 Shadow 消失——因為 `handlePersonProductFiles()` 讀取的是會競態的 `window.__BN_TEMPLATE__`；修正改用與三商品 `replaceExistingProductImage()` 相同、可靠的 `window._bnGetActiveTemplateJson()`。未修改 Project State schema、Approved Asset Resolver、`autoApplyShadow()` 演算法、三商品換圖流程。詳見下方「Product Identity」章節與 `docs/CHANGELOG.md`。
 - **三商品手動同檔名換圖保留 Product Identity（Bug Fix，Commit `3269b67`；filename 規則由 Commit `8cb7c27` 收斂）**：手動拖曳同檔名圖片取代三商品其中一張時，過去會被當成全新商品處理（移除既有商品、新增一筆新 id，Canvas DOM 重建），造成身份與排版不一致。修正後 `js/bn-editor-plugin.js` 新增 `findExistingProductByFilename()`，以完整檔名比對既有商品；目前正式規則由 Commit `8cb7c27` 收斂為包含大小寫及副檔名必須完全一致。比對到者改走 `replaceExistingProductImage()` 原地更新：不 remove／不 re-add，id 不變，filename 正確保留為新檔名；`js/layout-runtime.js` 新增 `bn-product-image-update` handler，只更新既有 DOM box 的圖片來源，並清除三張商品的 `userAdjusted` 後呼叫既有 `layoutProducts()` 整組重新排版，確保換圖後比例、間距、overlap 與商品區域 fit（不超出邊界）皆與其餘兩張一致；換圖判斷 `autoShadow` 改用與 `applyProductsToCanvas()` 相同的 Template JSON 來源（新增 `window._bnGetActiveTemplateJson()`），避免讀到尚未載入的舊全域變數。另新增 runtime-only 屬性 `product.manualReplaceRawSrc`（換圖當下、autoTrim／autoShadow 處理前的原始圖片），`cloneJobForExport()` 匯出時優先內嵌此原始圖，避免下載單張暫存並重新開啟後，已處理過的圖片被 `buildProductPayloads()` 誤當原始素材重複處理。未修改 Project State schema、未新增欄位；`js/asset-render-payload.js`、`layoutProducts()` 本身、Bug #1 的 position／zOrder 邏輯皆未變動。詳見下方「Product Identity」章節與 `docs/CHANGELOG.md`。
 - **三商品前後順序（z-order）與角色身份（position）解耦（Bug Fix，Commit `ff1d97b`）**：`position`（角色身份：主品／左配品／右配品）與 `zOrder`（視覺堆疊順序）過去被前後順序（▲／▼）按鈕當作同一件事處理，點擊會連帶互換 `position`，造成 Canvas、layoutState、右側商品清單、single-state 之間身份錯亂。修正後兩者互相獨立：`position` 永遠代表角色身份；`zOrder` 只控制堆疊順序，右側商品清單依 `zOrder`（Layer 順序）顯示、角色標籤仍依 `position` 顯示；`zOrder` 正確保存於 single-state 並於重新匯入後立即還原，不需使用者先手動操作一次 ▲／▼ 才會更新。未修改 Project State schema、未新增欄位。詳見下方「Product Identity」章節與 `docs/CHANGELOG.md`。
-- **QR Code — Completed（Final Sign-off，功能 Commit `79de045`、Tag `v0.5.2`）**：每個 Job 依 CSV 的 `QRcode` 欄位網址自動產生 QR Code，使用者可於控制台右側欄修改網址。四個尺寸皆新增 `qrZone`（Locked Visual Baseline 固定座標）與 `layerOrder.qrCode = 48`（固定位於既有 `info` 圖層之上）。`job.qrCodeUrl` 為字串欄位，直接隨 Project State 保存還原。已正式列入 Locked Completed Phases；該 Phase 完成時，原 Next Planned Phase Order 四項全數完成。詳見下方「QR Code Architecture」章節與 `docs/CHANGELOG.md`。
+- **QR Code — Completed（Final Sign-off，功能 Commit `79de045`、相容更新 Commit `42bc8d28949d3152216eff4369fddde6751f8515`、Tag `v0.5.2`）**：新版正式工單取 S 欄第一個 exact `縮短網址`，舊格式 exact `QRcode` 保留；兩者都寫入既有 `job.qrCodeUrl`。控制台修改、Project State、四尺寸 `qrZone` Locked Visual Baseline 與 `layerOrder.qrCode = 48` 不變。詳見下方「QR Code Architecture」與 `docs/CHANGELOG.md`。
 - **Render Context & Export Workflow — Completed（Final Sign-off，Tag `v0.5.1`）**：下載完整專案（Batch Render）的 `renderSingleJob()` 改為一律使用控制台目前選擇的 `activePlacement`／`activeTemplate` 作為批次內所有工單共用的輸出 placement／template，不再讀取各工單自己保存、可能已過期的 `job.placementId`／`job.template`。每筆工單的 Style 仍使用該工單自己的 `styleId`，不受此次修正影響（`activePlacement`／`activeTemplate` 不包含 Style）。原因：`selectPlacement()` 只更新全域 `activePlacement`，未同步寫回 `job.placementId`；而產品規格為「一次生成器工作流程只有一種輸出尺寸，批次內所有工單共用使用者最後在控制台選擇的輸出 placement／template」。同步修正 `layoutKey` 計算，改用 `activePlacement`／`activeTemplate` 計算，使其與 `syncActiveLayoutState()` 存檔時使用的 key 一致，避免位置／大小／前後順序讀到錯誤或空白的 layoutState（該 layoutState 仍讀自每筆 job 自己的 `layoutStates` map）。僅修改 `renderSingleJob()`；未修改 `selectPlacement`／`selectTemplate`／`getTemplateForJob`／Main Canvas／Thumbnail／Project State schema／`layoutStates` schema／單張下載。本輪僅實際驗證 `selectPlacement()` 的行為，`selectTemplate()` 是否同步寫回 `job.template`／`job.templateId` 尚未驗證，本文件不對此做斷言。功能 Commit `2ac6546`、Tag `v0.5.1`；已正式列入 Locked Completed Phases；其後 QR Code 已完成（見下方「QR Code Architecture」）。詳見下方 State Boundary 表格 Batch Render 列與 `docs/CHANGELOG.md`。
 - **去背失敗獨立分類（Bug Fix，Commit `289ac76`）**：解決「批次去背只要有素材失敗，整個流程就卡住」的問題。Runtime 的 `lastResult` 新增逐筆 `itemResults`（success／error），PartialFailure（至少一張成功）不再顯示整批 Recovery Banner，改為直接把成功的素材帶入素材審閱；從未成功過的素材標記新狀態 `background_removal_failed`（去背失敗），於素材審閱顯示原圖與提示文字，不提供核准／重新去背／撤回按鈕，也不計入「重新去背素材（N）」與完成畫面的完成判定；已成功過但 Rerun 又失敗的素材維持原本 `needs_rerun`，沿用上一次成功的處理結果，不新增額外狀態。整批全部失敗（zero success）行為不變。詳見下方 Error / Recovery 表格與 `docs/proposals/Background-Removal-Failure-Classification-Proposal.md`、`docs/CHANGELOG.md`。
 - Photoshop Automation 與 AI Workflow 已完成 Coding 並通過 macOS Development Manual Validation（Photoshop 2025，Stage 1–4 共 18 項 PASS），已完成 Final Sign-off（Tag `v0.5.0`）。兩者皆列入 Locked Completed Phases。Windows Development Validation 與 Jamie Manual Validation 已在 Photoshop 2025 實機 PASS。SPX Helper Core、Productization Phase 1 Foundation、Phase 2 Windows Packaging 與 Phase 3 macOS Packaging 後續亦已完成；Phase 4～5 仍依已通過的 Implementation Proposal 分階段進行。詳見下方「SPX Helper Runtime Productization」、「SPX Helper Architecture」、「Photoshop Automation Architecture」與「AI Workflow Architecture」。
@@ -339,7 +339,7 @@ Preview / Export
 7. `box-transform-utils.js` 控制可手動 transform 的物件。
 8. Capture 輸出 preview、thumbnail 或 PNG。
 
-### CSV Placement Import Default
+### CSV Import Compatibility
 
 普通 CSV 的版位預設是 Import initialization，不是新的 Placement state owner：
 
@@ -361,7 +361,7 @@ addJob() × N
 selectJob(firstNew.id)
 ```
 
-- 實際入稿表的 H6 是 batch-level Placement；H7:H11 是各 Job 的 Style。兩者共用 H 欄，但 resolver 只接受下表完整字串，數字 Style 不會被視為 Placement。
+- 新版正式工單的 H3 是 batch-level Placement；A 欄「曝光版位」不是 SPX AD Placement source。H3 只接受下表完整字串：
 
   | CSV 完整值 | placementId | 控制台 Placement |
   |---|---|---|
@@ -370,8 +370,9 @@ selectJob(firstNew.id)
   | `繳費機手機號碼輸入畫面下 BN` | `payment-phone-banner` | `繳費機手機號碼輸入畫面下 BN_984x309` |
   | `智取店繳費機 BN` | `smart-payment-banner` | `智取店繳費機 BN_3189x3992` |
 
-- `resolveCsvImportPlacement()` 只讀完整 rows 與 `colMap.styleId`，不修改 rows、Job 或 UI；找不到合法值時回傳空結果。
-- `parseJobsFromRows()` 維持原有 Job 與 Style 解析，因此 H6 不建立 Job，H7:H11 繼續正規化為 `01`／`02`／`05`／`07`／`10` 等 Style ID。
+- 新版 semantic mapping：O=`jobId`、I=`styleId`、J=`factoryVisual`、K=`headline`、L=`subheadline`、M=`disclaimer`、P=`products`、Q=`logos`、R=`outputFilename`、標題列第一個清理後 exact `縮短網址`（S）=`qrCodeUrl`。P／Q 沿用既有換行 filename parsing；Style 沿用既有 normalization。
+- `parseJobsFromRows()` 在建立 Job 前先 trim J 欄；非空即 skip 整列。S 命中後 U 欄第二個同名 `縮短網址` 及 T／V／W 等內部 QR 欄位不得覆寫。
+- Legacy compatibility：舊 H6 Placement、H7:H11 Style、舊 Job／文字／素材 mapping 與第一行 exact `QRcode` mapping 仍保留；新版合法 H3 優先，找不到時沿用既有 legacy／fallback 行為。
 - `ensureWorkspaceReadyForJob(preferredPlacementId)` 只在首次 Workspace 初始化、`activePlacement` 尚未存在時使用合法且 registry 中存在、並具有可用 Template 的 preferred Placement；否則沿用原本第一個可用 Placement fallback。無參數呼叫與 active Placement 已存在時的 short-circuit 均不變。
 - 初始 Placement 建立後仍是既有 global `activePlacement`；使用者可自由切換，切換 Job 不會重新讀取或鎖回 CSV 值。
 - JSON serializer／importer 不需特殊欄位或 schema 變更；既有 Placement／Template／Style state 繼續自然保存與還原。
@@ -577,7 +578,7 @@ Naming Contract（Locked by Jamie，全域唯一規則）：processed 圖片實�
 Download Complete Project ZIP：
 
 ```text
-project_YYYY-MM-DD.zip
+SPX AD_MM-DD.zip
 ├── JOB-1.png
 ├── JOB-1.json
 ├── JOB-2.png
@@ -1081,7 +1082,7 @@ Global Interaction Lock 在所有復原情境期間持續維持，只開放對�
 ### 資料流
 
 ```text
-CSV（QRcode 欄位）
+CSV（新版 S 欄第一個 exact `縮短網址`；legacy exact `QRcode`）
   ↓
 job.qrCodeUrl（字串欄位）
   ↓
@@ -1100,7 +1101,7 @@ Preview / Thumbnail / 匯出（renderSingleJob 共用同一套流程）
 
 ### CSV 欄位比對規則（Locked）
 
-CSV 標題列比對邏輯（`findHeaderRow()`）找出清理後（移除欄名內換行後的第一行）**剛好等於** `QRcode`（不分大小寫）的欄位，內容視為網址。此規則刻意精準，不使用「只要包含 QRcode 字樣」的寬鬆比對：真實入稿表同一列裡還有「QRcode統一導shop...」「QRcode雲端(SPX填寫)」「QR code 圖檔名稱」等 SPX 內部後續流程欄位，同樣含 QRcode 字樣但通常是空的，寬鬆比對會被這些欄位覆蓋掉，導致使用者實際填寫的網址欄位讀不到。
+CSV 標題列比對邏輯（`findHeaderRow()`）在新版正式工單取第一個清理後**剛好等於** `縮短網址` 的欄位（S）；後續 U 欄第二個同名欄位與 T／V／W 等 QR 內部欄位不得覆寫。舊格式相容規則仍找出清理後第一行**剛好等於** `QRcode`（不分大小寫）的欄位，不使用「只要包含 QRcode 字樣」的寬鬆比對。兩者都只負責將來源值寫入既有 `job.qrCodeUrl`；`BNQrCodeUrl.normalize()`、QR 產生與 Locked Visual Baseline 均不變。
 
 ### 網址驗證（`js/qrcode-url-utils.js`）
 

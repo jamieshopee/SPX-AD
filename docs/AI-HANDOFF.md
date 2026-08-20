@@ -1,5 +1,14 @@
 # AI-HANDOFF.md
 
+## 新版正式工單 CSV Import 相容與完整專案 ZIP 命名完成（2026-08-20）
+
+- Code Commit：`42bc8d28949d3152216eff4369fddde6751f8515`（`feat: support updated work order import and project zip naming`）。Browser Validation 與 Jamie Manual Validation 全部 PASS。
+- 新版 CSV Contract：整批 Placement 固定讀 H3，且只接受既有四個 canonical Placement；A 欄「曝光版位」不是 SPX AD Placement source。每列 Job ID 讀 O 欄「曝光門市組別（SPX填寫）」、Style 讀 I 欄「風格填寫」，文字依 K／L／M 寫入 `headline`／`subheadline`／`disclaimer`，P／Q 分別寫入商品素材／Logo filenames，R 為輸出檔名。
+- 原廠視覺排除：J 欄 trim 後只要非空，該列即在 Import parsing boundary 直接 skip；不建立空 Job、不只略過文字，也不是匯入後再刪除。
+- QR URL：新版取標題列中第一個清理後 exact `縮短網址`（S 欄），U 欄同名欄位及 T／V／W 等內部 QR 欄位不得覆寫；網址仍進入既有 `job.qrCodeUrl`／`BNQrCodeUrl.normalize()` flow。舊格式第一行 exact `QRcode` mapping 與其他舊 CSV mapping／Placement fallback 全部保留。
+- 完整專案 ZIP：正式 UI 外層檔名改為 `SPX AD_MM-DD.zip`，日期來源仍是 `new Date().toISOString()`。只改外層 filename；ZIP 根目錄逐 Job PNG／同 basename version 5 single-state JSON、單張下載命名、`banners_YYYY-MM-DD.zip` 與未連接正式 UI 的 `exportProjectZip()` 均不變。
+- Validation：新版 CSV 建立 POPUP-A／B／C 共 3 Jobs，Styles `07`／`08`／`02`；POPUP-D 因 J 欄有值未匯入；P 欄 filenames 分別解析 2／3／2 筆、Q 與 S mapping 正常、U 未覆寫 S，QR Code 實際 Render，legacy CSV regression PASS，Browser Console error 0。測試未提供相符 PNG 素材資料夾，因此只驗證 filename parsing／既有 matching flow，不宣稱新版商品／Logo 圖片 Render PASS。實際下載 `SPX AD_08-20.zip` 可正常解壓，根目錄為 3 組 PNG／JSON 配對、每份 JSON 為 Project State version 5 且只含 1 個 Job；單張 PNG／JSON 下載亦 PASS。
+
 ## Job-scoped 商品影子開關完成（2026-08-07）
 
 - Code Commit：`7c3bc27`（`feat: add job-scoped product shadow toggle`）。Browser Validation 與 Jamie Manual Validation 全部 PASS。
@@ -38,10 +47,10 @@
 - Scope Boundary：只修改 `src/app.js` 的 `ensureProductMasterControls()`；未修改 Master Layout 演算法、Render Context、JSON／Project State、Canvas render、Photoshop Helper，亦未清除或重構底層 Master Layout 函式。
 - Validation：兩個按鈕不再顯示；「恢復預設位置」正常；Job／Template 切換不會重新產生按鈕；Smart Layout 自動 propagation 正常。Browser Validation 與 Jamie Manual Validation PASS。
 
-## CSV 匯入版位預設完成（2026-07-30）
+## CSV 匯入版位預設完成（Legacy Compatibility，2026-07-30）
 
 - Code Commit：`d9cf130e8cee6c0f95e520f39a4c5bc1e4d45607`（`feat: support placement defaults from CSV imports`）。
-- CSV Contract：實際入稿表的 H6 是整批共用 Placement；H7:H11 是各 Job 原有 Style。兩者共用 H 欄，但 Placement 只接受四個完整合法字串，H6 不建立 Job，H7:H11 繼續沿用既有 Style 解析與正規化。
+- Legacy CSV Contract：舊入稿表的 H6 是整批共用 Placement；H7:H11 是各 Job 原有 Style。兩者共用 H 欄，但 Placement 只接受四個完整合法字串，H6 不建立 Job，H7:H11 繼續沿用既有 Style 解析與正規化。新版正式工單改讀 H3 Placement 與 I 欄 Style，詳見本文件最上方 2026-08-20 完成紀錄；舊行為仍作為相容 fallback 保留。
 - Mapping：`TVBN-智取店` → `tvbn-smart-store`（`TVBN-智取店_1080x1920`）；`TVBN-一般門市` → `tvbn-standard-store`（`TVBN-一般門市_1599x1080`）；`繳費機手機號碼輸入畫面下 BN` → `payment-phone-banner`（`繳費機手機號碼輸入畫面下 BN_984x309`）；`智取店繳費機 BN` → `smart-payment-banner`（`智取店繳費機 BN_3189x3992`）。
 - Behavior：合法 batch-level Placement 只作為普通 CSV Workspace 的首次 Import Default，不是鎖定。匯入後使用者仍可自由切換 Placement，切換 Job 不會自動切回 CSV 初始值；空白或非法值不新增錯誤或警告，完全沿用既有第一個可用 Placement fallback。
 - Implementation Boundary：只修改 `src/app.js`；新增 `resolveCsvImportPlacement()`、調整 `importFile()`，並讓 `ensureWorkspaceReadyForJob()` 接受 optional `preferredPlacementId`。Preferred 值只在首次 Workspace 初始化且 `activePlacement` 尚未存在時有效；無參數呼叫維持原行為。
@@ -174,7 +183,7 @@ main
 已完成：
 
 - Core Editor：控制台、Canvas preview、CSV jobs、素材帶入、下載 PNG / ZIP。
-- CSV Placement Import Default：功能 Commit `d9cf130e8cee6c0f95e520f39a4c5bc1e4d45607`。實際入稿表 H6 的四個合法完整字串可決定普通 CSV Workspace 的首次 Placement；H7:H11 仍各自解析為 Job Style。此值只作為 Import Default，不鎖定 Placement；空白／非法值沿用既有 fallback。Jamie Manual Validation PASS。
+- CSV Import Compatibility：新版正式工單依 H3／O／I／J／K-L-M／P／Q／R／S mapping 匯入，J 非空 row 直接 skip；功能 Commit `42bc8d28949d3152216eff4369fddde6751f8515`。舊 H6 Placement／H7:H11 Style 與其他 legacy mapping 仍保留；Placement 只作為 Import Default，不鎖定。Browser Validation、legacy regression 與 Jamie Manual Validation PASS。
 - Template System：Template 與 Style 分離，Template 作為排版結構來源。
 - Asset Pipeline Phase 2A：assetPipeline state、assetKey、manifest export、processed folder import。
 - Photoshop Adapter Phase 2B：Photoshop manifest runner、remove background prototype、run report。
@@ -213,7 +222,7 @@ main
 - SPX Helper Runtime Productization — Phase 2 Windows Packaging：完成 PyInstaller executable bundle 與 WiX Toolset SDK 5.0.2 per-machine MSI，包含 Fresh Install、安裝後立即啟動、Login Startup、Start Menu、Apps & Features 與 Windows validation，功能 Commit `9240504`（`feat: add Phase 2 Windows packaging`）。Windows Packaging configuration、Product Foundation 與 Jamie Manual Validation 均 PASS；正式流程 GitHub Pages → SPX Helper → Photoshop → Processed PNG 已於 Windows 實機完成。未修改 Helper Core、Runtime Contract、Browser API、Frontend 或 Photoshop Automation。
 - SPX Helper Runtime Productization — Phase 3 macOS Packaging：**Completed**。功能 Commit `ee55dd527a00361f1155ba45713ff2ce3957b06c`（`feat: add Phase 3 macOS packaging`）建立 PyInstaller `SPX Helper.app` 與正式 macOS PKG pipeline；Packaging Commit `3a8e925e773338491abb03b3c6cc7fdd60a0994f`（`chore: package macOS Helper 0.6.2`）將 Product Host、App bundle、PKG metadata、輸出檔名與 validators 同步為 `0.6.2`。Local PKG 為 `SPX Helper-0.6.2.pkg`；Build／Artifact Validation 與 Jamie 安裝／Manual Validation PASS。Bundle ID、Package ID、LaunchAgent、安裝路徑與 upgrade behavior 不變。Developer ID Application／Installer signing 與 Apple Notarization 因缺少有效 identities／credentials 仍未驗證，不得宣稱 PASS。尚未 Push；尚未建立 `v0.6.2` Tag／Release；亦未上傳 PKG。
 - Phase 3 macOS Packaging Bug Fix：Code Commit `781df79c232a9644cc0bd69653e390ef70d12964`（`fix: launch macOS helper through LaunchAgent`）。Root Cause 是 PKG `postinstall` 直接以 `/usr/bin/open` 啟動 Helper，令 Python `tempfile` cache PackageKit 的短生命週期 `PKInstallSandbox` temp path；Installer 清除 sandbox 後，`POST /execute` 於 `_create_workspace()`／`tempfile.mkdtemp()` 拋出 `FileNotFoundError` 並回傳 HTTP 400 `manifest_invalid`。修正後由既有 LaunchAgent bootstrap + 非強制 `kickstart` 啟動，不使用 `kickstart -k`，`RunAtLoad = true`、無 `KeepAlive`、Quit 與 Login Startup 行為不變。Clean Install 後 environment 不含 installer variables，正式 GitHub Pages → Helper → Photoshop → Processed PNG 與 Jamie Manual Validation 均 PASS。未修改 Windows Packaging 或任何 Helper Core／Runtime／Browser／Photoshop scope。
-- QR Code：完成 Coding、Browser Validation 與 Jamie Manual Validation，功能 Commit `79de045`、Tag `v0.5.2`。每個 Job 依 CSV 的 `QRcode` 欄位網址自動產生 QR Code，並可於控制台右側欄手動修改；四個尺寸皆有 Locked Visual Baseline 固定座標，位置／大小不可調整。詳見下方「QR Code」章節與 `docs/Architecture.md`。
+- QR Code：完成 Coding、Browser Validation 與 Jamie Manual Validation，功能 Commit `79de045`、相容更新 Commit `42bc8d28949d3152216eff4369fddde6751f8515`、Tag `v0.5.2`。新版取 S 欄第一個 exact `縮短網址`，legacy exact `QRcode` 保留；四個尺寸 Locked Visual Baseline 與手動修改流程不變。詳見下方「QR Code」章節與 `docs/Architecture.md`。
 
 ## Locked Completed Phases
 
@@ -239,7 +248,7 @@ Completed：
 - Photoshop Automation（Runtime／Platform Adapter／macOS Adapter／Windows Adapter；macOS 與 Windows Development Validated）
 - AI Workflow（Control Center Orchestration；macOS Development Manual Validation 18/18 PASS）
 - Render Context & Export Workflow（Batch Render 輸出 placement／template 統一改用控制台目前選擇的 `activePlacement`／`activeTemplate`，並修正對應 layoutKey 計算；功能 Commit `2ac6546`、Tag `v0.5.1`。注意命名：此 Phase 與 Phase 2D-2B-2 已完成的「Render Context」（Thumbnail 共用 Render Context 概念）是兩個不同、皆已完成的項目，不得混用。）
-- QR Code（每個 Job 依 CSV 的 `QRcode` 欄位網址自動產生 QR Code，可於控制台右側欄手動修改，四個尺寸皆有 Locked Visual Baseline 固定座標；功能 Commit `79de045`、Tag `v0.5.2`）
+- QR Code（新版第一個 exact `縮短網址`／legacy exact `QRcode` URL 自動產生，可於控制台右側欄手動修改，四個尺寸皆有 Locked Visual Baseline 固定座標；功能 Commit `79de045`、相容更新 Commit `42bc8d28949d3152216eff4369fddde6751f8515`、Tag `v0.5.2`）
 - SPX Helper Core（正式 localhost 邊界、Origin / CORS、單一實例邊界與既有 RuntimeCore Integration；功能 Commit `9a71794`；完整 Production Deployment lifecycle 不在此完成範圍）
 - SPX Helper Runtime Productization — Phase 1 Foundation（Product Host、Running / Working / Attention、單一 Helper Instance、Tray / Menu Bar、Quit、Restart；功能 Commit `51c4828`）
 - SPX Helper Runtime Productization — Phase 2 Windows Packaging（PyInstaller、WiX Toolset SDK 5.0.2 MSI、Fresh Install、Startup、Start Menu、Apps & Features、Windows Validation；功能 Commit `9240504`）
@@ -639,7 +648,7 @@ Completed：
 - Photoshop Automation（macOS 與 Windows Development Validated）
 - AI Workflow（macOS 與 Windows Development Validated）
 - Render Context & Export Workflow（Batch Render 輸出 placement／template Bug Fix；Tag `v0.5.1`）
-- QR Code（CSV `QRcode` 欄位網址自動產生、控制台右側欄手動修改、四尺寸 Locked Visual Baseline；功能 Commit `79de045`、Tag `v0.5.2`）
+- QR Code（新版第一個 exact `縮短網址`／legacy exact `QRcode` URL 自動產生、控制台右側欄手動修改、四尺寸 Locked Visual Baseline；功能 Commit `79de045`、相容更新 Commit `42bc8d28949d3152216eff4369fddde6751f8515`、Tag `v0.5.2`）
 - SPX Helper Core（正式 localhost 邊界、Origin / CORS、單一實例邊界、既有 RuntimeCore Integration；功能 Commit `9a71794`）
 - SPX Helper Runtime Productization — Phase 1 Foundation（Product Host、Running / Working / Attention、單一 Helper Instance、Tray / Menu Bar、Quit、Restart；功能 Commit `51c4828`）
 - SPX Helper Runtime Productization — Phase 2 Windows Packaging（PyInstaller、WiX Toolset SDK 5.0.2 MSI、Fresh Install、Startup、Start Menu、Apps & Features、Windows Validation；功能 Commit `9240504`）
@@ -801,8 +810,8 @@ QR Code 已完成 Coding、Browser Validation 與 Jamie Manual Validation（功�
 
 核心行為：
 
-- 每個 Job 擁有一組 QR Code，由 CSV 的 `QRcode` 欄位網址自動產生；使用者可於控制台右側欄修改網址，系統依網址重新產生 QR Code。不使用使用者自行準備的 QR Code 圖片。
-- CSV 欄位比對：找到清理後（移除欄名換行後的第一行）**剛好等於** `QRcode`（不分大小寫）的欄位。真實入稿表同一列裡還有「QRcode統一導shop...」「QRcode雲端(SPX填寫)」等 SPX 內部後續流程欄位，同樣含 QRcode 字樣但通常是空的；比對邏輯必須精準排除這些欄位，不能用「只要含 QRcode 字樣」的寬鬆比對，否則會被覆蓋成空值。
+- 每個 Job 擁有一組 QR Code。新版正式工單讀取第一個清理後 exact `縮短網址`（S 欄）；舊格式仍讀取第一行 exact `QRcode`（不分大小寫）。使用者可於控制台右側欄修改網址，系統依網址重新產生 QR Code；不使用使用者自行準備的 QR Code 圖片。
+- CSV 欄位比對：新版 S 欄命中後，U 欄第二個同名 `縮短網址` 及 T／V／W 等內部 QR 欄位不得覆寫；legacy exact `QRcode` 規則仍保留，不能改為「只要含 QRcode 字樣」的寬鬆比對。兩種格式都寫入既有 `job.qrCodeUrl`，不修改 normalization、產生、Render 或 Locked Visual Baseline。
 - 網址驗證：自動 trim、未含 Protocol 自動補上 `https://`、含空白字元一律視為非法；輸入框、Project State、QR Code 產生與檢查網址連結四處皆使用補完 Protocol 後的同一個值。
 - 控制台右側欄固定順序：主標／副標／小字之後、Logo 之前；不提供拖曳、縮放、旋轉或縮圖預覽，並與三個文字欄位的即時同步流程保持獨立。
 - Template 新增 `qrZone`（四個尺寸皆有 Locked Visual Baseline 固定座標，不可調整）與 `layerOrder.qrCode = 48`（固定位於既有 `info` 圖層之上）。

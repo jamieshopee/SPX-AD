@@ -9,7 +9,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 - **每個 Job 獨立控制商品影子（Commit `7c3bc27`）**：新 Job 預設開啟商品影子；使用者可在右側商品圖或 1人＋1品區塊針對目前 Job 關閉並重新開啟。三商品與 Single Product 共用此狀態，不同 Job 可各自不同；Person、Logo、背景與 Info Graphic 不受影響。Direct Import、Photoshop approved assets 與手動換圖都遵守目前 Job 設定。`productShadowEnabled` 保存於 Project State v5 的 Job root，單張暫存與完整專案逐 Job single-state JSON 都會保存；舊 version 5 JSON 缺欄位時預設開啟。Shadow 是 render payload 中烘焙進圖片 data URL 的效果，不是 CSS；既有 Shadow 視覺與 Template `autoShadow` 未修改。Browser Validation 與 Jamie Manual Validation PASS。
 - **正式 Banner 字型遷移至 WOFF2（Commit `df623db42faab41bf651e4cb226fd7c677b2f0cd`）**：正式 Banner 字型已由舊 `.ttf` 改為 `.woff2`，四尺寸 Template、Canvas 動態 `@font-face` 與離線 Registry 已同步。字型家族、300／400／700 字重 mapping、文字尺寸、位置、換行與 Style 規則不變；舊 TTF 已移除。Browser、單張 PNG、2 筆工單完整專案／Batch、舊 Project JSON、Project State v5 single-state JSON、Registry 離線載入邏輯與 Jamie Manual Validation 全部 PASS；不影響 SPX Helper、Photoshop Automation 或 AI Workflow。
 - **右側欄手動 Master Layout 控制移除（Commit `a41913a`）**：控制面板不再顯示「更新 Master Layout」與「套用 Master Layout」，避免使用者手動建立或套用 Master Layout；「恢復預設位置」維持正常。底層 Master Layout capture／propagation、Smart Layout Modal，以及 Job／Template 切換時的自動 propagation 流程均維持不變。Browser Validation 與 Jamie Manual Validation PASS。
-- **CSV 匯入版位預設（Commit `d9cf130e8cee6c0f95e520f39a4c5bc1e4d45607`）**：實際入稿表 H6 的合法完整字串會成為此次普通 CSV 匯入的初始版位；H7:H11 仍是各 Job 原有 Style。這只是 Import Default，不會鎖定版位；匯入後仍可自由切換，切換 Job 不會自動切回。空白或非法值不顯示新錯誤或警告，沿用既有 fallback。實際 CSV、四個 mapping、Styles `01`／`02`／`05`／`07`／`10` 與 Jamie Manual Validation 全部 PASS。
+- **新版正式工單 CSV Import 相容與完整專案 ZIP 命名（Commit `42bc8d28949d3152216eff4369fddde6751f8515`）**：新版讀取 H3 Placement、O Job ID、I Style、J 原廠視覺排除、K／L／M 文字、P 商品 filenames、Q Logo filenames、R 輸出檔名與 S 第一個 exact `縮短網址`；J trim 後非空的 row 直接 skip。legacy CSV mapping 與 exact `QRcode` 保留。正式「下載完整專案」外層檔名改為 `SPX AD_MM-DD.zip`，ZIP 內容與其他下載命名不變。Browser Validation、legacy regression 與 Jamie Manual Validation PASS。
 - **右側欄手動換圖驗證修正（Commit `8cb7c27c71d664ececb6b57487e921a3f0c44839`）**：對使用者的正式說明維持「手動換圖請使用已完成去背的 PNG，且檔名必須與要取代的圖片完全一致」。每個檔案會先完成檔名、實際格式、decode 與既有圖片預處理，全部成功後才換圖；失敗時原圖保持不變，並在對應 Upload Box 下方顯示紅色錯誤。Runtime 不只看副檔名或 `File.type`，可接受實際內容為有效且可 decode 的 PNG／WebP。完整檔名限制只適用於替換已存在素材；空 Logo slot、未滿三張的商品合法空位，以及尚無 Person／Single Product 時仍可新增。Static Check、Browser Validation、下載／暫存／匯入／完整專案／Batch 回歸與 Jamie Manual Validation 全部 PASS。
 - **Windows Photoshop 2026 WebP?PNG ?????????Commit `f37d37e13b0770acab0559dae318576c82458971`?**??????????????? `.png`??? magic bytes ? `RIFF....WEBP`?Photoshop JSX ?? `app.open()` ????????????????? Windows Photoshop 2026 ??? Crash?BEX64 / `0xc0000409`???????????????????? `background_removal_failed`??????????Review Workspace ??????????????????macOS ? Windows ????? JSX ???????????Jamie Manual Validation PASS?
 
@@ -30,7 +30,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 - **一人一品（Person + Single Product）手動換圖修正（Bug Fix，Commit `c390a61`）**：手動換圖後下載單張暫存並重新開啟，正確保留換過的新圖（不再還原成舊圖）；Single Product 換圖後 Shadow 正確顯示；換圖前已拖曳／縮放／旋轉的位置與角度維持不變，仍可繼續正常拖曳、縮放、旋轉。詳見下方「1人＋1品」章節。
 - **三商品手動同檔名換圖保留 Product Identity（Bug Fix，Commit `3269b67`）**：拖曳與既有商品完整檔名（含副檔名）相符的新圖片，會視為取代該商品，原地更新圖片內容，商品角色身份與前後順序不變；Canvas 立即更新，整組比例、間距、overlap 與商品區域 fit 皆與其餘兩張商品一致；下載單張暫存並重新開啟後，換圖結果維持一致。詳見下方「三商品」章節。
 - **三商品前後順序與角色身份解耦（Bug Fix，Commit `ff1d97b`）**：調整前後順序不再改變商品角色身份（主品／左配品／右配品固定不變），只改變視覺堆疊順序；前後順序會隨其他調整正確保存與還原。詳見下方「三商品」章節。
-- **QR Code（Completed，功能 Commit `79de045`、Tag `v0.5.2`）**：每個 Job 依 CSV 的 `QRcode` 欄位網址自動產生 QR Code，可於控制台右側欄手動修改；四個尺寸皆有 Locked Visual Baseline 固定座標，位置與大小不可調整。詳見下方「QRCode」章節。
+- **QR Code（Completed，功能 Commit `79de045`、相容更新 Commit `42bc8d28949d3152216eff4369fddde6751f8515`、Tag `v0.5.2`）**：新版正式工單依 S 欄第一個 exact `縮短網址`，舊格式依 exact `QRcode` 取得每個 Job 的 URL；控制台手動修改與四尺寸 Locked Visual Baseline 不變。詳見下方「QRCode」章節。
 - **去背失敗獨立分類（Bug Fix）**：素材審閱新增「去背失敗」Filter 與 Navigator 標籤，去背失敗素材改顯示提示文字並需回控制台手動更換圖片；Completion Screen 新增計數但不影響完成判定。詳見下方「素材審核 / 素材審閱」與「AI Workflow 使用者流程」，以及 CHANGELOG。
 - AI Workflow 使用者流程完成（macOS 與 Windows Development Validated，Photoshop 2025）：素材審核／素材審閱流程新增自動化 Ready Check、Processing Mode、自動 Import、自動開啟審閱與 Rerun，詳見下方「素材審核 / 素材審閱」與「AI Workflow 使用者流程」。
 - 四個尺寸皆採用 `template.json` + `styles/01.json`～`styles/16.json`。
@@ -60,7 +60,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 15. [匯入素材資料夾（Direct Import）](#匯入素材資料夾direct-import)
 16. [素材審核 / 素材審閱](#素材審核--素材審閱)
 17. [AI Workflow 使用者流程](#ai-workflow-使用者流程)
-18. [CSV 匯入版位預設](#csv-匯入版位預設)
+18. [CSV Import 相容規則](#csv-import-相容規則)
 
 ## 四個尺寸
 
@@ -71,15 +71,20 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 | `1599x1080` | `templates/1599x1080/template.json` | `templates/1599x1080/styles/` |
 | `3189x3992` | `templates/3189x3992/template.json` | `templates/3189x3992/styles/` |
 
-## CSV 匯入版位預設
+## CSV Import 相容規則
 
-實際入稿表的 H 欄同時承載整批版位與各 Job Style：
+新版正式工單 mapping：
 
-- H6：此次匯入共用的 batch-level Placement。
-- H7:H11：每筆 Job 原有的 Style ID。
-- H6 不會建立 Job；H7:H11 維持既有 Style 解析與兩位數正規化。
+- H3：此次匯入共用的 batch-level Placement；A 欄「曝光版位」不是 SPX AD Placement source。
+- O：「曝光門市組別（SPX填寫）」→ Job ID；B 欄不是新版 Job ID。
+- I：「風格填寫」→ 每筆 Job Style，沿用既有兩位數 normalization。
+- J：原廠視覺排除；trim 後只要非空，該列在 Import 階段直接 skip，不建立 Job。
+- K／L／M：主標 `headline`／副標 `subheadline`／小字日期警語 `disclaimer`。
+- P／Q：主視覺商品素材／Logo filenames；同一 cell 內換行仍由既有 filename parsing flow 拆分。
+- R：GD 輸出檔名。
+- S：標題列第一個清理後 exact `縮短網址`，寫入 `job.qrCodeUrl`；U 欄第二個同名欄位與 T／V／W 等內部 QR 欄位不得覆寫。
 
-H6 只接受以下四個完整合法字串：
+H3 只接受以下四個完整合法字串：
 
 | CSV 完整值 | placementId | 控制台初始版位 |
 |---|---|---|
@@ -88,13 +93,15 @@ H6 只接受以下四個完整合法字串：
 | `繳費機手機號碼輸入畫面下 BN` | `payment-phone-banner` | `繳費機手機號碼輸入畫面下 BN_984x309` |
 | `智取店繳費機 BN` | `smart-payment-banner` | `智取店繳費機 BN_3189x3992` |
 
-此值只決定普通 CSV 匯入完成後的初始版位：
+H3 只決定普通 CSV 匯入完成後的初始版位：
 
 - 不是鎖定；版位下拉維持可用，使用者可自由切換。
 - 切換其他 Job 後不會自動切回 CSV 初始版位。
-- H6 空白或不是上表四個完整值時，匯入仍正常完成，且沿用既有 fallback；不新增錯誤或警告。
-- H7:H11 的數字只會作為各 Job Style，不會被當成 Placement。
+- H3 空白或不是上表四個完整值時，沿用既有 legacy／第一個可用 Placement fallback；不新增錯誤或警告。
+- 舊格式 H6 Placement、H7:H11 Style、舊 Job／文字／素材 mapping 與第一行 exact `QRcode` mapping 全部保留；新版合法 H3 與 semantic headers 優先。
 - JSON 暫存匯出／匯入仍沿用既有 Placement／Template／Style 保存與還原流程，不需要新的欄位或操作。
+
+新版實際 CSV Browser Validation：Placement=`智取店繳費機 BN`；POPUP-A／B／C 共 3 Jobs，Styles `07`／`08`／`02`；POPUP-D 因 J 欄為 `廠商素材` 未匯入；P 欄分別解析 2／3／2 筆 filenames，Q 與 S 正常，U 未覆寫 S，QR Code 實際 Render，Browser Console error 0；legacy CSV regression PASS。測試未提供相符 PNG 素材資料夾，因此商品／Logo 僅驗證 filename parsing 與既有 matching flow，不宣稱新版素材圖片 Render PASS。
 
 ## Template
 
@@ -214,11 +221,12 @@ Logo 最多 3 張，依 `LOGO_01 / LOGO_02 / LOGO_03` 排序。上傳後會做�
 
 ## QRCode
 
-每個 Job 擁有一組 QR Code，由 CSV 的 `QRcode` 欄位網址自動產生；使用者可於控制台右側欄修改網址，系統依網址重新產生 QR Code。不使用使用者自行準備的 QR Code 圖片。
+每個 Job 擁有一組 QR Code。新版正式工單從 S 欄第一個清理後 exact `縮短網址` 取得網址；舊格式仍從第一行 exact `QRcode`（不分大小寫）取得。使用者可於控制台右側欄修改網址，系統依網址重新產生 QR Code。不使用使用者自行準備的 QR Code 圖片。
 
 CSV 欄位：
 
-- 固定欄名為 `QRcode`（欄名可含換行與括號說明文字，例如「QRcode\n( 請提供縮短網址 )」，系統只比對清理後剛好等於 `QRcode` 的欄位）。
+- 新版固定取標題列第一個清理後剛好等於 `縮短網址` 的欄位（S）；U 欄第二個同名欄位及其他內部 QR 欄位不得覆寫。
+- Legacy compatibility：欄名可含換行與括號說明文字，系統仍比對清理後第一行剛好等於 `QRcode` 的欄位，不使用包含字樣的寬鬆比對。
 - 內容為網址，每個 Job 可不同。
 - 建議優先使用縮短網址，以提升 QR Code 掃描辨識率；但不限制網址類型。
 
@@ -509,7 +517,7 @@ Project Persistence 的使用原則是：Project Save = Workspace Save。
 控制台主要下載流程為「下載完整專案」。下載後會得到：
 
 ```text
-project_YYYY-MM-DD.zip
+SPX AD_MM-DD.zip
 ├── AD_01.png
 ├── AD_01.json
 ├── AD_02.png
@@ -525,6 +533,8 @@ ZIP 內包含：
 - 每份 JSON 的 Job root 都保存 `productShadowEnabled`；不同 Job 可分別為開啟或關閉，對應 PNG 使用各自狀態。
 
 ZIP 根目錄不包含單一 Project JSON，也不建立 Assets、Processed、Thumbnail、Hidden、Manifest 或其他子資料夾。使用者可從 ZIP 取出任一 JSON，直接使用既有「匯入暫存」重新開啟對應 Job。
+
+外層日期仍由既有 `new Date().toISOString()` 產生，本次未改為本地日期。此命名更新不影響 ZIP 內 PNG／JSON filename、數量、basename pairing、Project State version／內容、單張 PNG、單張暫存 JSON、`banners_YYYY-MM-DD.zip` 或未連接正式 UI 的 `exportProjectZip()`。
 
 ### 匯入完整專案中的 Job 暫存
 

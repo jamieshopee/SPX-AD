@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## 新版正式工單 CSV Import 相容與完整專案 ZIP 命名 - 2026-08-20
+
+Status：**Completed — Browser Validation／Legacy Regression／Jamie Manual Validation PASS**
+Code Commit：`42bc8d28949d3152216eff4369fddde6751f8515`
+Commit subject：`feat: support updated work order import and project zip naming`
+
+### Root Cause
+
+- 新版正式工單已改用 semantic headers 與新的欄位配置；既有 parser 仍以舊格式 `案件編號`／`版型`／`樣式` 等第一行 header 與 H6／H7:H11 Placement／Style 契約辨識，無法將新版 O／I／J／P／S 等欄位完整映射到既有 Job flow。
+- 新版標題列有兩個清理後 exact `縮短網址`（S、U）；若後命中覆寫前命中，U 會蓋掉正式 QR URL source S。
+- 正式「下載完整專案」最外層 ZIP filename 原本在 `batchRender()` 的下載邊界直接組成 `project_YYYY-MM-DD.zip`；本次是獨立 UX／Export Naming 調整，不是 ZIP／Persistence Architecture 改版。
+
+### CSV Import Changed Behavior
+
+- 新版 batch-level Placement 讀 H3；A 欄「曝光版位」不是 SPX AD Placement source。只接受既有四個 canonical Placement：`TVBN-智取店`、`TVBN-一般門市`、`智取店繳費機 BN`、`繳費機手機號碼輸入畫面下 BN`。
+- Job mapping：O「曝光門市組別（SPX填寫）」=`jobId`、I「風格填寫」=`styleId`、K=`headline`、L=`subheadline`、M=`disclaimer`、P=商品素材 filenames、Q=Logo filenames、R=GD 輸出檔名。
+- J 欄原廠視覺 trim 後只要非空，`parseJobsFromRows()` 即在建立 Job 前 skip 整列；不建立空 Job、不只略過文字，也不是建立後再刪除。
+- 新版 QR URL 取標題列中第一個清理後 exact `縮短網址`（S）；U 欄第二個同名欄位及 T／V／W 等內部 QR 欄位不得覆寫。來源值仍寫入既有 `job.qrCodeUrl`，沿用 `BNQrCodeUrl.normalize()`、QR 產生、位置、尺寸、Render 與 Locked Visual Baseline。
+- Legacy compatibility：舊 Placement／Job／Style／文字／素材 mapping、舊 H6 Placement／H7:H11 Style fallback，以及第一行 exact `QRcode` mapping 全部保留。
+
+### Download Complete Project Naming
+
+- 正式 UI「下載完整專案」最外層 ZIP filename 改為 `SPX AD_MM-DD.zip`，例如 `SPX AD_08-20.zip`。
+- 日期來源仍沿用 `new Date().toISOString()`；未改成本地日期，也未新增 date／naming helper。
+- 只修改 `batchRender()` 最終 `downloadBlob()` 的 filename expression。ZIP 內 PNG／JSON filename、數量、basename pairing、根目錄結構、Project State JSON／version 5、單張 PNG filename、單張暫存 JSON filename、`banners_YYYY-MM-DD.zip` 與未連接正式 UI 的 `exportProjectZip()` 全部不變。
+
+### Validation / Scope Boundary
+
+- 新版 CSV Browser Validation：Placement=`智取店繳費機 BN`；成功建立 POPUP-A／B／C 共 3 Jobs，Styles `07`／`08`／`02`；POPUP-D 因 J 欄為 `廠商素材` 完全不匯入；P 欄 products filenames 分別解析 2／3／2 筆，Q Logo filename 正常，S QR URL 正常並實際 Render QR Code，U 未覆寫 S；Browser Console error 0。舊版 CSV regression PASS。
+- 測試未提供相符 PNG 素材資料夾；因此只確認 P／Q filename parsing 與既有 matching flow，不宣稱新版商品／Logo 實際圖片 Render PASS。
+- 實際下載 `SPX AD_08-20.zip`，可正常開啟／解壓；根目錄包含 POPUP-A／B／C 各一份 PNG 與同 basename JSON，共 6 檔。每份 JSON 為 Project State version 5 且只包含 1 個 Job；單張 PNG／單張暫存 JSON 下載 PASS；Browser Console error 0。
+- 只修改 `src/app.js`。未修改 Project State schema／version、Placement Registry、Template／Style Architecture、Asset Resolver、Canvas、Render、QR Runtime／Visual Baseline、Photoshop Pipeline、SPX Helper、AI Workflow、Review Workspace、`qrcode-demo` 或其他 export/download logic。Jamie Manual Validation PASS。
+
 ## Job-scoped 商品影子開關 - 2026-08-07
 
 Status：**Completed — Browser Validation 與 Jamie Manual Validation PASS**

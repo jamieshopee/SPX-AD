@@ -103,7 +103,7 @@
 - Photoshop Automation（macOS 與 Windows Development Validated）
 - AI Workflow（macOS 與 Windows Development Validated）
 - Render Context & Export Workflow（Batch Render 輸出 placement／template Bug Fix；Tag `v0.5.1`）
-- QR Code（CSV `QRcode` 欄位網址自動產生、控制台右側欄手動修改、四尺寸 Locked Visual Baseline；功能 Commit `79de045`、Tag `v0.5.2`）
+- QR Code（新版 CSV 第一個 exact `縮短網址`／legacy exact `QRcode` 欄位網址自動產生、控制台右側欄手動修改、四尺寸 Locked Visual Baseline；功能 Commit `79de045`、相容更新 Commit `42bc8d28949d3152216eff4369fddde6751f8515`、Tag `v0.5.2`）
 - SPX Helper Core（正式 localhost 邊界、Origin / CORS、單一實例邊界、既有 RuntimeCore Integration；功能 Commit `9a71794`；installer／auto-start／update／signing／packaging 不在此完成範圍）
 - SPX Helper Runtime Productization — Phase 1 Foundation（Product Host、Running / Working / Attention、單一 Helper Instance、Tray / Menu Bar、Quit、Restart；功能 Commit `51c4828`）
 - SPX Helper Runtime Productization — Phase 2 Windows Packaging（PyInstaller executable bundle、WiX Toolset SDK 5.0.2 per-machine MSI、Fresh Install、登入自動啟動、Start Menu、Apps & Features、Windows Validation；功能 Commit `9240504`）
@@ -375,7 +375,7 @@ After Review Workspace UI Upgrade v0.4.5, Photoshop Automation and AI Workflow w
 1. Photoshop Automation（Completed）
 2. AI Workflow（Completed）
 3. Render Context & Export Workflow（Completed — Batch Render placement/template Bug Fix, Tag `v0.5.1`）
-4. QR Code（Completed — CSV `QRcode` field-driven QR generation, functional Commit `79de045`, Tag `v0.5.2`）
+4. QR Code（Completed — CSV URL field-driven QR generation；新版第一個 exact `縮短網址`／legacy exact `QRcode`，functional Commit `79de045`, compatibility Commit `42bc8d28949d3152216eff4369fddde6751f8515`, Tag `v0.5.2`）
 
 SPX Helper Core subsequently completed Coding and macOS／Windows Jamie Manual Validation (functional Commit `9a71794`). SPX Helper Runtime Productization Phase 1 Foundation completed Product Host lifecycle (functional Commit `51c4828`), Phase 2 Windows Packaging completed the PyInstaller executable bundle, WiX Toolset SDK 5.0.2 MSI, and Windows validation (functional Commit `9240504`), and Phase 3 macOS Packaging completed the PyInstaller app bundle, macOS PKG, Applications install, LaunchAgent login startup, and macOS validation (functional Commit `ee55dd527a00361f1155ba45713ff2ce3957b06c`). Phase 3 Bug Fix Commit `781df79c232a9644cc0bd69653e390ef70d12964` replaced the PackageKit-environment `/usr/bin/open` launch with LaunchAgent bootstrap plus non-forcing kickstart; Clean Install, normal Helper environment, and GitHub Pages → Helper → Photoshop → Processed PNG were revalidated PASS without changing Quit or Login Startup lifecycle. Developer ID signing and Apple Notarization remain credential-dependent and unverified. Branch is `main`; the next phase is **Phase 4 — Update + Uninstall (Not Started)**. Phase 5 Final Validation has not started.
 
@@ -389,7 +389,7 @@ Rules：
 - Completed Review Workspace phases remain locked, including Review Workspace UI Upgrade.
 - Photoshop Automation and AI Workflow are Completed for macOS and Windows Development on Photoshop 2025. Neither must be redesigned, re-Proposaled, or renamed except for Bug Fix, User Request, or an explicit Architecture change — the same Completed Phase rule as any other Locked Completed Phase.
 - Render Context & Export Workflow is Completed and locked (Tag `v0.5.1`). Must not be redesigned, re-Proposaled, or renamed except for Bug Fix, User Request, or an explicit Architecture change.
-- QR Code is Completed and locked (functional Commit `79de045`, Tag `v0.5.2`). Must not be redesigned, re-Proposaled, or renamed except for Bug Fix, User Request, or an explicit Architecture change. The CSV column-matching rule (exact match on `QRcode` after cleaning, not a loose substring match) is Locked — real submission sheets contain other SPX-internal columns that also contain the substring "QRcode".
+- QR Code is Completed and locked (functional Commit `79de045`, compatibility Commit `42bc8d28949d3152216eff4369fddde6751f8515`, Tag `v0.5.2`). Must not be redesigned, re-Proposaled, or renamed except for Bug Fix, User Request, or an explicit Architecture change. The current CSV rules are Locked: the new format uses the first cleaned exact `縮短網址` (S) and later same-name/internal QR columns cannot overwrite it; legacy format keeps the cleaned exact `QRcode` match and must not use a loose substring match.
 - Windows Development Validation and Jamie Manual Validation are PASS on Photoshop 2025. macOS Phase 3 local build／install and Jamie Manual Validation are PASS, but Developer ID signing and Apple Notarization are not. Do not generalize either result to unvalidated Photoshop versions or credential-dependent release validation.
 - SPX Helper Core is Completed and locked. Windows and macOS installer／auto-start packaging are complete; update、uninstall、final validation、credential-dependent macOS signing／notarization、compatibility and recovery remain explicitly pending where applicable.
 - Extension System has been removed from the roadmap (not Completed, not Current, not Next, not in Next Planned Phase Order). There is currently no product need for new Review Workspace tooling beyond 核准 / 重新去背 / 裁切 / 橡皮擦. If a concrete need appears later, the product owner will open a new Proposal for it rather than reserving a phase slot now.
@@ -434,8 +434,8 @@ Review Workspace UI Upgrade 已完成並列入 Locked Completed Phase。後續�
 
 QR Code 已完成並列入 Locked Completed Phase（功能 Commit `79de045`、Tag `v0.5.2`）。後續不得重新設計 QR Code 資料流、CSV 欄位比對規則或 Locked Visual Baseline 座標，除非屬於 Bug Fix、User Request 或 Architecture 明確改版。
 
-- 每個 Job 的 QR Code 由 CSV 的 `QRcode` 欄位網址自動產生，使用者可於控制台右側欄修改；不使用使用者自行準備的 QR Code 圖片。
-- CSV 欄位比對規則為 Locked：找出清理後（移除欄名內換行後的第一行）**剛好等於** `QRcode`（不分大小寫）的欄位，不得改回「只要包含 QRcode 字樣」的寬鬆比對——真實入稿表同一列裡還有其他同樣含 QRcode 字樣、但屬於 SPX 內部後續流程且通常是空的欄位（例如「QRcode統一導shop...」「QRcode雲端(SPX填寫)」），寬鬆比對會被這些欄位覆蓋掉。
+- 每個 Job 的 QR Code 由 CSV URL 欄位自動產生：新版正式工單取第一個清理後 exact `縮短網址`（S 欄），舊格式保留第一行 exact `QRcode`（不分大小寫）；使用者可於控制台右側欄修改，不使用使用者自行準備的 QR Code 圖片。
+- CSV 欄位比對規則為 Locked：新版 S 命中後，U 欄第二個同名 `縮短網址` 與 T／V／W 等內部 QR 欄位不得覆寫；legacy `QRcode` 不得改回「只要包含 QRcode 字樣」的寬鬆比對。兩種來源都進入既有 `job.qrCodeUrl`／normalization flow。
 - 網址驗證規則為 Locked：自動 trim、未含 Protocol 自動補上 `https://`、含空白字元視為非法；輸入框、Project State、QR Code 產生、檢查網址連結四處必須使用同一個補完後的值，不得只在部分位置正規化。
 - 四個尺寸的 Locked Visual Baseline 座標（`qrZone`）與 `layerOrder.qrCode = 48` 不得調整；QR Code 不提供拖曳、縮放、旋轉或使用者自訂樣式。
 - 控制台右側欄 QRCode 區塊固定順序（主標／副標／小字之後、Logo 之前），與三個文字欄位的即時同步流程保持獨立，不得合併或綁定文字欄位事件。
