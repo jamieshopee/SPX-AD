@@ -1,10 +1,12 @@
 # SPX AD 版型規格與操作說明
 
-Version: 2026.08.07-job-product-shadow-toggle
-Last Updated: 2026-08-07
+Version: 2026.10.18-logo-white-background
+Last Updated: 2026-10-18
 Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數規格與操作流程。
 
 ## What's New
+
+- **Logo 白底開關、透明背景自動縮放與單行 Radio UI（Code Commits `507a11423b8a03a8b9c9fd58d240bc1fe3cedb3c`、`3fa5b7a3119696e903b5a181e0d4ccf08255f326`）**：每個 Job 獨立保存 `logoWhiteBackgroundEnabled`，新 Job 與舊 Project State v5 缺欄位時預設開啟，Project Export／Import 會保存與還原。Logo Accordion 顯示單行「Logo 白底　◉ 開啟　○ 關閉」互斥 Radio，並依目前 Job 同步。白底開啟維持原本排版；關閉時背景透明，使用既有裁切後有效內容在原始 LOGO 範圍內等比最大化，不保留 `horizontalPadding`／`verticalPadding`，不裁切、不拉伸、不超出範圍；多張 Logo 保留排序、固定 gap、圓角並整組縮放，垂直置中。`1080×1920`、`3189×3992` 水平置中，`1599×1080`、`984×309` 水平靠左至原始 LOGO 範圍左緣；不以主標字形像素左緣為對齊基準，也不實作文字 Range 測量。特殊 Logo zone 不受影響。Browser Validation 與 Jamie Manual Validation PASS。
 
 - **每個 Job 獨立控制商品影子（Commit `7c3bc27`）**：新 Job 預設開啟商品影子；使用者可在右側商品圖或 1人＋1品區塊針對目前 Job 關閉並重新開啟。三商品與 Single Product 共用此狀態，不同 Job 可各自不同；Person、Logo、背景與 Info Graphic 不受影響。Direct Import、Photoshop approved assets 與手動換圖都遵守目前 Job 設定。`productShadowEnabled` 保存於 Project State v5 的 Job root，單張暫存與完整專案逐 Job single-state JSON 都會保存；舊 version 5 JSON 缺欄位時預設開啟。Shadow 是 render payload 中烘焙進圖片 data URL 的效果，不是 CSS；既有 Shadow 視覺與 Template `autoShadow` 未修改。Browser Validation 與 Jamie Manual Validation PASS。
 - **正式 Banner 字型遷移至 WOFF2（Commit `df623db42faab41bf651e4cb226fd7c677b2f0cd`）**：正式 Banner 字型已由舊 `.ttf` 改為 `.woff2`，四尺寸 Template、Canvas 動態 `@font-face` 與離線 Registry 已同步。字型家族、300／400／700 字重 mapping、文字尺寸、位置、換行與 Style 規則不變；舊 TTF 已移除。Browser、單張 PNG、2 筆工單完整專案／Batch、舊 Project JSON、Project State v5 single-state JSON、Registry 離線載入邏輯與 Jamie Manual Validation 全部 PASS；不影響 SPX Helper、Photoshop Automation 或 AI Workflow。
@@ -199,6 +201,14 @@ assets/source/{size}/guide_1人1品.png
 ## Logo
 
 Logo 最多 3 張，依 `LOGO_01 / LOGO_02 / LOGO_03` 排序。上傳後會做白底裁切，實際位置與尺寸由 Template 的 Logo 區域控制。
+
+右側 Logo 控制項為單行互斥 Radio：「Logo 白底　◉ 開啟　○ 關閉」。每個 Job 的 `logoWhiteBackgroundEnabled` 獨立保存；新 Job 與舊 Project State v5 缺欄位時預設開啟，匯入／還原後依該 Job 狀態選取。
+
+- 開啟：保留既有白色底板與 Logo 原始排版。
+- 關閉：背景透明；沿用既有裁切後有效內容，在完整原始 LOGO 範圍內等比放到最大，不使用 `horizontalPadding`／`verticalPadding`，不裁切、不變形、不超出範圍。
+- 多張 Logo 維持原排序、固定 gap 與圓角，整組共用縮放比例；垂直置中。
+- `1080×1920`、`3189×3992` 水平置中；`1599×1080`、`984×309` 水平靠左，對齊原始 LOGO 範圍左緣。此功能不以主標實際字形像素左緣為基準。
+- Search_Image2／Search_Image3 與其他特殊 Logo zone 不套用此幾何規則。
 
 手動換圖請使用已完成去背的 PNG；替換既有 Logo 時，檔名必須與目前 Logo 完全一致，包含大小寫及副檔名。Logo slot 尚無素材時仍可沿用既有規則新增。檔案格式、decode 與白底裁切全部成功後才更新 Logo；失敗時原 Logo 保持不變。
 

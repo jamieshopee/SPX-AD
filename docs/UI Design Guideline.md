@@ -6,6 +6,8 @@ Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
 
+- **Logo 白底單行 Radio UI（Code Commits `507a11423b8a03a8b9c9fd58d240bc1fe3cedb3c`、`3fa5b7a3119696e903b5a181e0d4ccf08255f326`）**：Logo Accordion 內使用單行「Logo 白底　◉ 開啟　○ 關閉」互斥 Radio。預設選取「開啟」，選取狀態依 active Job 的 `logoWhiteBackgroundEnabled` 同步；沿用既有 toggle handler、深色樣式與右側欄寬度，不新增 Tooltip、Modal 或其他控制項。Browser Validation 與 Jamie Manual Validation PASS。
+
 - **Job-scoped 商品影子開關（Commit `7c3bc27`）**：右側「商品圖」與「1人＋1品」Accordion 各新增一顆按鈕，位於各自「恢復預設位置」上方。兩顆按鈕共用 active Job 的 `productShadowEnabled`、同一 handler 與同一 UI update；有影子顯示「關閉商品影子」，無影子顯示「開啟商品影子」。三商品按鈕只在 Job 有商品時可用；1人＋1品按鈕只在有 Single Product 時可用，Person 不參與 enabled 判斷。Job 切換時按鈕與 Canvas 同步；既有 Accordion defaults、互斥、Reset 與商品清單規則不變。Jamie Manual Validation PASS。
 - **右側欄手動 Master Layout 控制移除（Commit `a41913a`）**：右側控制面板不再建立或顯示「更新 Master Layout」、「套用 Master Layout」及兩者專用容器；不得以 CSS 隱藏或先建立再移除。底層 capture／propagation、Smart Layout Modal 與 Job／Template 切換時的自動 propagation 維持不變；「恢復預設位置」正常顯示且底部不保留多餘空白。Browser Validation 與 Jamie Manual Validation PASS。
 - **右側欄手動換圖 inline error（Commit `8cb7c27c71d664ececb6b57487e921a3f0c44839`）**：Logo、商品圖、1人＋1品各自使用 Upload Box 正下方的具名紅色 transient error；不使用 Modal、不常駐、不保留空白。再次選檔、成功換圖或切換 Job 時清除，且錯誤只存在 DOM。圖片驗證與預處理全部成功後才更新既有 UI／Canvas state；Jamie Manual Validation 全部 PASS。
@@ -195,6 +197,8 @@ Toolbar 顯示：
 - Logo 標題：`Logo（最多3張）`；Upload Box：`＋ 點擊或拖曳上傳 Logo`。
 - 商品圖標題：`商品圖（最多3張）`；Upload Box：`＋ 點擊或拖曳上傳商品圖`。
 - 1人＋1品標題：`1人＋1品`；Upload Box：`＋ 點擊或拖曳上傳圖片`。
+
+Logo Upload Box 下方的白底控制項固定為單行互斥 Radio：左側標籤 `Logo 白底`，右側選項 `開啟`／`關閉`。兩個選項共用同一 radio name，只能選取一個；預設為「開啟」，Job 切換、匯入與還原時必須重新依目前 Job 狀態同步 `checked`，不得只依首次 HTML default。控制項不得換行或溢出 360px 右側欄，不顯示額外說明文字、Tooltip 或 Modal。
 
 Logo、Products 與 1人＋1品 Upload Box 下方各有具名的 transient inline error 節點；平時完全隱藏且不保留空白，後續清單與「恢復預設位置」按鈕自然接續排列。錯誤發生時才顯示紅色小字，不使用 Modal，也不得透過 `nextElementSibling` 或其他 DOM 順序推定節點。再次選檔、成功換圖或切換 Job 時清除；錯誤只存在 DOM，不寫入 Job、Project State、`_manualRenderState`、JSON 或 Download。互斥狀態只調整既有 Upload Box 與 Reset button 狀態，不得寫入商品清單或 Reset button 文字。
 

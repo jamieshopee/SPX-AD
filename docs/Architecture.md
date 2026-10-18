@@ -495,6 +495,7 @@ Project State v5（Completed）：
 
 - Project State v5 建立 Project Persistence contract。
 - `productShadowEnabled` 以 Job root boolean 保存；單張暫存與 Download Complete Project 內每份逐 Job single-state JSON 都會保存。Import／`createJob()` 以 `value !== false` restore，因此舊 version 5 JSON 缺欄位時為 `true`，明確保存的 `false` 維持關閉；version 仍為 `5`。
+- `logoWhiteBackgroundEnabled` 以 Job root boolean 保存；單張暫存與 Download Complete Project 內每份逐 Job single-state JSON 都會保存。Import／`createJob()` 以 `value !== false` restore，因此舊 version 5 JSON 缺欄位時為 `true`，明確保存的 `false` 維持關閉；version 仍為 `5`。
 - `single-state.json` 可保存單張工單需要的 latest processed image `dataUrl`。
 - Download Complete Project 的 ZIP 會為每個成功 Job 保存同 basename 的 PNG 與 single-state JSON。
 - 每份 JSON 只包含一個 Job，可在 `processedAssets` 保存該 Job 還原所需的 `filename` 與 `dataUrl`，且不包含 `jobs[].thumbnail`。
@@ -654,6 +655,16 @@ Approved assets：
 - Direct Import 與 Photoshop approved assets 經既有 Asset Resolver／payload flow；手動換圖保留 raw source。切換關閉／開啟時沿用 `refreshMainCanvasApprovedAssetsForActiveJob()` → `syncActiveLayoutState()` → `buildMainCanvasProductPayloadForJob()` → `updateMainCanvasImageSourcesForJob()` → `waitForFrameImages()`，從未加影子的 canonical／raw source 重建 payload，避免重複疊加影子。
 - Refresh 只替換目前商品圖片來源，不呼叫 `layoutProducts()`、不 reset、不 remove／re-add DOM，不修改 Product Identity、z-order、位置、尺寸、旋轉、`layoutState` 或 `layoutStates`。
 - Person、Logo、背景與 Info Graphic 不讀取此欄位；Plugin 建立按鈕並轉送 click，但不是 state owner。
+
+### Job-scoped Logo White Background
+
+- `logoWhiteBackgroundEnabled` 是 Job-scoped boolean；state owner 維持在 `src/app.js`，Plugin 只負責單行 Radio UI、事件轉送與選取狀態顯示。
+- 新 Job 與舊 Project State v5 缺欄位時預設 `true`；Project Export／Import、Main Canvas、Thumbnail、單張 PNG 與 Batch Export 均沿用對應 Job 狀態，Project State version 維持 `5`。
+- `true` 維持既有 Logo 白底與原始排版；`false` 由 `js/layout-runtime.js` 使用既有裁切後有效內容，在 Template 原始 LOGO 範圍內等比最大化，移除 Template padding 參與，保留排序、固定 gap、圓角與垂直置中。
+- 水平定位固定為：`1080×1920`／`3189×3992` 置中；`1599×1080`／`984×309` 靠左至原始 LOGO 範圍左緣。未使用主標文字 Range 或文字幾何測量。
+- `bn-logo-background` → `bn-logo-background-applied` 沿用既有 request／transaction／render generation 邊界；圖片與必要幾何完成後才回覆成功 ACK，失敗或 stale request 不得視為成功輸出。
+- Search_Image2／Search_Image3、`logo範圍_左`／`logo範圍_中`／`logo範圍_右` 等特殊 Logo zone 不進入此一般 `LOGO範圍` 幾何分支。
+- 未修改 Logo 圖片來源、Template JSON、Photoshop Pipeline、SPX Helper、Asset Pipeline、Review Workspace、`layoutStates` 或 Project State schema version。
 
 
 ## Smart Layout Propagation

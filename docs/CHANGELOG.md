@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## Logo 白底開關、透明背景自動縮放與單行 Radio UI - 2026-10-18
+
+Status：**Completed — Browser Validation 與 Jamie Manual Validation PASS**
+Code Commits：
+- `507a11423b8a03a8b9c9fd58d240bc1fe3cedb3c`（`feat: add per-job logo white background and transparent layout`）
+- `3fa5b7a3119696e903b5a181e0d4ccf08255f326`（`feat: improve logo white background radio control`）
+
+### Changed Behavior
+
+- 每個 Job 獨立保存 `logoWhiteBackgroundEnabled`。新 Job 預設為 `true`；既有 Project State v5 JSON 缺少欄位時沿用相容預設 `true`；Project Export／Import 會保存與還原此狀態，Project State version 維持 `5`。
+- Logo Accordion 內的控制項改為單行 `Logo 白底　◉ 開啟　○ 關閉` 互斥 Radio UI。預設選取「開啟」，並依目前 Job 同步選取狀態；事件仍沿用既有 `_bnToggleLogoWhiteBackground()` 與 `_bnUpdateLogoBackgroundControl(state)`。
+- 白底開啟時完整保留既有 Logo 白底、原始排版、位置、尺寸、Padding、排序、gap、圓角與裁切。
+- 白底關閉時 Logo 容器背景為透明；沿用既有裁切後的 Logo 有效內容，在 Template 原始 LOGO 範圍完整矩形內等比最大化，不保留 `horizontalPadding`／`verticalPadding`，不裁切、不拉伸、不超出範圍。多張 Logo 維持排序、固定 gap、圓角並以整組共用同一縮放比例，垂直置中。
+- 四種正式版型水平定位：`1080×1920` 與 `3189×3992` 置中；`1599×1080` 與 `984×309` 靠左，對齊原始 LOGO 範圍左緣。未實作主標文字 Range 或文字幾何測量。
+- Search_Image2／Search_Image3 及 `logo範圍_左`／`logo範圍_中`／`logo範圍_右` 等特殊 Logo zone 不套用上述新幾何。
+
+### Render / Persistence Boundary
+
+- Main Canvas、Thumbnail、單張 PNG 與 Batch Export 使用對應 Job 的 Logo 狀態，沿用既有 `bn-logo-background`、`bn-logo-background-applied`、transaction 與 render generation 同步；圖片載入與必要幾何套用完成後才回覆成功 ACK，失敗或過期 request 不視為成功輸出。
+- 未修改 Logo 圖片來源、autoTrim／trimLogoSrc、Template JSON、Photoshop、PSD、Helper、Asset Pipeline、Review Workspace、`layoutStates` 或 Project State schema version。
+
+### Validation / Scope Boundary
+
+- 兩筆 Code Commit 均已完成 Browser Validation 與 Jamie Manual Validation PASS。
+- 驗證涵蓋 Job 狀態獨立保存、白底開關、四版型縮放與對齊、單行 Radio UI、Job 切換、Project Export／Import、Preview／PNG／Thumbnail／Batch 既有流程及特殊 Logo zone 邊界。
+
 ## 新版正式工單 CSV Import 相容與完整專案 ZIP 命名 - 2026-08-20
 
 Status：**Completed — Browser Validation／Legacy Regression／Jamie Manual Validation PASS**

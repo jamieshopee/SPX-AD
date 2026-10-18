@@ -1,5 +1,14 @@
 # AI-HANDOFF.md
 
+## Logo 白底開關、透明背景自動縮放與單行 Radio UI 完成（2026-10-18）
+
+- Code Commits：`507a11423b8a03a8b9c9fd58d240bc1fe3cedb3c`（`feat: add per-job logo white background and transparent layout`）與 `3fa5b7a3119696e903b5a181e0d4ccf08255f326`（`feat: improve logo white background radio control`）。兩筆均已完成 Browser Validation 與 Jamie Manual Validation PASS。
+- Current Behavior：每個 Job 保存 `logoWhiteBackgroundEnabled`；新 Job 與舊 Project State v5 缺欄位時預設 `true`，Project Export／Import 會保存與還原，Project State version 維持 `5`。
+- Current UI：Logo Accordion 使用單行互斥 Radio：`Logo 白底　◉ 開啟　○ 關閉`。選取狀態依目前 Job 同步，事件沿用既有 `_bnToggleLogoWhiteBackground()` 與 `_bnUpdateLogoBackgroundControl(state)`。
+- Render Behavior：開啟時保留原本白底與 Logo 排版；關閉時使用既有裁切後有效內容，在原始 LOGO 範圍內等比最大化，保留多 Logo 排序、固定 gap、圓角與垂直置中，不保留 Template padding、不裁切、不拉伸。
+- Alignment Contract：`1080×1920`、`3189×3992` 水平置中；`1599×1080`、`984×309` 水平靠左至原始 LOGO 範圍左緣。未實作主標文字 Range／文字幾何測量。
+- Boundary：Search_Image2／Search_Image3 與 `logo範圍_左`／`logo範圍_中`／`logo範圍_右` 特殊 Logo zone 維持既有行為。Main Canvas、Thumbnail、單張 PNG、Batch Export 沿用既有 ACK／transaction／render generation；未修改 Photoshop、PSD、Helper、Asset Pipeline、Review Workspace、Template JSON 或 Project State schema version。
+
 ## 新版正式工單 CSV Import 相容與完整專案 ZIP 命名完成（2026-08-20）
 
 - Code Commit：`42bc8d28949d3152216eff4369fddde6751f8515`（`feat: support updated work order import and project zip naming`）。Browser Validation 與 Jamie Manual Validation 全部 PASS。
