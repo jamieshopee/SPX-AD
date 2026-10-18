@@ -47,6 +47,12 @@
 .bn-reset-transform-btn{margin-top:6px;width:100%;background:transparent;border:1px solid var(--border,#30363d);border-radius:7px;color:var(--text2,#8b949e);font-size:11px;padding:7px 8px;cursor:pointer;transition:.12s}
 .bn-reset-transform-btn:hover{border-color:var(--accent,#1f6feb);color:var(--accent,#1f6feb)}
 .bn-reset-transform-btn:disabled{opacity:.35;cursor:not-allowed;border-color:var(--border,#30363d);color:var(--text3,#687090)}
+.bn-logo-bg-control{display:flex;align-items:center;gap:8px;margin-top:6px;min-width:0;white-space:nowrap}
+.bn-logo-bg-label{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text2,#8b949e);font-size:11px}
+.bn-logo-bg-options{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.bn-logo-bg-option{display:inline-flex;align-items:center;gap:3px;color:var(--text2,#8b949e);font-size:11px;white-space:nowrap;cursor:pointer}
+.bn-logo-bg-option input{margin:0;accent-color:var(--accent,#1f6feb);cursor:pointer}
+.bn-logo-bg-option input:disabled{cursor:not-allowed}
 #bn-prod-open-btn{display:block;width:100%;padding:8px;background:var(--bg2,#1c2333);border:1.5px dashed var(--border,#30363d);border-radius:7px;color:var(--text2,#8b949e);font-size:11px;cursor:pointer;text-align:center;transition:.15s;margin-bottom:2px}
 #bn-prod-open-btn:hover{border-color:var(--accent,#1f6feb);color:var(--accent,#1f6feb)}
 #bn-download-bar{padding:10px 14px;border-top:1px solid var(--border,#30363d);flex-shrink:0}
@@ -331,6 +337,8 @@
     });
 
     /* ══ Logo 上傳 ══ */
+    var logoBackgroundUiEnabled = true;
+
     function insertLogoUI(){
       var scroll=document.getElementById('sidebar-scroll');
       if(!scroll||document.getElementById('bn-logo-drop'))return;
@@ -347,7 +355,13 @@
         '  </div>',
         '  <div id="bn-logo-upload-error" class="bn-upload-error" hidden aria-live="polite"></div>',
         '  <div class="bn-prod-list" id="bn-logo-list"></div>',
-        '  <button type="button" class="bn-reset-transform-btn" id="bn-logo-bg-btn" disabled>Logo 白底：開啟</button>',
+        '  <div class="bn-logo-bg-control" id="bn-logo-bg-control" role="radiogroup" aria-label="Logo 白底">',
+        '    <span class="bn-logo-bg-label">Logo 白底</span>',
+        '    <span class="bn-logo-bg-options">',
+        '      <label class="bn-logo-bg-option"><input type="radio" name="bn-logo-background-choice" value="true" checked disabled><span>開啟</span></label>',
+        '      <label class="bn-logo-bg-option"><input type="radio" name="bn-logo-background-choice" value="false" disabled><span>關閉</span></label>',
+        '    </span>',
+        '  </div>',
         '</div>',
         '</div>',
       ].join('');
@@ -356,7 +370,7 @@
       applyAccordionDefaults(currentAccordionMode(), false);
       var inp=document.getElementById('bn-logo-inp');
       var drop=document.getElementById('bn-logo-drop');
-      var logoBackgroundBtn=document.getElementById('bn-logo-bg-btn');
+      var logoBackgroundChoices=document.querySelectorAll('input[name="bn-logo-background-choice"]');
       inp.addEventListener('change',function(){
         handleLogoFiles(Array.from(this.files));
         inp.value='';
@@ -369,11 +383,14 @@
         e.preventDefault(); _logoDragN=0; this.classList.remove('drag');
         handleLogoFiles(Array.from(e.dataTransfer.files));
       });
-      if(logoBackgroundBtn){
-        logoBackgroundBtn.addEventListener('click', function(){
+      logoBackgroundChoices.forEach(function(choice){
+        choice.addEventListener('change', function(){
+          if(!this.checked) return;
+          var nextEnabled = this.value === 'true';
+          if(nextEnabled === logoBackgroundUiEnabled) return;
           if(typeof window._bnToggleLogoWhiteBackground === 'function') window._bnToggleLogoWhiteBackground();
         });
-      }
+      });
     }
 
     function renderLogoList(){
@@ -1691,14 +1708,17 @@
     /* 暴露給 bn-state-plugin 使用 */
     window._bnRenderLogoList = function(){ renderLogoList(); };
     window._bnUpdateLogoBackgroundControl = function(state){
-      var btn=document.getElementById('bn-logo-bg-btn');
-      if(!btn)return;
+      var choices=document.querySelectorAll('input[name="bn-logo-background-choice"]');
+      var control=document.getElementById('bn-logo-bg-control');
+      if(!choices.length)return;
       var supported=!!state?.supported;
       var enabled=state?.enabled !== false;
-      btn.disabled=!supported || !!state?.pending;
-      btn.textContent='Logo 白底：' + (enabled ? '開啟' : '關閉');
-      btn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-      btn.title=supported ? (enabled ? '目前保留白色底板' : '目前使用透明底板') : '目前版型不支援 Logo 白底';
+      logoBackgroundUiEnabled=enabled;
+      choices.forEach(function(choice){
+        choice.disabled=!supported || !!state?.pending;
+        choice.checked=(choice.value === 'true') === enabled;
+      });
+      if(control) control.setAttribute('aria-disabled', supported && !state?.pending ? 'false' : 'true');
     };
     window._bnBroadcastLogos = function(){
       if(window._bnLogos && window._bnLogos.length){
