@@ -85,6 +85,15 @@ let canvasLoadSeq = 0;
 let activeCanvasTransactionPromise = null;
 let suppressLayoutStateWrites = false;
 let importedWorkspaceReturnContext = null;
+let logoBackgroundRequestSeq = 0;
+let logoBackgroundPendingPromise = null;
+
+const LOGO_BACKGROUND_SIZES = new Set([
+  '984x309',
+  '1080x1920',
+  '1599x1080',
+  '3189x3992',
+]);
 
 // 單品拖曳 overlay（仿 template-controls.js）
 let previewScale          = 1;
@@ -2191,6 +2200,34 @@ function activeJob() {
   return jobs.find(j => j.id === activeJobId) || null;
 }
 
+function logoBackgroundCapability(templateJson, template = activeTemplate, placement = activePlacement) {
+  const width = Number(templateJson?.output?.width || templateJson?.width || placement?.width || 0);
+  const height = Number(templateJson?.output?.height || templateJson?.height || placement?.height || 0);
+  const logoClass = templateJson?.logo?.className || '';
+  const supported = LOGO_BACKGROUND_SIZES.has(`${width}x${height}`) && logoClass === 'LOGO範圍';
+  return { supported, width, height, logoClass };
+}
+
+async function updateLogoBackgroundControl(job = activeJob()) {
+  if (typeof window._bnUpdateLogoBackgroundControl !== 'function') return;
+  if (!job) {
+    window._bnUpdateLogoBackgroundControl({ supported: false, enabled: true });
+    return;
+  }
+  const template = getTemplateForJob(job);
+  let templateJson = template?._json || null;
+  try {
+    if (template) templateJson = await ensureTemplateJson(template, job.styleId || '01');
+  } catch (_) {
+    templateJson = null;
+  }
+  const capability = logoBackgroundCapability(templateJson, template);
+  window._bnUpdateLogoBackgroundControl({
+    supported: capability.supported,
+    enabled: job.logoWhiteBackgroundEnabled !== false,
+  });
+}
+
 function updateProductShadowControls() {
   const job = activeJob();
   const label = job?.productShadowEnabled !== false ? '關閉商品影子' : '開啟商品影子';
@@ -2833,6 +2870,7 @@ function createJob(data = {}) {
     // 空值／非法網址維持原始字串，讓使用者能看到並修正。
     qrCodeUrl:        (window.BNQrCodeUrl?.normalize(data.qrCodeUrl || '')) || (data.qrCodeUrl || ''),
     productShadowEnabled: data.productShadowEnabled !== false,
+    logoWhiteBackgroundEnabled: data.logoWhiteBackgroundEnabled !== false,
     logoFilenames:    data.logoFilenames    || [],
     productFilenames: data.productFilenames || [],
     outputFilename:   data.outputFilename   || '',
@@ -2947,6 +2985,7 @@ async function selectJob(id, options = {}) {
   renderJobList();
   renderAssetFileLists();
   renderStyleOptions(job.styleId || '01');
+  await updateLogoBackgroundControl(job);
   // 重置 plugin 狀態，避免上一筆工單資料殘留
   window._bnProducts   = [];
   window._bnLogos      = [];
@@ -2972,7 +3011,7 @@ async function selectJob(id, options = {}) {
     setMainFrameLayoutTarget(job, layoutKey);
     const loadSeq = loadCanvas(activeTemplate._templatePath, job.styleId || '01');
     const frameWindow = el.frame.contentWindow;
-    const transaction = { job, loadSeq, frameWindow, layoutKey };
+    const transaction = { job, loadSeq, frameWindow, layoutKey, template: renderTemplate };
     const requireCurrentTransaction = stage => {
       if (!isCanvasTransactionCurrent(transaction)) throw staleCanvasTransactionError(transaction, stage);
     };
@@ -2980,6 +3019,8 @@ async function selectJob(id, options = {}) {
       requireCurrentTransaction('frame-ready');
       await applyLogosToCanvas(job.logoFilenames || [], transaction);
       requireCurrentTransaction('logos-ready');
+      await postLogoBackgroundToFrame(frameWindow, job, transaction);
+      requireCurrentTransaction('logo-background-ready');
       await applyProductsToCanvas(job.productFilenames || [], {
         job,
         loadSeq,
@@ -3193,6 +3234,100 @@ async function importFile(file) {
 // ══════════════════════════════════════════════════════
 //  16. Logo → bn-logos（直接送 canvas iframe）
 // ══════════════════════════════════════════════════════
+async function postLogoBackgroundToFrame(frameWindow, job, transaction = null, templateJsonOverride = null, label = '') {
+  if (!frameWindow || !job) return { supported: false };
+  if (transaction && !transaction.skipCurrentCheck && !isCanvasTransactionCurrent(transaction)) {
+    throw staleCanvasTransactionError(transaction, 'logo-background-start');
+  }
+  const template = transaction?.template || getTemplateForJob(job);
+  let templateJson = templateJsonOverride || template?._json || null;
+  if (!templateJson && template) {
+    templateJson = await ensureTemplateJson(template, job.styleId || '01');
+  }
+  const capability = logoBackgroundCapability(templateJson, template);
+  if (!capability.supported) {
+    console.log('[CC] bn-logo-background skipped', label || job.jobId || job.id, capability);
+    return { supported: false };
+  }
+  if (transaction && !transaction.skipCurrentCheck && !isCanvasTransactionCurrent(transaction)) {
+    throw staleCanvasTransactionError(transaction, 'logo-background-template-ready');
+  }
+
+  const requestId = `logo-bg-${++logoBackgroundRequestSeq}`;
+  const timeoutMs = 5000;
+  return new Promise((resolve, reject) => {
+    let timer;
+    const onMessage = event => {
+      const data = event.data || {};
+      if (event.source !== frameWindow || data.type !== 'bn-logo-background-applied' || data.requestId !== requestId) return;
+      window.removeEventListener('message', onMessage);
+      clearTimeout(timer);
+      if (!data.applied) {
+        reject(new Error(`Logo 白底未套用：${data.reason || 'unsupported'}`));
+        return;
+      }
+      if (transaction && !transaction.skipCurrentCheck && !isCanvasTransactionCurrent(transaction)) {
+        reject(staleCanvasTransactionError(transaction, 'logo-background-ack'));
+        return;
+      }
+      resolve({ supported: true, applied: true, requestId });
+    };
+    window.addEventListener('message', onMessage);
+    timer = setTimeout(() => {
+      window.removeEventListener('message', onMessage);
+      reject(new Error('Logo 白底套用確認逾時'));
+    }, timeoutMs);
+    frameWindow.postMessage({
+      type: 'bn-logo-background',
+      requestId,
+      sequence: logoBackgroundRequestSeq,
+      jobId: job.jobId || String(job.id),
+      loadSeq: transaction?.loadSeq ?? null,
+      enabled: job.logoWhiteBackgroundEnabled !== false,
+      width: capability.width,
+      height: capability.height,
+      logoClass: capability.logoClass,
+    }, '*');
+  });
+}
+
+window._bnToggleLogoWhiteBackground = async function() {
+  const job = activeJob();
+  if (!job || typeof window._bnUpdateLogoBackgroundControl !== 'function') return;
+  const previousEnabled = job.logoWhiteBackgroundEnabled !== false;
+  const nextEnabled = !previousEnabled;
+  window._bnUpdateLogoBackgroundControl({ supported: true, enabled: nextEnabled, pending: true });
+  try {
+    if (activeCanvasTransactionPromise) {
+      try { await activeCanvasTransactionPromise; } catch (error) {
+        if (error?.code === 'BN_STALE_CANVAS_TRANSACTION') return;
+        throw error;
+      }
+    }
+    if (job.id !== activeJobId || !frameReady || !el.frame?.contentWindow) throw new Error('Canvas 尚未就緒');
+    job.logoWhiteBackgroundEnabled = nextEnabled;
+    const backgroundPromise = postLogoBackgroundToFrame(el.frame.contentWindow, job, {
+      job,
+      loadSeq: canvasLoadSeq,
+      frameWindow: el.frame.contentWindow,
+      template: activeTemplate,
+      skipCurrentCheck: false,
+    }, null, 'active-toggle');
+    logoBackgroundPendingPromise = backgroundPromise;
+    const result = await backgroundPromise;
+    if (logoBackgroundPendingPromise === backgroundPromise) logoBackgroundPendingPromise = null;
+    if (!result.supported) throw new Error('目前版型不支援 Logo 白底');
+    document.dispatchEvent(new CustomEvent('bn-state-dirty'));
+    setStatus(nextEnabled ? 'Logo 白底已開啟。' : 'Logo 白底已關閉。', 'success');
+  } catch (error) {
+    logoBackgroundPendingPromise = null;
+    job.logoWhiteBackgroundEnabled = previousEnabled;
+    setStatus('Logo 白底切換失敗：' + error.message, 'error');
+  } finally {
+    await updateLogoBackgroundControl(job);
+  }
+};
+
 async function applyLogosToCanvas(logoFilenames, transaction = null) {
   if (!logoFilenames.length) return;
   let payload;
@@ -3644,6 +3779,7 @@ async function generateJobThumbnail(job, renderContext = getActiveRenderContext(
     console.log('[CC][thumb] bn-text sent', label, shortText(job.headline || '', 12), '/', shortText(job.subheadline || '', 12));
     await sleep(180);
     await postLogosToFrame(frame.contentWindow, job.logoFilenames || [], label);
+    await postLogoBackgroundToFrame(frame.contentWindow, job, null, templateJson, label);
     if (job.logoFilenames?.length) await sleep(240);
     const resolvedAssets = await buildThumbnailResolvedAssets(job);
     await postProductsToFrame(frame.contentWindow, job.productFilenames || [], templateJson, label, { resolvedAssets, job });
@@ -3969,6 +4105,7 @@ async function selectTemplate(id, options = {}) {
     const url = new URL(activeTemplate.editorUrl, location.href);
     activeTemplate._templatePath = decodeURIComponent(url.searchParams.get('template') || '');
   } catch (_) {}
+  await updateLogoBackgroundControl(selectedJob);
 
   renderStyleOptions(selectedJob?.styleId || '01');
   updateCounters();
@@ -4000,6 +4137,14 @@ async function selectTemplate(id, options = {}) {
       waitForFrameReady(15000).then(async () => {
         if (loadSeq !== canvasLoadSeq) return;
         await applyLogosToCanvas(job.logoFilenames || []);
+        if (loadSeq !== canvasLoadSeq) return;
+        await postLogoBackgroundToFrame(frameWindow, job, {
+          job,
+          loadSeq,
+          frameWindow,
+          template: activeTemplate,
+          skipCurrentCheck: true,
+        });
         if (loadSeq !== canvasLoadSeq) return;
         await applyProductsToCanvas(job.productFilenames || [], isThreeProductJob(job) ? {
           job,
@@ -4270,6 +4415,13 @@ async function renderSingleJob(job) {
     // 2. Logo
     if (job.logoFilenames.length) {
       await postLogosToFrame(el.frame.contentWindow, job.logoFilenames, job.jobId || String(job.id));
+      await postLogoBackgroundToFrame(el.frame.contentWindow, job, {
+        job,
+        loadSeq,
+        frameWindow: el.frame.contentWindow,
+        template: renderTemplate,
+        skipCurrentCheck: true,
+      }, templateJson, job.jobId || String(job.id));
       await sleep(400);
       if (loadSeq !== canvasLoadSeq) throw new Error('render interrupted');
     }
@@ -4453,6 +4605,7 @@ function serializeJobBase(job) {
     qrCodeUrl:        job.qrCodeUrl || '',
     outputFilename:   job.outputFilename || '',
     productShadowEnabled: job.productShadowEnabled !== false,
+    logoWhiteBackgroundEnabled: job.logoWhiteBackgroundEnabled !== false,
     layoutState:      getJobLayoutState(job),
     layoutStates:     exportableLayoutStatesForJob(job),
     thumbnail:        job.thumbnail || job.quickThumbnail || '',
@@ -4905,6 +5058,7 @@ async function stageStateImports(fileList) {
         disclaimer: saved.disclaimer || '',
         qrCodeUrl: saved.qrCodeUrl || '',
         productShadowEnabled: saved.productShadowEnabled !== false,
+        logoWhiteBackgroundEnabled: saved.logoWhiteBackgroundEnabled !== false,
         outputFilename: saved.outputFilename || '',
         logoFilenames: (saved.logoAssetIds || []).map(id => assetsById.get(id)?.name || id),
         productFilenames: (saved.productAssetIds || []).map(id => assetsById.get(id)?.name || id),
@@ -5011,6 +5165,7 @@ async function importStateFiles(fileList) {
 async function downloadCurrentBanner() {
   if (!frameReady) { setStatus('模板尚未就緒', 'error'); return; }
   await syncActiveLayoutState();
+  if (logoBackgroundPendingPromise) await logoBackgroundPendingPromise;
   setStatus('產圖中…');
   await waitForFrameImages(el.frame.contentWindow, 6000);
   const dataUrl = await captureFromCanvasFrame(18000);

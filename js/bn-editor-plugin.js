@@ -347,6 +347,7 @@
         '  </div>',
         '  <div id="bn-logo-upload-error" class="bn-upload-error" hidden aria-live="polite"></div>',
         '  <div class="bn-prod-list" id="bn-logo-list"></div>',
+        '  <button type="button" class="bn-reset-transform-btn" id="bn-logo-bg-btn" disabled>Logo 白底：開啟</button>',
         '</div>',
         '</div>',
       ].join('');
@@ -355,6 +356,7 @@
       applyAccordionDefaults(currentAccordionMode(), false);
       var inp=document.getElementById('bn-logo-inp');
       var drop=document.getElementById('bn-logo-drop');
+      var logoBackgroundBtn=document.getElementById('bn-logo-bg-btn');
       inp.addEventListener('change',function(){
         handleLogoFiles(Array.from(this.files));
         inp.value='';
@@ -367,6 +369,11 @@
         e.preventDefault(); _logoDragN=0; this.classList.remove('drag');
         handleLogoFiles(Array.from(e.dataTransfer.files));
       });
+      if(logoBackgroundBtn){
+        logoBackgroundBtn.addEventListener('click', function(){
+          if(typeof window._bnToggleLogoWhiteBackground === 'function') window._bnToggleLogoWhiteBackground();
+        });
+      }
     }
 
     function renderLogoList(){
@@ -1683,6 +1690,16 @@
 
     /* 暴露給 bn-state-plugin 使用 */
     window._bnRenderLogoList = function(){ renderLogoList(); };
+    window._bnUpdateLogoBackgroundControl = function(state){
+      var btn=document.getElementById('bn-logo-bg-btn');
+      if(!btn)return;
+      var supported=!!state?.supported;
+      var enabled=state?.enabled !== false;
+      btn.disabled=!supported || !!state?.pending;
+      btn.textContent='Logo 白底：' + (enabled ? '開啟' : '關閉');
+      btn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+      btn.title=supported ? (enabled ? '目前保留白色底板' : '目前使用透明底板') : '目前版型不支援 Logo 白底';
+    };
     window._bnBroadcastLogos = function(){
       if(window._bnLogos && window._bnLogos.length){
         broadcast({type:'bn-logos', logos:window._bnLogos});

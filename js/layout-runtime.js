@@ -12,6 +12,173 @@
     decodeURIComponent(location.pathname.split('/').pop().replace(/\.html$/i, ''));
   var template = window.__BN_TEMPLATE__ || null;
   var inited = false;
+  var logoWhiteBackgroundEnabled = true;
+  var lastLogoBackgroundSequence = 0;
+  var logoRenderGeneration = 0;
+  var pendingLogoBackgroundRequest = null;
+  var logoRenderState = {
+    generation: 0,
+    zone: null,
+    logos: [],
+    dimensions: [],
+    ready: true,
+    empty: true,
+    imagesValid: true,
+    trueSnapshot: null,
+  };
+
+  function logoBackgroundSupported() {
+    if (!template || !template.logo || template.logo.className !== 'LOGO範圍') return false;
+    var size = Number(template.width) + 'x' + Number(template.height);
+    return ['984x309','1080x1920','1599x1080','3189x3992'].indexOf(size) !== -1;
+  }
+
+  function isSpecialLogoTemplate() {
+    var name = decodeURIComponent(location.pathname.split('/').pop()).toLowerCase();
+    return name.indexOf('search_image2') !== -1 || name.indexOf('search_image3') !== -1;
+  }
+
+  function applyLogoBackground(zone) {
+    if (!zone) return false;
+    zone.style.background = logoWhiteBackgroundEnabled ? '#ffffff' : 'transparent';
+    return true;
+  }
+
+  function cssNumber(value, fallback) {
+    var parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function originalLogoBounds(zone) {
+    var logo = template && template.logo || {};
+    var style = logo.style || {};
+    var layout = logo.layout || {};
+    var bounds = {
+      left: cssNumber(style.left, 0),
+      top: cssNumber(style.top, 0),
+      width: cssNumber(style.width, cssNumber(layout.maxWidth, zone && zone.clientWidth)),
+      height: cssNumber(style.height, cssNumber(layout.blockHeight, zone && zone.clientHeight)),
+    };
+    if (!(bounds.width > 0) || !(bounds.height > 0)) return null;
+    return bounds;
+  }
+
+  function captureTrueLogoSnapshot(state) {
+    if (!state || !state.zone) return;
+    state.trueSnapshot = {
+      zoneStyle: state.zone.style.cssText,
+      imageStyles: Array.from(state.zone.querySelectorAll('img.bn-logo-img')).map(function(img){
+        return { style: img.style.cssText, src: img.src };
+      }),
+    };
+  }
+
+  function restoreTrueLogoSnapshot(state) {
+    if (!state || !state.zone || !state.trueSnapshot) return false;
+    var images = Array.from(state.zone.querySelectorAll('img.bn-logo-img'));
+    if (images.length !== state.trueSnapshot.imageStyles.length) return false;
+    state.zone.style.cssText = state.trueSnapshot.zoneStyle;
+    state.trueSnapshot.imageStyles.forEach(function(saved, index){
+      images[index].style.cssText = saved.style;
+      if (saved.src && images[index].src !== saved.src) images[index].src = saved.src;
+    });
+    return applyLogoBackground(state.zone);
+  }
+
+  function applyTransparentLogoGeometry(state) {
+    if (!state || !state.zone || state.empty) {
+      return !!(state && state.zone);
+    }
+    if (!state.imagesValid || !state.bounds || !state.dimensions.length) return false;
+    var bounds = state.bounds;
+    var layout = template && template.logo && template.logo.layout || {};
+    var gap = numberValue(layout.gap, 0);
+    var sumWidth = 0;
+    var maxHeight = 0;
+    state.dimensions.forEach(function(size){
+      sumWidth += size.width;
+      maxHeight = Math.max(maxHeight, size.height);
+    });
+    var availableWidth = bounds.width - gap * Math.max(0, state.dimensions.length - 1);
+    if (!(sumWidth > 0) || !(maxHeight > 0) || !(availableWidth > 0)) return false;
+    var scale = Math.min(availableWidth / sumWidth, bounds.height / maxHeight);
+    if (!Number.isFinite(scale) || scale <= 0) return false;
+    var renderedWidth = 0;
+    var renderedHeight = 0;
+    state.dimensions.forEach(function(size){
+      renderedWidth += size.width * scale;
+      renderedHeight = Math.max(renderedHeight, size.height * scale);
+    });
+    renderedWidth += gap * Math.max(0, state.dimensions.length - 1);
+    if (renderedWidth > bounds.width + 0.01 || renderedHeight > bounds.height + 0.01) return false;
+
+    var templateSize = Number(template.width) + 'x' + Number(template.height);
+    var isLeftAligned = templateSize === '984x309' || templateSize === '1599x1080';
+    var originalLeft = 0;
+    var groupLeft = isLeftAligned
+      ? originalLeft
+      : (bounds.width - renderedWidth) / 2;
+    var groupTop = (bounds.height - renderedHeight) / 2;
+    var images = Array.from(state.zone.querySelectorAll('img.bn-logo-img'));
+    if (images.length !== state.dimensions.length) return false;
+
+    state.zone.style.position = 'absolute';
+    state.zone.style.left = bounds.left + 'px';
+    state.zone.style.top = bounds.top + 'px';
+    state.zone.style.width = bounds.width + 'px';
+    state.zone.style.height = bounds.height + 'px';
+    state.zone.style.display = 'block';
+    state.zone.style.background = 'transparent';
+
+    var x = groupLeft;
+    images.forEach(function(img, index){
+      var size = state.dimensions[index];
+      var width = size.width * scale;
+      var height = size.height * scale;
+      var logo = state.logos[index] || {};
+      img.style.cssText = 'position:absolute;left:' + x + 'px;top:' + groupTop + 'px;width:' + width + 'px;height:' + height + 'px;object-fit:contain;pointer-events:none;' + (logo.round ? 'border-radius:' + ((template.logo.layout || {}).itemBorderRadius || '0px') + ';' : '');
+      x += width + gap;
+    });
+    return true;
+  }
+
+  function applyCurrentLogoPresentation(state) {
+    if (!state || !state.zone) return false;
+    if (state.empty) {
+      state.zone.style.display = 'none';
+      return applyLogoBackground(state.zone);
+    }
+    if (logoWhiteBackgroundEnabled) return restoreTrueLogoSnapshot(state);
+    return applyTransparentLogoGeometry(state);
+  }
+
+  function postLogoBackgroundAck(request, applied, reason) {
+    if (!request || window.parent === window) return;
+    window.parent.postMessage({
+      type: 'bn-logo-background-applied',
+      requestId: request.requestId,
+      jobId: request.jobId || '',
+      loadSeq: request.loadSeq == null ? null : request.loadSeq,
+      applied: !!applied,
+      reason: applied ? undefined : (reason || 'logo-render-incomplete'),
+    }, '*');
+  }
+
+  function completePendingLogoBackground() {
+    var request = pendingLogoBackgroundRequest;
+    if (!request || !logoRenderState.ready) return;
+    pendingLogoBackgroundRequest = null;
+    if (!logoRenderState.imagesValid) {
+      postLogoBackgroundAck(request, false, 'logo-image-load-failed');
+      return;
+    }
+    if (!applyCurrentLogoPresentation(logoRenderState)) {
+      postLogoBackgroundAck(request, false, 'logo-geometry-invalid');
+      return;
+    }
+    lastLogoBackgroundSequence = request.sequence || lastLogoBackgroundSequence;
+    postLogoBackgroundAck(request, true);
+  }
 
   function numberValue(value, fallback) {
     var parsed = Number(value);
@@ -320,6 +487,50 @@
       document.querySelectorAll('.逛逛去三角標').forEach(function(el){ if(c.ctaText) el.style.borderLeftColor=c.ctaText; });
     }
 
+    if (e.data.type === 'bn-logo-background') {
+      var backgroundAck = {
+        type: 'bn-logo-background-applied',
+        requestId: e.data.requestId,
+        jobId: e.data.jobId || '',
+        loadSeq: e.data.loadSeq == null ? null : e.data.loadSeq,
+        applied: false,
+      };
+      var sequence = Number(e.data.sequence || 0);
+      if (!logoBackgroundSupported()) {
+        backgroundAck.reason = 'unsupported-template';
+      } else if (isSpecialLogoTemplate()) {
+        backgroundAck.reason = 'special-logo-zone';
+      } else if (sequence && sequence < lastLogoBackgroundSequence) {
+        backgroundAck.reason = 'stale-request';
+      } else {
+        var backgroundZone = document.querySelector('.LOGO範圍');
+        if (!backgroundZone) {
+          backgroundAck.reason = 'logo-zone-not-ready';
+        } else {
+          if (pendingLogoBackgroundRequest && sequence < pendingLogoBackgroundRequest.sequence) {
+            backgroundAck.reason = 'stale-request';
+            if (window.parent !== window) window.parent.postMessage(backgroundAck, '*');
+            return;
+          }
+          if (pendingLogoBackgroundRequest && pendingLogoBackgroundRequest.requestId !== e.data.requestId) {
+            postLogoBackgroundAck(pendingLogoBackgroundRequest, false, 'stale-request');
+          }
+          logoWhiteBackgroundEnabled = e.data.enabled !== false;
+          pendingLogoBackgroundRequest = {
+            requestId: e.data.requestId,
+            jobId: e.data.jobId || '',
+            loadSeq: e.data.loadSeq == null ? null : e.data.loadSeq,
+            sequence: sequence,
+          };
+          if (logoRenderState.zone !== backgroundZone) logoRenderState.zone = backgroundZone;
+          completePendingLogoBackground();
+          return;
+        }
+      }
+      if (window.parent !== window) window.parent.postMessage(backgroundAck, '*');
+      return;
+    }
+
     if (e.data.type === 'bn-logo' || e.data.type === 'bn-logos') {
       var zone = null;
       /* Search_Image2：依 logo index 分左右 zone */
@@ -358,9 +569,31 @@
       if (e.data.type === 'bn-logos') logos = e.data.logos || [];
       else if (e.data.dataUrl) logos = [{id:'single', src:e.data.dataUrl}];
 
+      if (pendingLogoBackgroundRequest) {
+        postLogoBackgroundAck(pendingLogoBackgroundRequest, false, 'stale-logo-render');
+        pendingLogoBackgroundRequest = null;
+      }
+      var currentLogoRenderGeneration = ++logoRenderGeneration;
+      logoRenderState = {
+        generation: currentLogoRenderGeneration,
+        zone: zone,
+        logos: logos,
+        dimensions: [],
+        bounds: originalLogoBounds(zone),
+        ready: false,
+        empty: !logos.length,
+        imagesValid: true,
+        trueSnapshot: null,
+      };
+
       Array.from(zone.querySelectorAll('img.bn-logo-img')).forEach(function(el){el.remove();});
 
-      if (!logos.length) { zone.style.display = 'none'; return; }
+      if (!logos.length) {
+        zone.style.display = 'none';
+        logoRenderState.ready = true;
+        completePendingLogoBackground();
+        return;
+      }
 
       var _logoConfig=(template&&template.logo)||{};
       var _logoStyle=_logoConfig.style||{};
@@ -382,18 +615,27 @@
       var _n = logos.length;
       var _ratios = logos.map(function(){ return 1; });
       var _loaded = 0;
+      var _loadFailed = false;
 
       logos.forEach(function(lg, i) {
         var tmp = new Image();
         tmp.onload = function() {
+          if (currentLogoRenderGeneration !== logoRenderGeneration) return;
           _ratios[i] = tmp.naturalWidth / (tmp.naturalHeight || 1);
+          logoRenderState.dimensions[i] = { width: tmp.naturalWidth, height: tmp.naturalHeight };
           if (++_loaded === _n) _renderTVBN();
         };
-        tmp.onerror = function() { if (++_loaded === _n) _renderTVBN(); };
+        tmp.onerror = function() {
+          if (currentLogoRenderGeneration !== logoRenderGeneration) return;
+          _loadFailed = true;
+          logoRenderState.imagesValid = false;
+          if (++_loaded === _n) _renderTVBN();
+        };
         tmp.src = lg.src;
       });
 
       function _renderTVBN() {
+        if (currentLogoRenderGeneration !== logoRenderGeneration) return;
         var pad = _HPAD * 2 + _GAP * Math.max(0,_n - 1);
         var sumR = _ratios.reduce(function(a, b){ return a + b; }, 0);
         var H = (pad + _HMAX * sumR > _MAXW) ? (_MAXW - pad) / sumR : _HMAX;
@@ -417,6 +659,11 @@
           zone.appendChild(img);
           x += widths[i] + _GAP;
         });
+        logoRenderState.imagesValid = !_loadFailed && logoRenderState.dimensions.length === _n;
+        logoRenderState.ready = true;
+        captureTrueLogoSnapshot(logoRenderState);
+        applyCurrentLogoPresentation(logoRenderState);
+        completePendingLogoBackground();
       }
     }
 
@@ -1732,7 +1979,7 @@
     zone.style.top            = top + 'px';
     zone.style.width          = width + 'px';
     zone.style.height         = height + 'px';
-    zone.style.background     = '#ffffff';
+    zone.style.background     = logoWhiteBackgroundEnabled ? '#ffffff' : 'transparent';
     zone.style.borderRadius   = borderRadius || '15px';
     zone.style.display        = 'flex';
     zone.style.alignItems     = 'center';
