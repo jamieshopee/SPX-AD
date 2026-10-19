@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 單張商品自動 contain 置中與 1人＋1品合併區域拖曳 - 2026-10-19
+
+Status：**Completed — Codex 靜態／針對性測試 PASS 與 Jamie Manual Validation PASS**
+Code Commit：`f208e6776cb0e12c114a8640081fb59ea47a161e`
+Commit subject：`feat: center and expand single product layouts`
+
+### Changed Behavior
+
+- 三商品版型只有 1 張商品 PNG 時，沿用既有 `threeProducts` 整體區域，依最終素材 ratio 等比 contain，水平與垂直幾何置中；寬或高先達邊界即停止，不變形、不裁切。
+- 1人＋1品版型只有 1 張商品 PNG 且沒有 Person 素材時，使用 Person 與 SingleProduct 的 bounding union，依最終素材 ratio 等比 contain，水平與垂直幾何置中。
+- 同一特殊情境下，匯入後商品未旋轉 box 可在 bounding union 內自由拖曳，並完整限制於合併區域內；未指定特殊 bounds 時沿用原本 SingleProduct zone 邊界。
+- 四種尺寸的核准 bounding union 為：`984×309`（`x488 y24 w370 h285`）、`1080×1920`（`x50 y720 w1025 h1200`）、`1599×1080`（`x771 y100 w800 h980`）、`3189×3992`（`x145 y1669 w2900 h2323`）。
+
+### Preserved Flow / Scope Boundary
+
+- 沿用既有 `autoTrim()`、Shadow 最終 ratio 與等比縮放；不修改影子生成規則。
+- 正常多商品、正常人物＋商品、其他版型、手動縮放／旋轉、layoutState restore、Preview／Export／Batch 與輸出流程維持原行為。layoutState restore 仍直接套用保存位置，不新增 clamp；旋轉仍沿用未旋轉 box 邊界規則。
+- 未修改商品分類、Template Registry、Project State／layoutState schema、Photoshop Automation、SPX Helper、Asset Resolver、Logo、文字、QR Code 或其他既有功能。
+
+### Validation
+
+- Codex 靜態與針對性測試 PASS。
+- Jamie Manual Validation PASS。
+
 ## Logo 白底開關、透明背景自動縮放與單行 Radio UI - 2026-10-18
 
 Status：**Completed — Browser Validation 與 Jamie Manual Validation PASS**

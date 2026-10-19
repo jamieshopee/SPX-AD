@@ -280,6 +280,8 @@ CSV 欄位：
 
 視覺排列由 `layout-runtime.js` 依 Template 控制。使用者可拖曳、縮放、旋轉，也可以調整前後順序（▲／▼，誰蓋住誰），也可以恢復預設位置。恢復預設位置會清除 user transform，重新套用 Template 初始排版。
 
+只有 1 張商品 PNG 時，三商品版型會在既有 `threeProducts` 整體區域內依最終素材比例等比 contain，水平與垂直幾何置中；寬或高先達邊界即停止，不變形、不裁切。正常 2～3 張商品的排列規則不變。
+
 每個 Job 的三商品共用商品影子狀態。新 Job 預設開啟；右側「商品圖」區塊可按「關閉商品影子」或「開啟商品影子」，主品、左配品、右配品會同步更新。此操作不改變商品 id、角色、前後順序、位置、尺寸或旋轉；切換 Job 後依各 Job 自己的狀態顯示。
 
 右側控制面板不提供「更新 Master Layout」或「套用 Master Layout」手動操作。Master Layout 仍由既有底層能力與 Smart Layout 自動 propagation 流程使用；Job／Template 切換不會重新產生這兩個按鈕。
@@ -307,6 +309,8 @@ Person：
 SingleProduct：
 
 - 初始尺寸由 `singleProduct.maxWidth / maxHeight` 控制。
+- 當只有 1 張商品 PNG 且沒有任何人物素材時，商品使用 Person＋SingleProduct 的整體 bounding union 進行初始等比 contain 與水平／垂直置中；匯入後未旋轉 box 可在同一合併區域內自由拖曳，並完整保持於區域內。四尺寸合併區域為：`984×309`（`x488 y24 w370 h285`）、`1080×1920`（`x50 y720 w1025 h1200`）、`1599×1080`（`x771 y100 w800 h980`）、`3189×3992`（`x145 y1669 w2900 h2323`）。
+- 上述特殊初始排版沿用既有 `autoTrim()`、Shadow 最終 ratio 與等比縮放；有 Person、非單張商品或未符合特殊條件時，維持原本 SingleProduct 區域與排列行為。layoutState restore 仍直接套用儲存位置，旋轉仍依未旋轉 box 邊界規則。
 - Template `singleProduct.autoShadow` 允許 Shadow 時，是否實際顯示再由目前 Job 的 `productShadowEnabled` 控制；新 Job 預設開啟。
 - 支援拖曳、縮放、旋轉與恢復預設位置。
 

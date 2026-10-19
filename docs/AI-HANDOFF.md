@@ -1,5 +1,13 @@
 # AI-HANDOFF.md
 
+## 單張商品自動 contain 置中與 1人＋1品合併區域拖曳完成（2026-10-19）
+
+- Code Commit：`f208e6776cb0e12c114a8640081fb59ea47a161e`（`feat: center and expand single product layouts`）。Codex 靜態與針對性測試 PASS；Jamie Manual Validation PASS。
+- Current Behavior：三商品只有 1 張商品 PNG 時，使用既有 `threeProducts` 整體區域，依最終素材 ratio 等比 contain 並水平／垂直置中。1人＋1品只有 1 張商品 PNG 且 `person === null` 時，使用核准的 Person＋SingleProduct bounding union，依最終素材 ratio 等比 contain 並水平／垂直置中；匯入後未旋轉 box 可在同一合併區域內自由拖曳且完整受限於該區域。
+- Approved Union：`984×309`=`x488 y24 w370 h285`；`1080×1920`=`x50 y720 w1025 h1200`；`1599×1080`=`x771 y100 w800 h980`；`3189×3992`=`x145 y1669 w2900 h2323`。
+- Preserved Flow：沿用既有 `autoTrim()`、Shadow 最終 ratio 與等比縮放；正常多商品、正常人物＋商品、其他版型、手動縮放／旋轉、layoutState restore 與輸出流程維持原行為。restore 仍直接套用保存位置，不新增 clamp；旋轉仍沿用未旋轉 box 邊界規則。
+- Scope Boundary：特殊拖曳 bounds 只在自動匯入 payload 帶有 `initialTarget` 時傳入；未提供特殊 bounds 時 `box-transform-utils.js` 維持原 zone bounds。未修改分類、Template Registry、Project State／layoutState schema、Photoshop Automation、SPX Helper、Asset Resolver、Logo、文字、QR Code 或其他既有功能。
+
 ## Logo 白底開關、透明背景自動縮放與單行 Radio UI 完成（2026-10-18）
 
 - Code Commits：`507a11423b8a03a8b9c9fd58d240bc1fe3cedb3c`（`feat: add per-job logo white background and transparent layout`）與 `3fa5b7a3119696e903b5a181e0d4ccf08255f326`（`feat: improve logo white background radio control`）。兩筆均已完成 Browser Validation 與 Jamie Manual Validation PASS。
