@@ -998,6 +998,40 @@
     var heightBottom = layoutCfg.layoutMode === 'heightBottom';
     var heightBodyCentered = layoutCfg.layoutMode === 'heightBodyCentered';
 
+    /* 單一商品的自動初始排版：使用既有 threeProducts 整體區域，
+       以最終素材畫布比例 contain 並幾何置中。多商品維持下方既有公式。 */
+    if (n === 1) {
+      var singleRatio = Math.max(0.1, parseFloat(allBoxes[0].dataset.ratio) || 0.75);
+      var singleWidth = zw;
+      var singleHeight = singleWidth / singleRatio;
+      if (singleHeight > zh) {
+        singleHeight = zh;
+        singleWidth = singleHeight * singleRatio;
+      }
+      singleWidth = Math.round(singleWidth);
+      singleHeight = Math.round(singleHeight);
+      var singleBox = allBoxes[0];
+      if (singleBox.dataset.userAdjusted !== '1') {
+        var singleRotation = parseFloat(singleBox.dataset.rotation || '0');
+        singleBox.style.cssText = [
+          'position:absolute;',
+          'left:'+Math.round((zw-singleWidth)/2)+'px;top:'+Math.round((zh-singleHeight)/2)+'px;',
+          'width:'+singleWidth+'px;height:'+singleHeight+'px;',
+          'cursor:move;box-sizing:border-box;',
+          'outline:2px solid transparent;',
+          'transform-origin:50% 50%;',
+          'z-index:15;',
+          singleRotation ? 'transform:rotate('+singleRotation+'deg);' : '',
+        ].join('');
+      }
+      var singleObjectPosition = layoutCfg.objectPosition || '';
+      if (singleObjectPosition) {
+        var singleImage = singleBox.querySelector('img');
+        if (singleImage) singleImage.style.objectPosition = singleObjectPosition;
+      }
+      return;
+    }
+
     /* 寬高比 */
     var ratios = boxes.map(function(b){ return Math.max(0.1, parseFloat(b.dataset.ratio)||0.75); });
     var baselines = boxes.map(function(b){

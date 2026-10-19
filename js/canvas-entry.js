@@ -390,12 +390,29 @@
         var zoneHeight = styleNumber(singleConfig.style, 'height', productZone.clientHeight || numberValue(singleDefaults.maxHeight, 0));
         if (!zoneWidth) zoneWidth = numberValue(singleDefaults.maxWidth, 0);
         if (!zoneHeight) zoneHeight = numberValue(singleDefaults.maxHeight, 0);
+        var initialTarget = data.initialTarget || null;
         var displayWidth = numberValue(data.displayW, zoneWidth);
         var displayHeight = numberValue(data.displayH, zoneHeight);
         var baseLeft = Math.max(0, (zoneWidth - displayWidth) / 2);
         var baseTop = Number(data.zoneHeight) > displayHeight
           ? Math.max(0, (zoneHeight - displayHeight) / 2)
           : 0;
+        if (initialTarget && data.ratio > 0) {
+          var targetWidth = numberValue(initialTarget.width, zoneWidth);
+          var targetHeight = numberValue(initialTarget.height, zoneHeight);
+          displayWidth = targetWidth;
+          displayHeight = displayWidth / Number(data.ratio);
+          if (displayHeight > targetHeight) {
+            displayHeight = targetHeight;
+            displayWidth = displayHeight * Number(data.ratio);
+          }
+          var zoneLeft = styleNumber(singleConfig.style, 'left', 0);
+          var zoneTop = styleNumber(singleConfig.style, 'top', 0);
+          baseLeft = numberValue(initialTarget.x, 0) - zoneLeft + (targetWidth - displayWidth) / 2;
+          baseTop = numberValue(initialTarget.y, 0) - zoneTop + (targetHeight - displayHeight) / 2;
+        }
+        displayWidth = Math.round(displayWidth);
+        displayHeight = Math.round(displayHeight);
         productZone.style.position = productZone.style.position || 'absolute';
         productZone.style.pointerEvents = 'auto';
         productZone.style.overflow = 'visible';
@@ -459,7 +476,7 @@
             minVisibleRatioX: 1,
             minVisibleRatioY: 1
           });
-          global.BNBoxTransformUtils.attachBoxTransform(box, productZone, {
+          var transformOptions = {
             role: 'singleProduct',
             configStyle: singleConfig.style || {},
             dragBounds: singleDragBounds,
@@ -467,7 +484,18 @@
               syncSingleProductGeometry(box, productZone);
               if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
             }
-          });
+          };
+          if (initialTarget) {
+            var targetZoneLeft = styleNumber(singleConfig.style, 'left', 0);
+            var targetZoneTop = styleNumber(singleConfig.style, 'top', 0);
+            transformOptions.localBounds = {
+              left: numberValue(initialTarget.x, 0) - targetZoneLeft,
+              top: numberValue(initialTarget.y, 0) - targetZoneTop,
+              width: numberValue(initialTarget.width, zoneWidth),
+              height: numberValue(initialTarget.height, zoneHeight)
+            };
+          }
+          global.BNBoxTransformUtils.attachBoxTransform(box, productZone, transformOptions);
         } else {
           console.warn('[Canvas] BNBoxTransformUtils 未載入，singleProduct 不啟用手動 transform。');
         }

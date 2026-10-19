@@ -32,6 +32,18 @@
     return null;
   }
 
+  function singleProductInitialTarget(templateJson, hasPerson, singleCount) {
+    if (hasPerson || singleCount !== 1) return null;
+    var size = String(templateJson.width || '') + 'x' + String(templateJson.height || '');
+    var targets = {
+      '984x309': { x: 488, y: 24, width: 370, height: 285 },
+      '1080x1920': { x: 50, y: 720, width: 1025, height: 1200 },
+      '1599x1080': { x: 771, y: 100, width: 800, height: 980 },
+      '3189x3992': { x: 145, y: 1669, width: 2900, height: 2323 }
+    };
+    return targets[size] || null;
+  }
+
   async function readSourceDataUrl(options) {
     var resolved = findResolvedAsset(options.resolvedAssets, options.role, options.filename, options.slot);
     if (resolved && resolved.dataUrl) {
@@ -165,6 +177,7 @@
     } else {
       var personCfg = (((templateJson.productZones || {}).person || {}).defaultLayout) || {};
       var singleCfg = (((templateJson.productZones || {}).singleProduct || {}).defaultLayout) || {};
+      var singleInitialTarget = singleProductInitialTarget(templateJson, !!info.person, info.singles.length);
 
       if (info.person) {
         try {
@@ -219,8 +232,12 @@
             finalSrc = shadowed.src;
             finalRatio = shadowed.ratio;
           }
-          var maxWidth = Number(singleCfg.maxWidth) || 0;
-          var maxHeight = Number(singleCfg.maxHeight) || 0;
+          var maxWidth = singleInitialTarget
+            ? singleInitialTarget.width
+            : (Number(singleCfg.maxWidth) || 0);
+          var maxHeight = singleInitialTarget
+            ? singleInitialTarget.height
+            : (Number(singleCfg.maxHeight) || 0);
           var displayW = maxWidth;
           var displayH = maxHeight;
           if (finalRatio > 0 && maxWidth > 0 && maxHeight > 0) {
@@ -238,6 +255,7 @@
             displayW: displayW,
             displayH: displayH,
             zoneHeight: singleCfg.maxHeight,
+            initialTarget: singleInitialTarget,
             objectFit: 'contain',
             filename: singleFile
           };
@@ -248,6 +266,7 @@
             displayW: displayW,
             displayH: displayH,
             zoneHeight: singleCfg.maxHeight,
+            initialTarget: singleInitialTarget,
             objectFit: 'contain'
           });
         } catch (error) {

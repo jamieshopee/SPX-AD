@@ -21,10 +21,17 @@
     var style = options.configStyle || {};
     var width = zone.offsetWidth || styleNumber(style, 'width', 0);
     var height = zone.offsetHeight || styleNumber(style, 'height', 0);
+    var localBounds = options.localBounds || null;
+    var boundsLeft = localBounds ? numberValue(localBounds.left, 0) : 0;
+    var boundsTop = localBounds ? numberValue(localBounds.top, 0) : 0;
+    var boundsWidth = localBounds ? numberValue(localBounds.width, width) : width;
+    var boundsHeight = localBounds ? numberValue(localBounds.height, height) : height;
     return {
       rect: rect,
-      width: width,
-      height: height,
+      width: Math.max(0, boundsWidth),
+      height: Math.max(0, boundsHeight),
+      boundsLeft: boundsLeft,
+      boundsTop: boundsTop,
       scale: width ? (rect.width / width || 1) : 1
     };
   }
@@ -63,10 +70,10 @@
     dragBounds = dragBounds || {};
     var visibleX = numberValue(dragBounds.minVisibleRatioX, 1);
     var visibleY = numberValue(dragBounds.minVisibleRatioY, 1);
-    var minLeft = -(width * (1 - visibleX));
-    var maxLeft = metrics.width - (width * visibleX);
-    var minTop = -(height * (1 - visibleY));
-    var maxTop = metrics.height - (height * visibleY);
+    var minLeft = metrics.boundsLeft - (width * (1 - visibleX));
+    var maxLeft = metrics.boundsLeft + metrics.width - (width * visibleX);
+    var minTop = metrics.boundsTop - (height * (1 - visibleY));
+    var maxTop = metrics.boundsTop + metrics.height - (height * visibleY);
     box.style.left = clamp(left, minLeft, Math.max(minLeft, maxLeft)) + 'px';
     box.style.top = clamp(top, minTop, Math.max(minTop, maxTop)) + 'px';
     box.style.width = width + 'px';
