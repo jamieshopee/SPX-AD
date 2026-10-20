@@ -1216,12 +1216,13 @@
     var singleState=single && window.BNBoxTransformUtils
       ? window.BNBoxTransformUtils.collectBoxTransform(single)
       : {};
+    var personBox=document.querySelector('#bn-zone-person .bn-person-transform-box');
+    var personState=personBox && window.BNBoxTransformUtils
+      ? window.BNBoxTransformUtils.collectBoxTransform(personBox)
+      : {};
     return {
       products:products,
-      person:personZone ? {
-        left:personZone.style.left||'',
-        top:personZone.style.top||''
-      } : {},
+      person:personZone ? personState : {},
       singleProduct:Object.assign(singleState,{
         offsetX:single ? (Number(single.dataset.offsetX)||0) : 0,
         offsetY:single ? (Number(single.dataset.offsetY)||0) : 0
@@ -1288,10 +1289,18 @@
       }
     }
     if(state&&state.person){
-      var personZone=document.getElementById('bn-zone-person');
-      if(personZone){
-        if(state.person.left) personZone.style.left=state.person.left;
-        if(state.person.top) personZone.style.top=state.person.top;
+      var personBox=document.querySelector('#bn-zone-person .bn-person-transform-box');
+      if(personBox && window.BNBoxTransformUtils){
+        var personState=Object.assign({},state.person);
+        var personStyle=((template.productZones||{}).person||{}).style||{};
+        var legacyPersonState=!personState.width && !personState.height;
+        if(!personState.width) personState.width=personBox.dataset.baseWidth || personBox.style.width;
+        if(!personState.height) personState.height=personBox.dataset.baseHeight || personBox.style.height;
+        if(legacyPersonState){
+          if(personState.left) personState.left=(parseFloat(personState.left)-styleNumber(personStyle,'left',0))+'px';
+          if(personState.top) personState.top=(parseFloat(personState.top)-styleNumber(personStyle,'top',0))+'px';
+        }
+        window.BNBoxTransformUtils.applyBoxTransform(personBox,personState);
       }
     }
     notifyLayoutState();

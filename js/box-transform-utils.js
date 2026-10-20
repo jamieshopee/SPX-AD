@@ -135,7 +135,7 @@
     box.style.boxSizing = 'border-box';
     if (!box.style.outline) box.style.outline = '2px solid transparent';
     ensureCornerHandles(box);
-    var rotHandle = ensureRotationHandle(box);
+    var rotHandle = options.disableRotation ? null : ensureRotationHandle(box);
 
     var dragBounds = options.dragBounds || {};
     var minWidth = numberValue(dragBounds.minWidth, 1);
@@ -300,6 +300,7 @@
       changed();
     }, { passive: false });
 
+    if (!rotHandle) return;
     rotHandle.addEventListener('pointerdown', function (event) {
       event.preventDefault();
       event.stopPropagation();

@@ -44,6 +44,17 @@
     return targets[size] || null;
   }
 
+  function personProductUnionTarget(templateJson) {
+    var size = String(templateJson.width || '') + 'x' + String(templateJson.height || '');
+    var targets = {
+      '984x309': { x: 488, y: 24, width: 370, height: 285 },
+      '1080x1920': { x: 50, y: 720, width: 1025, height: 1200 },
+      '1599x1080': { x: 771, y: 100, width: 800, height: 980 },
+      '3189x3992': { x: 145, y: 1669, width: 2900, height: 2323 }
+    };
+    return targets[size] || null;
+  }
+
   async function readSourceDataUrl(options) {
     var resolved = findResolvedAsset(options.resolvedAssets, options.role, options.filename, options.slot);
     if (resolved && resolved.dataUrl) {
@@ -178,6 +189,7 @@
       var personCfg = (((templateJson.productZones || {}).person || {}).defaultLayout) || {};
       var singleCfg = (((templateJson.productZones || {}).singleProduct || {}).defaultLayout) || {};
       var singleInitialTarget = singleProductInitialTarget(templateJson, !!info.person, info.singles.length);
+      var personProductUnion = personProductUnionTarget(templateJson);
 
       if (info.person) {
         try {
@@ -193,6 +205,7 @@
             person = {
               src: trimmedPerson.src,
               displayWidth: personCfg.fitWidth,
+              ratio: trimmedPerson.ratio,
               objectFit: 'contain',
               filename: info.person
             };
@@ -200,6 +213,8 @@
               type: 'bn-person-add',
               src: trimmedPerson.src,
               displayWidth: personCfg.fitWidth,
+              ratio: trimmedPerson.ratio,
+              personProductUnion: personProductUnion,
               objectFit: 'contain'
             });
           } else {

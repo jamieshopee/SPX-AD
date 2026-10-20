@@ -606,6 +606,7 @@ function readLayoutStateFromFrame(frameWindow) {
       userAdjusted: box.dataset.userAdjusted === '1',
     }));
     const personZone = doc.getElementById('bn-zone-person');
+    const personBox = doc.querySelector('#bn-zone-person .bn-person-transform-box');
     const single = doc.querySelector('#bn-zone-singleprod .bn-single-product-box');
     const singleProduct = single ? {
       left: single.style.left || '',
@@ -620,9 +621,14 @@ function readLayoutStateFromFrame(frameWindow) {
     } : {};
     return {
       products,
-      person: personZone ? {
-        left: personZone.style.left || '',
-        top: personZone.style.top || '',
+      person: personZone && personBox ? {
+        left: personBox.style.left || '',
+        top: personBox.style.top || '',
+        width: personBox.style.width || '',
+        height: personBox.style.height || '',
+        rotation: Number(personBox.dataset.rotation) || 0,
+        zIndex: personBox.style.zIndex || '',
+        userAdjusted: personBox.dataset.userAdjusted === '1',
       } : {},
       singleProduct,
     };
@@ -1727,6 +1733,8 @@ async function updateMainCanvasImageSourcesForJob(job, reason = '') {
     const personImg = doc.querySelector('#bn-zone-person img.bn-pp-img');
     if (personImg && payload.person?.src) {
       personImg.src = payload.person.src;
+      const personBox = personImg.closest('.bn-person-transform-box');
+      if (personBox && payload.person.ratio) personBox.dataset.ratio = String(payload.person.ratio);
       updatedImages.push(personImg);
       updated++;
     }
@@ -2028,6 +2036,7 @@ function saveJobManualRenderState(job, filename, slot, role) {
       filename: info.person,
       src: person.src,
       displayWidth: person.displayWidth,
+      ratio: person.ratio,
       objectFit: person.objectFit,
     };
   } else if (role === 'singleProduct') {
@@ -2080,11 +2089,13 @@ function applyJobManualRenderStateToPayload(job, payload) {
   if (person && person.filename === payload.info?.person && payload.person) {
     payload.person.src = person.src;
     payload.person.displayWidth = person.displayWidth;
+    payload.person.ratio = person.ratio || payload.person.ratio;
     payload.person.objectFit = person.objectFit;
     const message = (payload.messages || []).find(item => item.type === 'bn-person-add');
     if (message) {
       message.src = person.src;
       message.displayWidth = person.displayWidth;
+      message.ratio = person.ratio || message.ratio;
       message.objectFit = person.objectFit;
     }
   }
@@ -3490,6 +3501,7 @@ async function applyProductsToCanvas(productFilenames, options = {}) {
         window._bnPerson = {
           src: payload.person.src,
           displayWidth: payload.person.displayWidth,
+          ratio: payload.person.ratio,
           objectFit: payload.person.objectFit,
         };
         frameWindow.postMessage(message, '*');

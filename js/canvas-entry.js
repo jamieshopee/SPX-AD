@@ -204,68 +204,27 @@
     }
   }
 
-  function bindPersonVerticalDrag(personZone, personImg) {
-    if (!personZone || !personImg || personImg.dataset.bnPersonVerticalDragBound === '1') return;
-    if (personZone.dataset.bnPersonInitialTop === undefined) {
-      var initialTop = parseFloat(personZone.style.top);
-      personZone.dataset.bnPersonInitialTop = String(Number.isFinite(initialTop) ? initialTop : (personZone.offsetTop || 0));
-    }
-    personImg.dataset.bnPersonVerticalDragBound = '1';
-    personImg.draggable = false;
-    personImg.style.pointerEvents = 'auto';
-    personImg.style.touchAction = 'none';
-    personImg.style.cursor = 'ns-resize';
-    personImg.addEventListener('dragstart', function (event) {
-      event.preventDefault();
-    });
+  function personUnionLocalBounds(personZone, union) {
+    if (!personZone || !union) return null;
+    var personStyle = ((global.__BN_TEMPLATE__.productZones || {}).person || {}).style || {};
+    return {
+      left: numberValue(union.x, 0) - styleNumber(personStyle, 'left', 0),
+      top: numberValue(union.y, 0) - styleNumber(personStyle, 'top', 0),
+      width: numberValue(union.width, personZone.clientWidth || 0),
+      height: numberValue(union.height, personZone.clientHeight || 0)
+    };
+  }
 
-    var drag = null;
-
-    function finishDrag(event) {
-      if (!drag || (event.pointerId !== undefined && event.pointerId !== drag.pointerId)) return;
-      var moved = drag.moved;
-      var pointerId = drag.pointerId;
-      drag = null;
-      document.removeEventListener('pointermove', onPointerMove);
-      document.removeEventListener('pointerup', finishDrag);
-      document.removeEventListener('pointercancel', finishDrag);
-      if (personImg.hasPointerCapture && personImg.hasPointerCapture(pointerId)) {
-        personImg.releasePointerCapture(pointerId);
+  function bindPersonTransform(personZone, personBox, union) {
+    if (!personZone || !personBox || !global.BNBoxTransformUtils) return;
+    global.BNBoxTransformUtils.attachBoxTransform(personBox, personZone, {
+      role: 'person',
+      configStyle: ((global.__BN_TEMPLATE__.productZones || {}).person || {}).style || {},
+      localBounds: personUnionLocalBounds(personZone, union),
+      disableRotation: true,
+      onChange: function () {
+        if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
       }
-      if (moved && global._bnNotifyLayoutState) global._bnNotifyLayoutState();
-    }
-
-    function onPointerMove(event) {
-      if (!drag || event.pointerId !== drag.pointerId) return;
-      event.preventDefault();
-      var nextTop = Math.max(
-        drag.initialTop,
-        drag.startTop + ((event.clientY - drag.startClientY) / drag.scaleY)
-      );
-      if (nextTop !== drag.startTop) drag.moved = true;
-      personZone.style.top = nextTop + 'px';
-    }
-
-    personImg.addEventListener('pointerdown', function (event) {
-      if (drag || event.button !== 0 || event.isPrimary === false) return;
-      event.preventDefault();
-      var canvas = document.getElementById('canvas');
-      var canvasRect = canvas && canvas.getBoundingClientRect();
-      var scaleY = canvasRect && canvasRect.height && canvas.offsetHeight
-        ? canvasRect.height / canvas.offsetHeight
-        : 1;
-      drag = {
-        pointerId: event.pointerId,
-        startClientY: event.clientY,
-        startTop: parseFloat(personZone.style.top) || personZone.offsetTop || 0,
-        initialTop: Number(personZone.dataset.bnPersonInitialTop) || 0,
-        scaleY: scaleY || 1,
-        moved: false
-      };
-      if (personImg.setPointerCapture) personImg.setPointerCapture(event.pointerId);
-      document.addEventListener('pointermove', onPointerMove, { passive: false });
-      document.addEventListener('pointerup', finishDrag);
-      document.addEventListener('pointercancel', finishDrag);
     });
   }
 
@@ -278,38 +237,59 @@
       }
       if (data.type === 'bn-person-add') {
         var personZone = document.getElementById('bn-zone-person');
-        var existingPerson = personZone.querySelector('img.bn-pp-img');
-        var preservedTop = existingPerson ? personZone.style.top : null;
+        var existingPersonBox = personZone.querySelector('.bn-person-transform-box');
+        var preservedTransform = existingPersonBox && global.BNBoxTransformUtils
+          ? global.BNBoxTransformUtils.collectBoxTransform(existingPersonBox)
+          : null;
         var personConfig = ((global.__BN_TEMPLATE__ || {}).productZones || {}).person || {};
         var personDefaults = personConfig.defaultLayout || {};
         if (personDefaults.sizingMode === 'zone' || personDefaults.resetZoneOnUpload) {
           applyStyle(personZone, personConfig.style || {});
         }
-        if (preservedTop !== null && !data.manualReplace) personZone.style.top = preservedTop;
         personZone.innerHTML = '';
+        personZone.style.overflow = 'visible';
         var person = document.createElement('img');
         person.className = 'bn-pp-img';
         person.src = data.src;
-        person.style.width = numberValue(data.displayWidth, numberValue(personDefaults.fitWidth, styleNumber(personConfig.style, 'width', 1))) + 'px';
-        person.style.height = data.displayHeight
-          ? numberValue(data.displayHeight, numberValue(personDefaults.fitHeight, styleNumber(personConfig.style, 'height', 1))) + 'px'
-          : 'auto';
+        var personWidth = numberValue(data.displayWidth, numberValue(personDefaults.fitWidth, styleNumber(personConfig.style, 'width', 1)));
+        var personRatio = numberValue(data.ratio, 0);
+        var personHeight = data.displayHeight
+          ? numberValue(data.displayHeight, numberValue(personDefaults.fitHeight, styleNumber(personConfig.style, 'height', 1)))
+          : (personRatio > 0 ? personWidth / personRatio : numberValue(personDefaults.fitHeight, styleNumber(personConfig.style, 'height', 1)));
+        var personBox = document.createElement('div');
+        personBox.className = 'bn-person-transform-box';
+        personBox.style.position = 'absolute';
+        personBox.style.left = '0px';
+        personBox.style.top = '0px';
+        personBox.style.width = personWidth + 'px';
+        personBox.style.height = personHeight + 'px';
+        personBox.style.zIndex = '1';
+        personBox.style.overflow = 'visible';
+        personBox.dataset.ratio = String(personRatio || (personWidth / Math.max(1, personHeight)));
+        personBox.dataset.baseLeft = '0';
+        personBox.dataset.baseTop = '0';
+        personBox.dataset.baseWidth = String(personWidth);
+        personBox.dataset.baseHeight = String(personHeight);
+        person.draggable = false;
         person.style.objectFit = data.objectFit || personDefaults.objectFit || 'contain';
         person.style.display = 'block';
-        person.style.marginLeft = (data.marginLeft || 0) + 'px';
-        person.style.marginTop = (data.marginTop || 0) + 'px';
-        personZone.appendChild(person);
-        bindPersonVerticalDrag(personZone, person);
-        if (data.manualReplace) {
-          var manualReplaceInitialTop = Number(personZone.dataset.bnPersonInitialTop);
-          if (Number.isFinite(manualReplaceInitialTop)) personZone.style.top = manualReplaceInitialTop + 'px';
-          if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
+        person.style.width = '100%';
+        person.style.height = '100%';
+        person.style.pointerEvents = 'none';
+        personBox.appendChild(person);
+        personZone.appendChild(personBox);
+        bindPersonTransform(personZone, personBox, data.personProductUnion);
+        if (preservedTransform && preservedTransform.userAdjusted && global.BNBoxTransformUtils) {
+          global.BNBoxTransformUtils.applyBoxTransform(personBox, preservedTransform);
         }
+        if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
         personZone.style.display = 'block';
       }
       if (data.type === 'bn-person-remove') {
         var removePerson = document.getElementById('bn-zone-person');
         removePerson.innerHTML = '';
+        var removePersonConfig = ((global.__BN_TEMPLATE__ || {}).productZones || {}).person || {};
+        applyStyle(removePerson, removePersonConfig.style || {});
         removePerson.style.display = 'none';
       }
       if (data.type === 'bn-single-product-add') {
@@ -541,10 +521,14 @@
         }
       }
       if (data.type === 'bn-reset-person-position') {
-        var resetPersonZone = document.getElementById('bn-zone-person');
-        var resetPersonInitialTop = resetPersonZone && Number(resetPersonZone.dataset.bnPersonInitialTop);
-        if (resetPersonZone && Number.isFinite(resetPersonInitialTop)) {
-          resetPersonZone.style.top = resetPersonInitialTop + 'px';
+        var resetPersonBox = document.querySelector('#bn-zone-person .bn-person-transform-box');
+        if (resetPersonBox && global.BNBoxTransformUtils) {
+          global.BNBoxTransformUtils.resetTransform(resetPersonBox, {
+            left: Number(resetPersonBox.dataset.baseLeft) || 0,
+            top: Number(resetPersonBox.dataset.baseTop) || 0,
+            width: Number(resetPersonBox.dataset.baseWidth) || resetPersonBox.offsetWidth || 1,
+            height: Number(resetPersonBox.dataset.baseHeight) || resetPersonBox.offsetHeight || 1
+          });
           if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
         }
       }
