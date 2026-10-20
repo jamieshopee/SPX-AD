@@ -1,5 +1,14 @@
 # AI-HANDOFF.md
 
+## 1人＋1品 Person 自由拖曳與滾輪縮放完成（2026-10-20）
+
+- Code Commit：`d2ac7ae2e91d6c9482579c34b84bba001de303b6`（`feat: enable free person transform in single product layouts`）。Docs Commit：Pending。
+- Root Cause：舊 Person 使用 `canvas-entry.js` 的 Y-only controller，只能改變垂直位置，未接入共用 `BNBoxTransformUtils.attachBoxTransform()`，因此沒有 X/Y 拖曳、wheel 縮放或獨立 transform state。
+- Current Behavior：1人＋1品 Person 現在使用獨立 transform box，共用既有拖曳／縮放工具；可上下左右拖曳、以滑鼠滾輪等比例縮放，旋轉對 Person 停用。Person 與 SingleProduct 可重疊，圖層順序維持既有 Template 定義，Person 可跨越原 Person zone 且不受其 overflow 裁切。
+- Approved Union：`984×309`=`x488 y24 w370 h285`；`1080×1920`=`x50 y720 w1025 h1200`；`1599×1080`=`x771 y100 w800 h980`；`3189×3992`=`x145 y1669 w2900 h2323`。
+- Persistence／Compatibility：Person 的 `left`／`top`／`width`／`height`／`userAdjusted` 由既有 `layoutState` collect／restore 保存；Reset 還原初始位置與尺寸；手動換圖保留已調整 transform 並維持比例。舊 JSON 缺少尺寸時沿用原始初始尺寸，舊 Person zone absolute 座標會轉換為 box-local 座標；Project State version 維持 `5`。
+- Validation：Git Final Integrity Review、`git diff --check`、四尺寸 union geometry 核對、Canvas 本機 smoke test、Canvas 載入期間未觀察到 console error／warning、Jamie 第一輪人物操作 Manual Validation：PASS。四尺寸完整 Browser Regression、JSON Import／Export、Single-state／Project-state 實際匯入匯出、Batch Export、Preview／Thumbnail／PNG 全流程回歸：NOT RUN。
+
 ## 單張商品自動 contain 置中與 1人＋1品合併區域拖曳完成（2026-10-19）
 
 - Code Commit：`f208e6776cb0e12c114a8640081fb59ea47a161e`（`feat: center and expand single product layouts`）。Codex 靜態與針對性測試 PASS；Jamie Manual Validation PASS。

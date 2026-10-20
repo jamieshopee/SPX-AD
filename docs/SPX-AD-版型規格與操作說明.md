@@ -1,10 +1,12 @@
 # SPX AD 版型規格與操作說明
 
-Version: 2026.10.18-logo-white-background
-Last Updated: 2026-10-18
+Version: 2026.10.20-person-transform
+Last Updated: 2026-10-20
 Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數規格與操作流程。
 
 ## What's New
+
+- **1人＋1品 Person 自由拖曳與滾輪縮放（Code Commit `d2ac7ae2e91d6c9482579c34b84bba001de303b6`）**：Person 保留原有初始位置、尺寸與比例，現在可在 Canvas 以滑鼠上下左右拖曳並以滾輪等比例縮放。拖曳範圍為 Person＋Single Product union，可與商品重疊並跨越原 Person zone；Person 不旋轉，商品既有操作不變。Reset 還原人物初始位置與尺寸；手動換圖保留已調整 transform。位置、尺寸與 `userAdjusted` 由既有 layoutState 保存／還原，舊 JSON 缺少尺寸時維持相容。完整 Browser／Import／Export／Batch 回歸尚未執行。
 
 - **Logo 白底開關、透明背景自動縮放與單行 Radio UI（Code Commits `507a11423b8a03a8b9c9fd58d240bc1fe3cedb3c`、`3fa5b7a3119696e903b5a181e0d4ccf08255f326`）**：每個 Job 獨立保存 `logoWhiteBackgroundEnabled`，新 Job 與舊 Project State v5 缺欄位時預設開啟，Project Export／Import 會保存與還原。Logo Accordion 顯示單行「Logo 白底　◉ 開啟　○ 關閉」互斥 Radio，並依目前 Job 同步。白底開啟維持原本排版；關閉時背景透明，使用既有裁切後有效內容在原始 LOGO 範圍內等比最大化，不保留 `horizontalPadding`／`verticalPadding`，不裁切、不拉伸、不超出範圍；多張 Logo 保留排序、固定 gap、圓角並整組縮放，垂直置中。`1080×1920`、`3189×3992` 水平置中，`1599×1080`、`984×309` 水平靠左至原始 LOGO 範圍左緣；不以主標字形像素左緣為對齊基準，也不實作文字 Range 測量。特殊 Logo zone 不受影響。Browser Validation 與 Jamie Manual Validation PASS。
 
@@ -300,11 +302,10 @@ CSV 欄位：
 
 Person：
 
-- 由 Template 的 `person.fitWidth` 控制。
-- 可在中央 Canvas 上下微調位置；X 軸固定，不可左右拖曳。
-- 不支援縮放或旋轉，也不顯示 Transform handles。
-- Template 原始預設 top 是可上移的最上界；可由預設位置向下移動，並可向上移回預設位置，但不可超過該位置。
-- 點擊 1人＋1品區塊的「恢復預設位置」會回到 Template 預設 top；拖曳完成與 Reset 均沿用既有 layout state 保存 Person 位置。
+- 由 Template 的 `person.fitWidth` 建立初始尺寸與比例，並以獨立 transform box 顯示，不直接移動 Person zone。
+- 可在中央 Canvas 上下左右自由拖曳；拖曳 bounds 為該尺寸 Person zone 與 Single Product zone 的 union，人物不得完全移出此總區域。
+- 可使用滑鼠滾輪等比例縮放；不支援旋轉。人物可與商品重疊，並可跨越原 Person zone，不受原 zone `overflow:hidden` 裁切。
+- 點擊 1人＋1品區塊的「恢復預設位置」會回到 Template 初始位置與尺寸；拖曳、縮放、Reset 與手動換圖均由各自的 layoutState transform 保存／還原。
 
 SingleProduct：
 
@@ -316,7 +317,7 @@ SingleProduct：
 
 右側「1人＋1品」區塊的商品影子按鈕只控制 Single Product，與「商品圖」區塊共用同一 Job 狀態。Person 不受影響；開關 Shadow 不改變 Single Product 的位置、尺寸、旋轉或 handles。
 
-手動換圖（Person／Single Product 皆適用）：請使用已完成去背的 PNG。角色已有素材時，完整檔名必須與目前素材完全一致，包含大小寫及副檔名；只有角色尚無素材時才沿用既有 `_人`／`_品` 規則新增。實際格式、decode、autoTrim、Single Product shadow 與尺寸計算全部成功後才切換 Template mode／Accordion 並更新圖片；失敗時原圖、模式與 Accordion 均不變。Person 仍沿用既有 autoTrim、尺寸、比例與適配方式，換圖完成後位置回到 Template 預設 top，不保留換圖前的垂直微調位置；Single Product 則維持既有尺寸規則，依新圖比例重新調整大小，換圖前的位置與旋轉角度維持不變，仍可繼續拖曳、縮放、旋轉；Shadow 同時遵守 `singleProduct.autoShadow` 與目前 Job 的 `productShadowEnabled`，手動換圖不會把已關閉的 Shadow 重新開啟。下載單張暫存並重新開啟後，換圖結果維持一致，不會還原成換圖前的舊圖（Bug Fix，Commit `c390a61`、驗證修正 Commit `8cb7c27`）。同一頁面 session 中切換到其他 Job 再切回，Person 與 Single Product 仍使用各自 Job 的手動換入圖片；Person 的目前 Y 位置沿用既有 layout state，Single Product 尺寸不會重新放大（Bug Fix，Commit `4ff252f`、Person 位置控制 Commit `f890e73`）。
+手動換圖（Person／Single Product 皆適用）：請使用已完成去背的 PNG。角色已有素材時，完整檔名必須與目前素材完全一致，包含大小寫及副檔名；只有角色尚無素材時才沿用既有 `_人`／`_品` 規則新增。實際格式、decode、autoTrim、Single Product shadow 與尺寸計算全部成功後才切換 Template mode／Accordion 並更新圖片；失敗時原圖、模式與 Accordion 均不變。Person 仍沿用既有 autoTrim、尺寸、比例與適配方式，換圖完成後保留換圖前的 Person transform；Single Product 則維持既有尺寸規則，依新圖比例重新調整大小，換圖前的位置與旋轉角度維持不變，仍可繼續拖曳、縮放、旋轉；Shadow 同時遵守 `singleProduct.autoShadow` 與目前 Job 的 `productShadowEnabled`，手動換圖不會把已關閉的 Shadow 重新開啟。下載單張暫存並重新開啟後，換圖結果維持一致，不會還原成換圖前的舊圖（Bug Fix，Commit `c390a61`、驗證修正 Commit `8cb7c27`）。同一頁面 session 中切換到其他 Job 再切回，Person 與 Single Product 仍使用各自 Job 的手動換入圖片與各自 transform state。
 
 手動換圖 Picker 對使用者只宣告 PNG；Runtime 會依實際檔案內容確認 PNG／WebP Magic Number，並要求成功 decode，不以副檔名或 `File.type` 作為唯一依據。JPG／JPEG／GIF／BMP／AVIF、假 PNG、損壞或無法 decode 的圖片均拒絕。錯誤顯示於對應 Upload Box 下方，不使用彈跳視窗；再次選檔、成功或切換 Job 時自動清除。固定訊息如下：
 

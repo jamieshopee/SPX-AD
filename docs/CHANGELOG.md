@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## 1人＋1品 Person 自由拖曳與滾輪縮放 - 2026-10-20
+
+Status：**Completed — Final Integrity Review PASS；完整回歸項目仍有 NOT RUN**
+Code Commit：`d2ac7ae2e91d6c9482579c34b84bba001de303b6`
+Commit subject：`feat: enable free person transform in single product layouts`
+Docs Commit：Pending
+
+### Root Cause
+
+- 舊 Person 使用 Y-only controller，只能上下移動；未接入既有 `BNBoxTransformUtils.attachBoxTransform()`，因此沒有 X/Y 自由拖曳、wheel 縮放或獨立 transform state。
+
+### Changed Behavior
+
+- 1人＋1品 Person 改用獨立 transform box，保留匯入時原有初始位置、尺寸與視覺比例；支援 X/Y 拖曳與滑鼠滾輪等比例縮放，Person 不支援旋轉。
+- Person 拖曳 bounds 使用 Person zone 與 Single Product zone 的 union；允許與商品重疊，保留既有圖層順序，並可跨越原 Person zone 而不受其 `overflow:hidden` 裁切。
+- Person 與 SingleProduct 各自獨立操作、Reset、手動換圖及 layoutState 保存／還原。手動換圖保留 Person transform；舊 JSON 缺少 Person 尺寸欄位時沿用原始初始尺寸，舊 Person zone absolute 座標相容轉為 transform box local 座標。Project State version 維持 `5`。
+
+### Approved Geometry / Scope Boundary
+
+- 核准 union：`984×309`（`x488 y24 w370 h285`）、`1080×1920`（`x50 y720 w1025 h1200`）、`1599×1080`（`x771 y100 w800 h980`）、`3189×3992`（`x145 y1669 w2900 h2323`）。
+- 商品既有單商品置中、拖曳、縮放、旋轉及三商品操作不變；未修改其他版型、Template 定義、Assets、匯入流程或無關 render flow。未改動 `docs/DOCUMENTATION.md`。
+
+### Validation
+
+- PASS：Git Final Integrity Review、`git diff --check`、四尺寸 union geometry 核對、Canvas 本機 smoke test、Canvas 載入期間未觀察到 console error／warning、Jamie 第一輪人物操作 Manual Validation。
+- NOT RUN：四尺寸完整 Browser Regression、JSON Import／Export、Single-state／Project-state 實際匯入匯出、Batch Export、Preview／Thumbnail／PNG 全流程回歸。
+
 ## 單張商品自動 contain 置中與 1人＋1品合併區域拖曳 - 2026-10-19
 
 Status：**Completed — Codex 靜態／針對性測試 PASS 與 Jamie Manual Validation PASS**

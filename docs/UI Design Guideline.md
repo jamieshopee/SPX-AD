@@ -1,10 +1,12 @@
 # UI Design Guideline
 
-Version: 2026.08.07-job-product-shadow-toggle
-Last Updated: 2026-08-07
+Version: 2026.10.20-person-transform
+Last Updated: 2026-10-20
 Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
+
+- **1人＋1品 Person 自由拖曳與滾輪縮放（Code Commit `d2ac7ae2e91d6c9482579c34b84bba001de303b6`）**：Person 使用獨立 transform box，可上下左右拖曳及以滑鼠滾輪等比例縮放；不提供旋轉。拖曳 bounds 為 Person＋Single Product union，允許與商品重疊，跨越原 Person zone 時不被其 overflow 裁切。Reset 還原初始位置與尺寸，手動換圖保留已調整 transform；商品既有 handles、旋轉與操作不變。完整 Browser／Import／Export／Batch 回歸尚未執行。
 
 - **Logo 白底單行 Radio UI（Code Commits `507a11423b8a03a8b9c9fd58d240bc1fe3cedb3c`、`3fa5b7a3119696e903b5a181e0d4ccf08255f326`）**：Logo Accordion 內使用單行「Logo 白底　◉ 開啟　○ 關閉」互斥 Radio。預設選取「開啟」，選取狀態依 active Job 的 `logoWhiteBackgroundEnabled` 同步；沿用既有 toggle handler、深色樣式與右側欄寬度，不新增 Tooltip、Modal 或其他控制項。Browser Validation 與 Jamie Manual Validation PASS。
 
@@ -251,11 +253,11 @@ Accordion 規則：
 
 1人＋1品 Person 互動規格：
 
-- 僅允許 Y 軸上下微調，X 軸固定。
-- 不提供縮放、旋轉或 Transform handles。
-- Template 預設 top 是可上移的最上界；不新增下方限制。
-- 手動換 Person 圖片後回到 Template 預設 top，不保留換圖前的垂直微調位置。
-- Reset 與手動換圖只改變 Person top，不得改變圖片來源、透明裁切、尺寸、比例或適配方式。
+- Person 使用獨立 transform box；不直接移動 Person zone。
+- 支援 X/Y 自由拖曳與滑鼠滾輪等比例縮放；不提供旋轉 handle 或旋轉操作。
+- 拖曳 bounds 為該尺寸 Person zone 與 Single Product zone 的 union；人物可與商品重疊，且跨越原 Person zone 時不受其 overflow 裁切。
+- Reset 還原 Template 初始位置與尺寸；手動換 Person 圖片後保留既有位置與尺寸 transform，圖片仍維持等比例。
+- Person 與 Single Product 各自獨立操作與保存；Person 的 transform 由既有 layoutState 保存，商品旋轉與其他商品操作不受影響。
 
 商品圖區塊清單前後順序（▲／▼）：
 
