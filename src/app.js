@@ -147,6 +147,14 @@ const PLACEMENT_DISPLAY_NAME_ORDER = [
   '智取店繳費機 BN_3189x3992',
 ];
 
+const FINAL_PNG_MAX_BYTES = 4_000_000;
+const FORMAL_PNG_EXPORT_SIZES = new Set([
+  '1080x1920',
+  '3189x3992',
+  '1599x1080',
+  '984x309',
+]);
+
 window.addEventListener('resize', () => { if (frameReady) fitPreview(); });
 
 // ══════════════════════════════════════════════════════
@@ -4291,8 +4299,9 @@ async function batchRender() {
   el.batchJobLog.innerHTML = '';
   setBatchProgress(0, validJobs.length, `共 ${validJobs.length} 筆，準備中…`);
 
-  const completedPairs = [];
-  let done = 0, okCount = 0, errCount = 0;
+  const outputPairs = [];
+  const statusLines = [];
+  let done = 0, okCount = 0, pendingCount = 0, errCount = 0;
 
   try {
     for (const job of validJobs) {
@@ -4328,26 +4337,51 @@ async function batchRender() {
         delete state.jobs[0].thumbnail;
         const json = JSON.stringify(state, null, 2);
         const { pngFilename, jsonFilename } = batchOutputFilenames(job, done);
-        completedPairs.push({ pngFilename, pngDataUrl, jsonFilename, json });
-        addBatchLog(pngFilename, 'ok');
-        okCount++;
+        const pngResult = await prepareFinalPng(pngDataUrl);
+        const placementName = activePlacement?.name || job.placementId || '未知版位';
+        const status = pngResult.status === 'backup' ? '待人工壓縮' : '達標';
+        statusLines.push([
+          `版位名稱：${placementName}`,
+          `尺寸：${pngResult.width}×${pngResult.height}`,
+          `原始 PNG bytes：${pngResult.originalBytes}`,
+          `無損最佳化後 bytes：${pngResult.optimizedBytes ?? '未完成'}`,
+          `狀態：${status}`,
+          `原因：${pngResult.reason}`,
+          '',
+        ].join('\n'));
+        outputPairs.push({
+          pngFilename,
+          pngBlob: pngResult.blob,
+          jsonFilename,
+          json,
+          status: pngResult.status,
+        });
+        if (pngResult.status === 'backup') {
+          addBatchLog(pngFilename, 'err', '待人工壓縮');
+          pendingCount++;
+        } else {
+          addBatchLog(pngFilename, 'ok', `${pngResult.blob.size} bytes`);
+          okCount++;
+        }
       } catch (e) {
         addBatchLog(job.outputFilename || job.jobId || `job-${done + 1}`, 'err', e.message);
         errCount++;
       }
       done++;
-      setBatchProgress(done, validJobs.length, `已完成 ${done}/${validJobs.length}（成功 ${okCount}，失敗 ${errCount}）`);
+      setBatchProgress(done, validJobs.length, `已完成 ${done}/${validJobs.length}（達標 ${okCount}，待人工壓縮 ${pendingCount}，失敗 ${errCount}）`);
     }
 
-    if (completedPairs.length) {
+    if (outputPairs.length) {
       setBatchProgress(validJobs.length, validJobs.length, '打包完整專案 ZIP 中…');
       const zip = new JSZip();
-      completedPairs.forEach(pair => {
-        const b64 = dataUrlBase64(pair.pngDataUrl);
-        if (!b64) throw new Error(`${pair.pngFilename} PNG 資料無效`);
-        zip.file(pair.pngFilename, b64, { base64: true });
-        zip.file(pair.jsonFilename, pair.json);
+      outputPairs.forEach(pair => {
+        const target = pair.status === 'backup'
+          ? zip.folder('待人工壓縮')
+          : zip;
+        target.file(pair.pngFilename, pair.pngBlob);
+        target.file(pair.jsonFilename, pair.json);
       });
+      zip.file('輸出狀況.txt', statusLines.join('\n'), { binary: false });
       const blob = await zip.generateAsync({ type: 'blob' });
       downloadBlob(blob, `SPX AD_${new Date().toISOString().slice(5, 10)}.zip`);
     }
@@ -4370,9 +4404,14 @@ async function batchRender() {
 
   setBatchProgress(validJobs.length, validJobs.length,
     batchCancelled
-      ? `已取消。成功 ${okCount} 筆。`
-      : `完成！成功 ${okCount} 筆${errCount ? `，失敗 ${errCount} 筆` : ''}。`
+      ? `已取消。達標 ${okCount} 張，待人工壓縮 ${pendingCount} 張。`
+      : `完成！達標 ${okCount} 張，待人工壓縮 ${pendingCount} 張${errCount ? `，失敗 ${errCount} 筆` : ''}。`
   );
+  if (pendingCount) {
+    setStatus(`批次完成：達標 ${okCount} 張，待人工壓縮 ${pendingCount} 張。`, 'error');
+  } else if (!errCount && !batchCancelled) {
+    setStatus(`批次完成：達標 ${okCount} 張。`, 'success');
+  }
 }
 
 async function renderSingleJob(job) {
@@ -4557,6 +4596,148 @@ function safeZipSegment(name) {
     .replace(/[\\/:*?"<>|]+/g, '_')
     .replace(/^\.+/, '_')
     .slice(0, 120) || 'asset';
+}
+
+function readPngHeader(bytes) {
+  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  if (bytes.length < 26 || !signature.every((value, index) => bytes[index] === value)) {
+    throw new Error('PNG magic bytes 無效。');
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const width = view.getUint32(16);
+  const height = view.getUint32(20);
+  const bitDepth = bytes[24];
+  const colorType = bytes[25];
+  if (!width || !height) throw new Error('PNG 尺寸無效。');
+  return { width, height, bitDepth, colorType };
+}
+
+function sameBytes(left, right) {
+  if (!left || !right || left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
+}
+
+function decodePngRgba(bytes, expectedWidth, expectedHeight) {
+  if (!globalThis.UPNG) throw new Error('PNG 無損編碼器尚未載入。');
+  const sourceBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  const decoded = globalThis.UPNG.decode(sourceBuffer);
+  if (decoded.width !== expectedWidth || decoded.height !== expectedHeight) {
+    throw new Error(`PNG 解碼尺寸不一致：${decoded.width}×${decoded.height}。`);
+  }
+  const rgbaFrames = globalThis.UPNG.toRGBA8(decoded);
+  if (!rgbaFrames?.length) throw new Error('PNG RGBA 解碼失敗。');
+  return new Uint8Array(rgbaFrames[0]);
+}
+
+function validateLosslessPng(bytes, sourceRgba, width, height) {
+  const header = readPngHeader(bytes);
+  if (header.width !== width || header.height !== height) {
+    throw new Error(`PNG 輸出尺寸不一致：${header.width}×${header.height}。`);
+  }
+  if (![2, 6].includes(header.colorType) || header.bitDepth !== 8) {
+    throw new Error('PNG 輸出不是 8-bit RGB/RGBA truecolor。');
+  }
+  const decodedRgba = decodePngRgba(bytes, width, height);
+  if (!sameBytes(decodedRgba, sourceRgba)) {
+    throw new Error('PNG RGBA／alpha pixel 不一致。');
+  }
+  return header;
+}
+
+async function prepareFinalPng(dataUrl) {
+  const originalBlob = await fetch(dataUrl).then(response => response.blob());
+  const originalBytes = new Uint8Array(await originalBlob.arrayBuffer());
+  const header = readPngHeader(originalBytes);
+  const sizeKey = `${header.width}x${header.height}`;
+  const originalPng = new Blob([originalBytes], { type: 'image/png' });
+
+  if (!FORMAL_PNG_EXPORT_SIZES.has(sizeKey)) {
+    return {
+      blob: originalPng,
+      width: header.width,
+      height: header.height,
+      originalBytes: originalBytes.length,
+      optimizedBytes: null,
+      status: 'not-applicable',
+      reason: '非四個正式尺寸，沿用既有輸出流程。',
+    };
+  }
+
+  if (originalBytes.length <= FINAL_PNG_MAX_BYTES) {
+    return {
+      blob: originalPng,
+      width: header.width,
+      height: header.height,
+      originalBytes: originalBytes.length,
+      optimizedBytes: null,
+      status: 'compliant',
+      reason: '原始 PNG 已達容量上限，保留原始 bytes。',
+    };
+  }
+
+  let optimizedBytes = null;
+  let optimizedBlob = null;
+  try {
+    const sourceRgba = decodePngRgba(originalBytes, header.width, header.height);
+    if (!globalThis.UPNG) throw new Error('PNG 無損編碼器尚未載入。');
+    // ps=0 disables quantization; forbidPlte=true forces truecolor RGB/RGBA output.
+    optimizedBytes = new Uint8Array(globalThis.UPNG.encode(
+      [sourceRgba.buffer],
+      header.width,
+      header.height,
+      0,
+      undefined,
+      true,
+    ));
+    validateLosslessPng(optimizedBytes, sourceRgba, header.width, header.height);
+    optimizedBlob = new Blob([optimizedBytes], { type: 'image/png' });
+  } catch (error) {
+    return {
+      blob: originalPng,
+      width: header.width,
+      height: header.height,
+      originalBytes: originalBytes.length,
+      optimizedBytes: optimizedBlob?.size || optimizedBytes?.length || null,
+      status: 'backup',
+      reason: `無損最佳化失敗：${error.message}`,
+    };
+  }
+
+  if (optimizedBlob.size > FINAL_PNG_MAX_BYTES) {
+    return {
+      blob: originalPng,
+      width: header.width,
+      height: header.height,
+      originalBytes: originalBytes.length,
+      optimizedBytes: optimizedBlob.size,
+      status: 'backup',
+      reason: `無損最佳化後仍超過 ${FINAL_PNG_MAX_BYTES} bytes。`,
+    };
+  }
+  if (optimizedBlob.size >= originalBytes.length) {
+    return {
+      blob: originalPng,
+      width: header.width,
+      height: header.height,
+      originalBytes: originalBytes.length,
+      optimizedBytes: optimizedBlob.size,
+      status: 'backup',
+      reason: '無損最佳化結果未小於原始 PNG。',
+    };
+  }
+
+  return {
+    blob: optimizedBlob,
+    width: header.width,
+    height: header.height,
+    originalBytes: originalBytes.length,
+    optimizedBytes: optimizedBlob.size,
+    status: 'compliant',
+    reason: '無損最佳化驗證通過且容量達標。',
+  };
 }
 
 function assetCategoryForFilename(filename, role = '') {
@@ -5183,11 +5364,20 @@ async function downloadCurrentBanner() {
   const dataUrl = await captureFromCanvasFrame(18000);
   if (!dataUrl) { setStatus('截圖失敗，請確認模板已就緒。', 'error'); return; }
   const job = jobs.find(j => j.id === activeJobId);
-  const a   = document.createElement('a');
-  a.href     = dataUrl;
-  a.download = job?.outputFilename || 'banner.png';
-  a.click();
-  setStatus('下載完成。', 'success');
+  try {
+    const pngResult = await prepareFinalPng(dataUrl);
+    downloadBlob(pngResult.blob, job?.outputFilename || 'banner.png');
+    if (pngResult.status === 'backup') {
+      setStatus(
+        `已下載原始 PNG（${pngResult.originalBytes} bytes），超過 ${FINAL_PNG_MAX_BYTES} bytes，需要人工壓縮；此檔案不屬於正式達標輸出。`,
+        'error',
+      );
+    } else {
+      setStatus(`下載完成（${pngResult.blob.size} bytes）。`, 'success');
+    }
+  } catch (error) {
+    setStatus(`PNG 下載失敗：${error.message}`, 'error');
+  }
 }
 
 // ══════════════════════════════════════════════════════
