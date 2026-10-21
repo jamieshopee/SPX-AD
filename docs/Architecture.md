@@ -1,12 +1,14 @@
 # Architecture
 
 Version: v0.6.1（Product Host `0.6.1`；Runtime Productization Phase 3 macOS Packaging Completed；Next: Phase 4 — Update + Uninstall）
-Last Updated: 2026-10-20
+Last Updated: 2026-10-21
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界、新增 Style 流程，以及 SPX Helper / Photoshop Automation / AI Workflow / QR Code 架構。
 
 SPX Helper Core（功能 Commit `9a71794`）、Runtime Productization Phase 1 Foundation（功能 Commit `51c4828`）、Phase 2 Windows Packaging（功能 Commit `9240504`）與 Phase 3 macOS Packaging（功能 Commit `ee55dd527a00361f1155ba45713ff2ce3957b06c`）均已完成。Phase 3 以 PyInstaller 建立 `SPX Helper.app`，並由 PKG 固定安裝到 `/Applications/SPX Helper.app`；LaunchAgent 提供登入自動啟動。macOS local build／install 與 Jamie Manual Validation 已完成，正式 GitHub Pages → SPX Helper → Photoshop → Processed PNG PASS。Developer ID signing 與 Apple Notarization 因缺少 credentials 尚未驗證。下一步為尚未開始的 Phase 4 Update + Uninstall；Phase 5 Final Validation 亦尚未開始。
 
 ## What's New
+
+- **PNG 4 MB 無損最佳化與超標備援（功能 Commit `ee24029cf41636a3ad63ab0afe4d9949f17d867a`）**：四個正式尺寸 `1080×1920`、`3189×3992`、`1599×1080`、`984×309` 的單張最終 PNG 與 Batch ZIP 最終 PNG 共用 `src/app.js` 的最終 PNG 準備／驗證邊界。原始 PNG `<= 4,000,000 bytes` 時直接保留原始 bytes；超標才沿用既有 `captureFromCanvasFrame()` PNG data URL，解碼暫時 RGBA 後呼叫 `UPNG.encode([rgba.buffer], width, height, 0, undefined, true)`，並驗證 PNG magic bytes、IHDR 尺寸、RGBA／alpha pixel-exact 與實際 Blob bytes。只有驗證成功且結果 `<= 4,000,000 bytes` 才輸出最佳化 PNG；結果變大、仍超標、失敗或驗證未通過時保留原始 PNG 作為待人工壓縮備援。Batch 逐張序列處理，備援 PNG／JSON 放入 `待人工壓縮/`，根目錄輸出 `輸出狀況.txt`；`exportProjectZip()`、processed assets、Photoshop Automation、SPX Helper、Preview、Project State、Renderer 與 iframe capture contract 不在此邊界。UPNG／pako 與授權檔來自 SPX 參考專案 `快速取件/js/vendor/`；不使用有損壓縮、indexed quantization、palette 降色、dithering、Worker 或 WASM。Codex 自動化測試與 Jamie Manual Validation PASS；Safari／Chrome 個別結果未宣稱 PASS。
 
 - **1人＋1品 Person 自由拖曳與滾輪縮放（功能 Commit `d2ac7ae2e91d6c9482579c34b84bba001de303b6`）**：`js/canvas-entry.js` 為 Person 建立獨立 transform box，與 SingleProduct 共用 `BNBoxTransformUtils.attachBoxTransform()`；Person 支援 X/Y 拖曳與 wheel 等比例縮放，旋轉以可選參數停用，不影響商品。Person transform bounds 使用 Person zone 與 SingleProduct zone 的 union，並將 Person zone overflow 設為可跨區域顯示；Template 圖層順序與兩者可重疊行為不變。`js/layout-runtime.js` 透過既有 `layoutState` collect／restore 保存位置、尺寸與 `userAdjusted`，舊 JSON 缺少尺寸時沿用初始尺寸並相容舊 Person zone absolute 座標；Project State version 維持 `5`。完整 Browser／Import／Export／Batch 回歸尚未執行。
 

@@ -1,10 +1,12 @@
 # UI Design Guideline
 
 Version: 2026.10.20-person-transform
-Last Updated: 2026-10-20
+Last Updated: 2026-10-21
 Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
+
+- **PNG 4 MB 輸出狀態與超標備援（Code Commit `ee24029cf41636a3ad63ab0afe4d9949f17d867a`）**：四個正式尺寸的單張最終 PNG 與 Batch ZIP 最終 PNG 以實際 bytes 套用 `4,000,000 bytes` 上限。單張無損最佳化失敗或仍超標時，下載動作顯示明確的超標／待人工壓縮警告，不把備援檔案標示為正式達標。Batch 完成狀態顯示達標、待人工壓縮與真正輸出失敗數量，並列出待處理版位；待人工壓縮的原始 PNG／JSON 位置與 `輸出狀況.txt` 由輸出規格定義。Preview、Canvas 編輯操作與其他 Project／Export UI 不受影響。Jamie Manual Validation PASS；Safari／Chrome 個別結果未宣稱 PASS。
 
 - **1人＋1品 Person 自由拖曳與滾輪縮放（Code Commit `d2ac7ae2e91d6c9482579c34b84bba001de303b6`）**：Person 使用獨立 transform box，可上下左右拖曳及以滑鼠滾輪等比例縮放；不提供旋轉。拖曳 bounds 為 Person＋Single Product union，允許與商品重疊，跨越原 Person zone 時不被其 overflow 裁切。Reset 還原初始位置與尺寸，手動換圖保留已調整 transform；商品既有 handles、旋轉與操作不變。完整 Browser／Import／Export／Batch 回歸尚未執行。
 

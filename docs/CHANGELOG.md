@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## PNG 4 MB 無損最佳化與超標備援 - 2026-10-21
+
+Status：**Completed — Codex 自動化測試與 Diff Review PASS；Jamie Manual Validation PASS；Safari／Chrome 個別瀏覽器結果未宣稱**
+Code Commit：`ee24029cf41636a3ad63ab0afe4d9949f17d867a`
+Commit subject：`feat: add lossless PNG optimization with 4MB fallback`
+Docs Commit：Pending
+
+### Changed Behavior
+
+- 僅四個正式尺寸 `1080×1920`、`3189×3992`、`1599×1080`、`984×309` 的單張最終 PNG 下載與 Batch ZIP 內最終 PNG 受每張 `4,000,000 bytes` 上限約束；不套用至 Project ZIP、`exportProjectZip()`、processed assets、Photoshop Automation、SPX Helper、Preview 或編輯中的 Canvas。
+- 原始 PNG 已不超過上限時直接保留原始 PNG bytes，不重新編碼。超標時沿用既有 PNG Capture data URL，解碼為暫時 RGBA，使用 `UPNG.encode([rgba.buffer], width, height, 0, undefined, true)` 做非 palette、非量化的真正無損最佳化。
+- 最佳化結果必須通過 PNG magic bytes、IHDR 尺寸、RGBA／alpha pixel-exact 與實際 bytes 驗證，且不得超過上限，才可作為正式輸出。最佳化後仍超標、失敗或結果變大時保留原始 PNG，標示為「待人工壓縮」，不得視為正式達標。
+- 單張超標備援下載會顯示超過上限、需要人工壓縮且不屬於正式達標輸出的警告。Batch ZIP 逐張依序處理；達標 PNG／JSON 維持正常位置與 basename 配對，超標原始 PNG／JSON 放入 `待人工壓縮/`，根目錄新增 UTF-8 `輸出狀況.txt`，完成畫面顯示達標、待人工壓縮與真正輸出失敗數量。無損後仍超標不計為真正輸出失敗；即使全部為備援仍可下載 ZIP。
+
+### Preserved Boundary
+
+- 未修改 Project State、Template、Logo 白底開關、人物與商品自由變形、文字、Preview、Renderer、iframe capture contract、Project ZIP、processed assets、Photoshop Automation、SPX Helper 或其他尺寸／格式輸出。
+- 不使用 JPG、WebP、有損壓縮、indexed quantization、palette 降色、dithering、Worker 或 WASM；UPNG／pako vendor 與授權檔來自 SPX 參考專案 `快速取件/js/vendor/`。
+
+### Validation / Exception
+
+- Codex 自動化測試與 Code Diff Review：PASS；Jamie 實際操作驗證：PASS。Safari／Chrome 個別結果未有明確測試證據，未宣稱 PASS。
+- 唯一 Approved Third-Party Vendor Whitespace Exception：`git diff --check HEAD^ HEAD` 實際為 `FAIL`、exit `2`，僅因 `js/vendor/upng.js` 上游既有 trailing whitespace 與 EOF blank line；SPX AD UPNG 與參考檔案 SHA-256 一致。此例外僅適用本次 Code Commit，不是未來通用例外。
+
 ## 1人＋1品 Person 自由拖曳與滾輪縮放 - 2026-10-20
 
 Status：**Completed — Final Integrity Review PASS；完整回歸項目仍有 NOT RUN**

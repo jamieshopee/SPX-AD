@@ -1,10 +1,13 @@
 # SPX AD 版型規格與操作說明
 
 Version: 2026.10.20-person-transform
-Last Updated: 2026-10-20
+Last Updated: 2026-10-21
 Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數規格與操作流程。
 
 ## What's New
+
+- **PNG 4 MB 無損最佳化與超標備援（Code Commit `ee24029cf41636a3ad63ab0afe4d9949f17d867a`）**：四個正式尺寸 `1080×1920`、`3189×3992`、`1599×1080`、`984×309` 的單張最終 PNG 下載與批次產圖 ZIP 內最終 PNG，每張上限為 `4,000,000 bytes`。原始 PNG 達標時直接保留原始 bytes；超標時才進行真正無損最佳化，驗證 PNG 格式、原始尺寸、RGBA／alpha 與實際 bytes，只有最佳化後達標才視為正式輸出。最佳化失敗、仍超標或結果變大時保留原始 PNG並明確標示「待人工壓縮」，不改變畫布尺寸、解析度、透明度、文字、Logo、人物或商品配置。
+- 單張超標備援會明確警告檔案超過上限且不屬於正式達標輸出。批次 ZIP 中，達標 PNG／JSON 維持原本位置與 basename 配對；待人工壓縮的原始 PNG／JSON 放入 `待人工壓縮/`，根目錄附 `輸出狀況.txt`，完成畫面顯示達標、待人工壓縮與真正輸出失敗數量。此規則不適用完整專案 ZIP／`exportProjectZip()`、processed assets、Photoshop Automation、SPX Helper、Preview 或 Project State。
 
 - **1人＋1品 Person 自由拖曳與滾輪縮放（Code Commit `d2ac7ae2e91d6c9482579c34b84bba001de303b6`）**：Person 保留原有初始位置、尺寸與比例，現在可在 Canvas 以滑鼠上下左右拖曳並以滾輪等比例縮放。拖曳範圍為 Person＋Single Product union，可與商品重疊並跨越原 Person zone；Person 不旋轉，商品既有操作不變。Reset 還原人物初始位置與尺寸；手動換圖保留已調整 transform。位置、尺寸與 `userAdjusted` 由既有 layoutState 保存／還原，舊 JSON 缺少尺寸時維持相容。完整 Browser／Import／Export／Batch 回歸尚未執行。
 
@@ -526,6 +529,12 @@ Completion Screen 不提供 Review Decision Undo。AI Workflow 進入 `Completed
 ## Project Persistence / 完整專案保存
 
 Project Persistence 的使用原則是：Project Save = Workspace Save。
+
+### 單張下載與批次產圖 PNG 容量規則
+
+- 本規則只適用四個正式尺寸的單張最終 PNG 下載與 Batch ZIP 內最終 PNG；完整專案 ZIP 與 `exportProjectZip()` 維持既有 Project State／single-state 流程，不套用此容量控制。
+- 上限是每張實際 PNG `4,000,000 bytes`。達標的原始 PNG 不重新編碼；超標才嘗試真正無損最佳化，輸出前必須確認 PNG magic bytes、原始寬高、RGBA／alpha pixel-exact 與實際 bytes。
+- 無損最佳化未達標、失敗或結果變大時，單張允許原圖備援但必須明確警告；Batch 將原圖與對應 JSON 放入 `待人工壓縮/`，並在 `輸出狀況.txt` 記錄逐張結果。這類檔案不得標示為正式達標。
 
 ### Download Complete Project
 

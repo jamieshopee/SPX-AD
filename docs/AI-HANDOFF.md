@@ -1,5 +1,13 @@
 # AI-HANDOFF.md
 
+## PNG 4 MB 無損最佳化與超標備援完成（2026-10-21）
+
+- Code Commit：`ee24029cf41636a3ad63ab0afe4d9949f17d867a`（`feat: add lossless PNG optimization with 4MB fallback`）。Docs Commit：Pending。
+- Current Behavior：四個正式尺寸 `1080×1920`、`3189×3992`、`1599×1080`、`984×309` 的單張最終 PNG 下載與 Batch ZIP 最終 PNG，每張以實際 PNG bytes 判斷 `4,000,000 bytes` 上限。原始 PNG 達標時保留原始 bytes；超標才以既有 Capture PNG data URL 解碼 RGBA，呼叫 `UPNG.encode([rgba.buffer], width, height, 0, undefined, true)`，驗證 PNG 格式、尺寸、RGBA／alpha pixel-exact 與 Blob bytes 後，僅在達標時使用最佳化結果。
+- Failure / Fallback：最佳化後仍超標、失敗或結果變大時保留原始 PNG並標示「待人工壓縮」。單張顯示超標警告；Batch 逐張處理，達標 PNG／JSON 維持 basename 配對，備援 PNG／JSON 放入 `待人工壓縮/`，根目錄加入 `輸出狀況.txt`，完成畫面顯示達標、待人工壓縮與真正失敗數量；無損後仍超標不計為真正輸出失敗。
+- Scope Boundary：不適用 Project ZIP、`exportProjectZip()`、processed assets、Photoshop Automation、SPX Helper、Preview、Renderer、iframe capture contract、Project State、Template、Logo、人物、商品、文字或其他尺寸／格式流程；不使用有損壓縮、indexed quantization、palette 降色、dithering、Worker 或 WASM。
+- Validation：Codex 自動化測試與 Code Diff Review PASS；Jamie Manual Validation PASS。Safari／Chrome 個別測試結果未有明確證據，未宣稱 PASS。UPNG／pako 與授權檔來自 SPX 參考專案 `快速取件/js/vendor/`。Code Commit 的唯一 Approved Third-Party Vendor Whitespace Exception 為 UPNG 上游既有 trailing whitespace 與 EOF blank line，`git diff --check HEAD^ HEAD` 實際為 FAIL exit 2；SPX AD 與參考 UPNG SHA-256 一致，此例外不擴大為通用規則。
+
 ## 1人＋1品 Person 自由拖曳與滾輪縮放完成（2026-10-20）
 
 - Code Commit：`d2ac7ae2e91d6c9482579c34b84bba001de303b6`（`feat: enable free person transform in single product layouts`）。Docs Commit：Pending。
