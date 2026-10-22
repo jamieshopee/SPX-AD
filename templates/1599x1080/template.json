@@ -235,6 +235,13 @@
         },
         "autoShadow": true
       }
+    },
+    "twoPersons": {
+      "className": "雙人範圍",
+      "style": { "position": "absolute", "left": "0px", "top": "0px", "width": "1599px", "height": "1080px", "zIndex": "21", "overflow": "visible", "display": "none", "pointerEvents": "none" },
+      "operationRect": { "x": 771, "y": 100, "width": 800, "height": 980 },
+      "defaultFront": "left",
+      "slots": { "left": { "x": 771, "y": 100, "width": 395, "height": 980, "zIndex": 23 }, "right": { "x": 1176, "y": 100, "width": 395, "height": 980, "zIndex": 22 } }
     }
   },
   "qrZone": {

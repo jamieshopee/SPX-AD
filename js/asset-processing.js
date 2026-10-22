@@ -51,8 +51,54 @@
     });
   }
 
+  function analyzeAlphaBounds(dataUrl) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () {
+        var w = img.naturalWidth;
+        var h = img.naturalHeight;
+        var c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        var ctx = c.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0);
+        var d = ctx.getImageData(0, 0, w, h).data;
+        var top = h;
+        var bottom = -1;
+        var left = w;
+        var right = -1;
+        for (var y = 0; y < h; y++) {
+          for (var x = 0; x < w; x++) {
+            var i = (y * w + x) * 4;
+            if (d[i + 3] <= 0) continue;
+            if (y < top) top = y;
+            if (y > bottom) bottom = y;
+            if (x < left) left = x;
+            if (x > right) right = x;
+          }
+        }
+        resolve({
+          src: dataUrl,
+          sourceWidth: w,
+          sourceHeight: h,
+          visible: bottom < 0 || right < 0 ? null : {
+            x: left,
+            y: top,
+            width: right - left + 1,
+            height: bottom - top + 1
+          }
+        });
+      };
+      img.onerror = function () {
+        resolve({ src: dataUrl, sourceWidth: 0, sourceHeight: 0, visible: null });
+      };
+      img.src = dataUrl;
+    });
+  }
+
   global.BNAssetProcessing = {
     autoTrim: autoTrim,
-    trimImage: autoTrim
+    trimImage: autoTrim,
+    analyzeAlphaBounds: analyzeAlphaBounds
   };
 })(window);

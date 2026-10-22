@@ -95,6 +95,16 @@
       if (key === 'person') zone.style.pointerEvents = 'none';
       canvas.appendChild(zone);
     });
+    var twoConfig = (template.productZones || {}).twoPersons;
+    if (twoConfig) {
+      var twoZone = document.createElement('div');
+      twoZone.id = 'bn-zone-two-persons';
+      twoZone.className = twoConfig.className;
+      applyStyle(twoZone, twoConfig.style || {});
+      twoZone.style.pointerEvents = 'none';
+      twoZone.dataset.front = twoConfig.defaultFront === 'right' ? 'right' : 'left';
+      canvas.appendChild(twoZone);
+    }
   }
 
   function applyAssets(template) {
@@ -138,6 +148,93 @@
     global.__BN_TEMPLATE__ = global.ADTemplateLoader && global.__BN_TEMPLATE__
       ? global.ADTemplateLoader.applyStyle(global.__BN_TEMPLATE__, style)
       : global.__BN_TEMPLATE__;
+  }
+
+  function positiveIntersection(left, top, width, height, rect) {
+    if (!rect || ![left, top, width, height].every(Number.isFinite)) return false;
+    var right = left + width;
+    var bottom = top + height;
+    var rectRight = Number(rect.x) + Number(rect.width);
+    var rectBottom = Number(rect.y) + Number(rect.height);
+    return Math.min(right, rectRight) - Math.max(left, Number(rect.x)) > 0 &&
+      Math.min(bottom, rectBottom) - Math.max(top, Number(rect.y)) > 0;
+  }
+
+  function setTwoPersonFront(zone, front) {
+    if (!zone || (front !== 'left' && front !== 'right')) return;
+    var left = zone.querySelector('[data-two-person-slot="left"]');
+    var right = zone.querySelector('[data-two-person-slot="right"]');
+    if (!left || !right) return;
+    left.style.zIndex = front === 'left' ? '23' : '22';
+    right.style.zIndex = front === 'right' ? '23' : '22';
+    zone.dataset.front = front;
+  }
+
+  function addTwoPersonItem(data) {
+    var zone = document.getElementById('bn-zone-two-persons');
+    var item = data.item || {};
+    var config = ((global.__BN_TEMPLATE__ || {}).productZones || {}).twoPersons || {};
+    var operationRect = config.operationRect || item.operationRect;
+    var canvasWidth = numberValue((global.__BN_TEMPLATE__ || {}).width, Number(document.body.dataset.fw));
+    var canvasHeight = numberValue((global.__BN_TEMPLATE__ || {}).height, Number(document.body.dataset.fh));
+    if (!zone || !item.target || !item.image) return;
+    var target = item.target;
+    var image = item.image;
+    var slot = data.slot === 'right' ? 'right' : 'left';
+    var old = zone.querySelector('[data-two-person-slot="' + slot + '"]');
+    if (old) old.remove();
+    var box = document.createElement('div');
+    box.className = 'bn-two-person-transform-box';
+    box.dataset.twoPersonSlot = slot;
+    box.dataset.baseLeft = String(target.x);
+    box.dataset.baseTop = String(target.y);
+    box.dataset.baseWidth = String(target.width);
+    box.dataset.baseHeight = String(target.height);
+    box.dataset.ratio = String(target.width / Math.max(1, target.height));
+    box.style.position = 'absolute';
+    box.style.left = target.x + 'px';
+    box.style.top = target.y + 'px';
+    box.style.width = target.width + 'px';
+    box.style.height = target.height + 'px';
+    box.style.overflow = 'visible';
+    box.style.boxSizing = 'border-box';
+    box.style.zIndex = String(Number(item.zIndex) || (slot === 'left' ? 22 : 21));
+    var imageNode = document.createElement('img');
+    imageNode.className = 'bn-two-person-img';
+    imageNode.src = item.src;
+    imageNode.draggable = false;
+    imageNode.style.position = 'absolute';
+    imageNode.style.left = ((image.left - target.x) / target.width * 100) + '%';
+    imageNode.style.top = ((image.top - target.y) / target.height * 100) + '%';
+    imageNode.style.width = (image.width / target.width * 100) + '%';
+    imageNode.style.height = (image.height / target.height * 100) + '%';
+    imageNode.style.maxWidth = 'none';
+    imageNode.style.maxHeight = 'none';
+    imageNode.style.display = 'block';
+    imageNode.style.pointerEvents = 'none';
+    box.appendChild(imageNode);
+    zone.appendChild(box);
+    var validate = function (left, top, width, height) {
+      return positiveIntersection(left, top, width, height, operationRect) &&
+        positiveIntersection(left, top, width, height, { x: 0, y: 0, width: canvasWidth, height: canvasHeight });
+    };
+    if (global.BNBoxTransformUtils) {
+      global.BNBoxTransformUtils.attachBoxTransform(box, zone, {
+        role: 'twoPerson',
+        configStyle: config.style || {},
+        disableRotation: true,
+        allowUnboundedScale: true,
+        allowUnboundedPosition: true,
+        dragBounds: { minWidth: 1, minHeight: 1, minVisibleRatioX: 0, minVisibleRatioY: 0 },
+        validateRect: validate,
+        onChange: function () {
+          if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
+        }
+      });
+    }
+    zone.style.display = 'block';
+    if (data.front) setTwoPersonFront(zone, data.front);
+    if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
   }
 
   function setSingleProductPosition(box, zone, offsetX, offsetY, notifyParent) {
@@ -234,6 +331,23 @@
       var data = event.data;
       if (data.type === 'bn-style-apply') {
         applyVisualStyle(data.style);
+      }
+      if (data.type === 'bn-two-person-add') {
+        addTwoPersonItem(data);
+      }
+      if (data.type === 'bn-two-person-layer-set') {
+        setTwoPersonFront(document.getElementById('bn-zone-two-persons'), data.front);
+        if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
+      }
+      if (data.type === 'bn-two-person-remove') {
+        var twoPersonZone = document.getElementById('bn-zone-two-persons');
+        if (twoPersonZone) {
+          twoPersonZone.innerHTML = '';
+          var twoPersonConfig = ((global.__BN_TEMPLATE__ || {}).productZones || {}).twoPersons || {};
+          applyStyle(twoPersonZone, twoPersonConfig.style || {});
+          twoPersonZone.dataset.front = twoPersonConfig.defaultFront === 'right' ? 'right' : 'left';
+          twoPersonZone.style.display = 'none';
+        }
       }
       if (data.type === 'bn-person-add') {
         var personZone = document.getElementById('bn-zone-person');

@@ -238,6 +238,43 @@
           },
           "autoShadow": true
         }
+      },
+      "twoPersons": {
+        "className": "雙人範圍",
+        "style": {
+          "position": "absolute",
+          "left": "0px",
+          "top": "0px",
+          "width": "984px",
+          "height": "309px",
+          "zIndex": "21",
+          "overflow": "visible",
+          "display": "none",
+          "pointerEvents": "none"
+        },
+        "operationRect": {
+          "x": 488,
+          "y": 24,
+          "width": 370,
+          "height": 285
+        },
+        "defaultFront": "right",
+        "slots": {
+          "left": {
+            "x": 488,
+            "y": 24,
+            "width": 180,
+            "height": 285,
+            "zIndex": 22
+          },
+          "right": {
+            "x": 678,
+            "y": 24,
+            "width": 180,
+            "height": 285,
+            "zIndex": 23
+          }
+        }
       }
     },
     "qrZone": {
@@ -657,6 +694,43 @@
             "minVisibleRatioY": 0.5
           },
           "autoShadow": true
+        }
+      },
+      "twoPersons": {
+        "className": "雙人範圍",
+        "style": {
+          "position": "absolute",
+          "left": "0px",
+          "top": "0px",
+          "width": "1080px",
+          "height": "1920px",
+          "zIndex": "21",
+          "overflow": "visible",
+          "display": "none",
+          "pointerEvents": "none"
+        },
+        "operationRect": {
+          "x": 6,
+          "y": 720,
+          "width": 1068,
+          "height": 1200
+        },
+        "defaultFront": "left",
+        "slots": {
+          "left": {
+            "x": 6,
+            "y": 720,
+            "width": 530,
+            "height": 1200,
+            "zIndex": 23
+          },
+          "right": {
+            "x": 544,
+            "y": 720,
+            "width": 530,
+            "height": 1200,
+            "zIndex": 22
+          }
         }
       }
     },
@@ -1097,6 +1171,43 @@
           },
           "autoShadow": true
         }
+      },
+      "twoPersons": {
+        "className": "雙人範圍",
+        "style": {
+          "position": "absolute",
+          "left": "0px",
+          "top": "0px",
+          "width": "1599px",
+          "height": "1080px",
+          "zIndex": "21",
+          "overflow": "visible",
+          "display": "none",
+          "pointerEvents": "none"
+        },
+        "operationRect": {
+          "x": 771,
+          "y": 100,
+          "width": 800,
+          "height": 980
+        },
+        "defaultFront": "left",
+        "slots": {
+          "left": {
+            "x": 771,
+            "y": 100,
+            "width": 395,
+            "height": 980,
+            "zIndex": 23
+          },
+          "right": {
+            "x": 1176,
+            "y": 100,
+            "width": 395,
+            "height": 980,
+            "zIndex": 22
+          }
+        }
       }
     },
     "qrZone": {
@@ -1529,6 +1640,43 @@
             "minVisibleRatioY": 0.5
           },
           "autoShadow": true
+        }
+      },
+      "twoPersons": {
+        "className": "雙人範圍",
+        "style": {
+          "position": "absolute",
+          "left": "0px",
+          "top": "0px",
+          "width": "3189px",
+          "height": "3992px",
+          "zIndex": "21",
+          "overflow": "visible",
+          "display": "none",
+          "pointerEvents": "none"
+        },
+        "operationRect": {
+          "x": 145,
+          "y": 1669,
+          "width": 2901,
+          "height": 2323
+        },
+        "defaultFront": "right",
+        "slots": {
+          "left": {
+            "x": 145,
+            "y": 1669,
+            "width": 1430,
+            "height": 2323,
+            "zIndex": 22
+          },
+          "right": {
+            "x": 1616,
+            "y": 1669,
+            "width": 1430,
+            "height": 2323,
+            "zIndex": 23
+          }
         }
       }
     },

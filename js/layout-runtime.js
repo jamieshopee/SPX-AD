@@ -1220,7 +1220,18 @@
     var personState=personBox && window.BNBoxTransformUtils
       ? window.BNBoxTransformUtils.collectBoxTransform(personBox)
       : {};
-    return {
+    var twoZone=document.getElementById('bn-zone-two-persons');
+    var twoPersons=null;
+    if(twoZone && window.BNBoxTransformUtils){
+      var leftBox=twoZone.querySelector('[data-two-person-slot="left"]');
+      var rightBox=twoZone.querySelector('[data-two-person-slot="right"]');
+      twoPersons={
+        left:leftBox ? window.BNBoxTransformUtils.collectBoxTransform(leftBox) : {},
+        right:rightBox ? window.BNBoxTransformUtils.collectBoxTransform(rightBox) : {},
+        front:twoZone.dataset.front==='right' ? 'right' : 'left'
+      };
+    }
+    var result = {
       products:products,
       person:personZone ? personState : {},
       singleProduct:Object.assign(singleState,{
@@ -1228,6 +1239,8 @@
         offsetY:single ? (Number(single.dataset.offsetY)||0) : 0
       })
     };
+    if(twoPersons) result.twoPersons=twoPersons;
+    return result;
   }
 
   function notifyLayoutState(){
@@ -1301,6 +1314,24 @@
           if(personState.top) personState.top=(parseFloat(personState.top)-styleNumber(personStyle,'top',0))+'px';
         }
         window.BNBoxTransformUtils.applyBoxTransform(personBox,personState);
+      }
+    }
+    if(state&&state.twoPersons){
+      var twoZone=document.getElementById('bn-zone-two-persons');
+      if(twoZone && window.BNBoxTransformUtils){
+        ['left','right'].forEach(function(slot){
+          var saved=state.twoPersons[slot];
+          var box=twoZone.querySelector('[data-two-person-slot="'+slot+'"]');
+          if(box && saved) window.BNBoxTransformUtils.applyBoxTransform(box,saved);
+        });
+        var front=state.twoPersons.front==='right' ? 'right' : 'left';
+        var leftBox=twoZone.querySelector('[data-two-person-slot="left"]');
+        var rightBox=twoZone.querySelector('[data-two-person-slot="right"]');
+        if(leftBox && rightBox){
+          leftBox.style.zIndex=front==='left'?'23':'22';
+          rightBox.style.zIndex=front==='right'?'23':'22';
+          twoZone.dataset.front=front;
+        }
       }
     }
     notifyLayoutState();

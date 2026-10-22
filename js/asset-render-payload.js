@@ -9,11 +9,22 @@
     return String(filename || '').replace(/\.[^.]+$/, '');
   }
 
+  function slotsMatch(a, b) {
+    if (a == null || b == null) return true;
+    if (String(a) === String(b)) return true;
+    return Number(a) === Number(b);
+  }
+
   function findResolvedAsset(resolvedAssets, role, filename, slot) {
     var assets = resolvedAssets || {};
     var groups = [];
     if (role === 'product') groups.push(assets.products || []);
-    else if (role === 'person') groups.push(assets.person ? [assets.person] : []);
+    else if (role === 'person') {
+      if (slot != null && assets.twoPersons && assets.twoPersons[slot]) {
+        groups.push([assets.twoPersons[slot]]);
+      }
+      groups.push(assets.person ? [assets.person] : []);
+    }
     else if (role === 'singleProduct') groups.push(assets.singleProducts || []);
     groups.push(assets.items || []);
 
@@ -24,7 +35,7 @@
         var item = list[i] || {};
         var itemFilename = String(item.originalFilename || item.filename || '').trim().toLowerCase();
         if (item.role && item.role !== role) continue;
-        if (slot != null && item.slot != null && Number(item.slot) !== Number(slot)) continue;
+        if (!slotsMatch(item.slot, slot)) continue;
         if (lookup && itemFilename && itemFilename !== lookup) continue;
         if (item.source === 'processed' && item.dataUrl) return item;
       }
@@ -128,6 +139,104 @@
     var person = null;
     var singleProduct = null;
     var errors = [];
+
+    if (info.type === 'invalid_two_persons') {
+      return {
+        type: info.type,
+        info: info,
+        products: [],
+        person: null,
+        singleProduct: null,
+        twoPersons: null,
+        messages: [],
+        missing: [],
+        errors: [{ code: 'invalid_two_persons', filenames: info.ignored || [] }],
+        ignored: info.ignored || []
+      };
+    }
+
+    if (info.type === 'two_persons') {
+      var twoCfg = (((templateJson.productZones || {}).twoPersons) || {});
+      var twoSlots = twoCfg.slots || {};
+      var alphaBounds = global.BNAssetProcessing && global.BNAssetProcessing.analyzeAlphaBounds;
+      var twoPersons = { left: null, right: null, front: twoCfg.defaultFront === 'right' ? 'right' : 'left' };
+      var slotNames = ['left', 'right'];
+
+      if (typeof alphaBounds !== 'function') {
+        errors.push({ code: 'two_person_alpha_bounds_unavailable' });
+      } else {
+        for (var slotIndex = 0; slotIndex < slotNames.length; slotIndex++) {
+          var slotName = slotNames[slotIndex];
+          var slotFilename = info[slotName];
+          var slotCfg = twoSlots[slotName] || {};
+          try {
+            var source = await readSourceDataUrl({
+              resolvedAssets: resolvedAssets,
+              role: 'person',
+              filename: slotFilename,
+              slot: slotName,
+              getHandle: getHandle,
+              handleToDataUrl: handleToDataUrl
+            });
+            if (!source) {
+              missing.push(slotFilename);
+              continue;
+            }
+            var alpha = await alphaBounds(source.src);
+            var visible = alpha.visible;
+            var targetWidth = Number(slotCfg.width);
+            var targetX = Number(slotCfg.x);
+            var targetY = Number(slotCfg.y);
+            if (!visible || !Number.isFinite(targetWidth) || targetWidth <= 0) {
+              errors.push({ filename: slotFilename, code: 'two_person_visible_bounds_invalid' });
+              continue;
+            }
+            var scale = targetWidth / visible.width;
+            var imageWidth = alpha.sourceWidth * scale;
+            var imageHeight = alpha.sourceHeight * scale;
+            var visibleHeight = visible.height * scale;
+            if (![scale, imageWidth, imageHeight, visibleHeight, targetX, targetY].every(Number.isFinite) ||
+                scale <= 0 || imageWidth <= 0 || imageHeight <= 0 || visibleHeight <= 0) {
+              errors.push({ filename: slotFilename, code: 'two_person_transform_invalid' });
+              continue;
+            }
+            var item = {
+              filename: slotFilename,
+              src: source.src,
+              sourceWidth: alpha.sourceWidth,
+              sourceHeight: alpha.sourceHeight,
+              visible: visible,
+              target: { x: targetX, y: targetY, width: targetWidth, height: visibleHeight },
+              image: {
+                left: targetX - visible.x * scale,
+                top: targetY - visible.y * scale,
+                width: imageWidth,
+                height: imageHeight
+              },
+              operationRect: twoCfg.operationRect || null,
+              zIndex: Number(slotCfg.zIndex) || (slotName === 'left' ? 22 : 21)
+            };
+            twoPersons[slotName] = item;
+            messages.push({ type: 'bn-two-person-add', slot: slotName, item: item, front: twoPersons.front });
+          } catch (error) {
+            errors.push({ filename: slotFilename, error: error });
+          }
+        }
+      }
+
+      return {
+        type: info.type,
+        info: info,
+        products: [],
+        person: null,
+        singleProduct: null,
+        twoPersons: twoPersons,
+        messages: messages,
+        missing: missing,
+        errors: errors,
+        ignored: info.ignored || []
+      };
+    }
 
     if (info.type === 'three_products') {
       var layout = (((templateJson.productZones || {}).threeProducts || {}).defaultLayout) || {};

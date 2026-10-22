@@ -91,7 +91,22 @@
         }));
       });
 
-      if (mode === 'person_product') {
+      if (mode === 'two_persons') {
+        ['left', 'right'].forEach(function (slot) {
+          var filename = productInfo[slot];
+          if (!filename) return;
+          addRecord(records, createRecord({
+            jobId: jobId,
+            jobKey: jobKey,
+            filename: filename,
+            role: 'person',
+            mode: mode,
+            slot: slot,
+            sourceFolderName: sourceFolderName,
+            exists: hasAsset(filename)
+          }));
+        });
+      } else if (mode === 'person_product') {
         if (productInfo.person) {
           addRecord(records, createRecord({
             jobId: jobId,

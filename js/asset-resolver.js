@@ -24,6 +24,7 @@
 
   function sameSlot(a, b) {
     if (a == null || b == null) return true;
+    if (String(a) === String(b)) return true;
     return Number(a) === Number(b);
   }
 
@@ -180,7 +181,22 @@
 
     var productInfo = classifyJobProducts(job, options);
     var mode = productInfo.type || 'three_products';
-    if (mode === 'person_product') {
+    if (mode === 'two_persons') {
+      groups.twoPersons = {};
+      ['left', 'right'].forEach(function (slot) {
+        var filename = productInfo[slot];
+        if (!filename) return;
+        var resolved = resolveApprovedAsset(pipelineState, {
+          jobId: jobId,
+          role: 'person',
+          mode: mode,
+          slot: slot,
+          filename: filename
+        });
+        items.push(resolved);
+        groups.twoPersons[slot] = resolved;
+      });
+    } else if (mode === 'person_product') {
       if (productInfo.person) {
         pushResolved(items, groups, 'person', resolveApprovedAsset(pipelineState, {
           jobId: jobId,

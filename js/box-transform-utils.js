@@ -66,18 +66,27 @@
     return handle;
   }
 
-  function setBoxRect(box, left, top, width, height, metrics, dragBounds) {
+  function setBoxRect(box, left, top, width, height, metrics, dragBounds, options) {
+    options = options || {};
+    if (![left, top, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return false;
+    if (typeof options.validateRect === 'function' && !options.validateRect(left, top, width, height)) return false;
     dragBounds = dragBounds || {};
-    var visibleX = numberValue(dragBounds.minVisibleRatioX, 1);
-    var visibleY = numberValue(dragBounds.minVisibleRatioY, 1);
-    var minLeft = metrics.boundsLeft - (width * (1 - visibleX));
-    var maxLeft = metrics.boundsLeft + metrics.width - (width * visibleX);
-    var minTop = metrics.boundsTop - (height * (1 - visibleY));
-    var maxTop = metrics.boundsTop + metrics.height - (height * visibleY);
-    box.style.left = clamp(left, minLeft, Math.max(minLeft, maxLeft)) + 'px';
-    box.style.top = clamp(top, minTop, Math.max(minTop, maxTop)) + 'px';
+    if (options.allowUnboundedPosition) {
+      box.style.left = left + 'px';
+      box.style.top = top + 'px';
+    } else {
+      var visibleX = numberValue(dragBounds.minVisibleRatioX, 1);
+      var visibleY = numberValue(dragBounds.minVisibleRatioY, 1);
+      var minLeft = metrics.boundsLeft - (width * (1 - visibleX));
+      var maxLeft = metrics.boundsLeft + metrics.width - (width * visibleX);
+      var minTop = metrics.boundsTop - (height * (1 - visibleY));
+      var maxTop = metrics.boundsTop + metrics.height - (height * visibleY);
+      box.style.left = clamp(left, minLeft, Math.max(minLeft, maxLeft)) + 'px';
+      box.style.top = clamp(top, minTop, Math.max(minTop, maxTop)) + 'px';
+    }
     box.style.width = width + 'px';
     box.style.height = height + 'px';
+    return true;
   }
 
   function collectBoxTransform(box) {
@@ -222,7 +231,7 @@
       if (drag.type === 'move') {
         var left = drag.left + (event.clientX - drag.sx) / metrics.scale;
         var top = drag.top + (event.clientY - drag.sy) / metrics.scale;
-        setBoxRect(box, left, top, drag.width, drag.height, metrics, dragBounds);
+        setBoxRect(box, left, top, drag.width, drag.height, metrics, dragBounds, options);
       } else if (drag.type === 'resize') {
         var dx = (event.clientX - drag.sx) / metrics.scale;
         var dy = (event.clientY - drag.sy) / metrics.scale;
@@ -237,11 +246,11 @@
           height = minHeight;
           width = height * ratio;
         }
-        if (width > metrics.width * maxWidthRatio) {
+        if (!options.allowUnboundedScale && width > metrics.width * maxWidthRatio) {
           width = metrics.width * maxWidthRatio;
           height = width / ratio;
         }
-        if (height > metrics.height * maxHeightRatio) {
+        if (!options.allowUnboundedScale && height > metrics.height * maxHeightRatio) {
           height = metrics.height * maxHeightRatio;
           width = height * ratio;
         }
@@ -249,7 +258,7 @@
         var resizeTop = drag.top;
         if (corner.indexOf('w') !== -1) resizeLeft = drag.left + (drag.width - width);
         if (corner.indexOf('n') !== -1) resizeTop = drag.top + (drag.height - height);
-        setBoxRect(box, resizeLeft, resizeTop, width, height, metrics, dragBounds);
+        setBoxRect(box, resizeLeft, resizeTop, width, height, metrics, dragBounds, options);
       }
       changed();
       debug('pointermove:' + drag.type);
@@ -284,19 +293,21 @@
       var ratio = parseFloat(box.dataset.ratio) || Math.max(0.1, (box.offsetWidth || 1) / (box.offsetHeight || 1));
       var currentWidth = parseFloat(box.style.width) || box.offsetWidth;
       var currentHeight = parseFloat(box.style.height) || box.offsetHeight;
-      var width = Math.max(minWidth, Math.min(currentWidth * scale, metrics.width * maxWidthRatio));
+      var width = Math.max(minWidth, options.allowUnboundedScale
+        ? currentWidth * scale
+        : Math.min(currentWidth * scale, metrics.width * maxWidthRatio));
       var height = width / ratio;
       if (height < minHeight) {
         height = minHeight;
         width = height * ratio;
       }
-      if (height > metrics.height * maxHeightRatio) {
+      if (!options.allowUnboundedScale && height > metrics.height * maxHeightRatio) {
         height = metrics.height * maxHeightRatio;
         width = height * ratio;
       }
       var left = (parseFloat(box.style.left) || 0) + currentWidth / 2 - width / 2;
       var top = (parseFloat(box.style.top) || 0) + currentHeight / 2 - height / 2;
-      setBoxRect(box, left, top, width, height, metrics, dragBounds);
+      setBoxRect(box, left, top, width, height, metrics, dragBounds, options);
       changed();
     }, { passive: false });
 

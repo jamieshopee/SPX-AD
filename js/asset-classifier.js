@@ -59,6 +59,28 @@
   }
 
   function classifyProducts(filenames) {
+    var sourceFiles = (filenames || []).slice();
+    var leftName = null;
+    var rightName = null;
+    var hasTwoPersonMarker = false;
+    sourceFiles.forEach(function (filename) {
+      var name = String(filename || '');
+      if (/_PRODUCT_0[12]_.*\(人\)/u.test(name) ||
+          /_PRODUCT_01_左配品(?:\(人\))?/u.test(name) ||
+          /_PRODUCT_02_右配品(?:\(人\))?/u.test(name)) {
+        hasTwoPersonMarker = true;
+      }
+      if (/_PRODUCT_01_左配品\(人\)(?:\.[^.]+)?$/u.test(name)) leftName = filename;
+      if (/_PRODUCT_02_右配品\(人\)(?:\.[^.]+)?$/u.test(name)) rightName = filename;
+    });
+
+    if (hasTwoPersonMarker) {
+      var exactPair = sourceFiles.length === 2 && leftName && rightName && leftName !== rightName;
+      return exactPair
+        ? { type: 'two_persons', left: leftName, right: rightName, products: [], person: null, singles: [], ignored: [] }
+        : { type: 'invalid_two_persons', left: leftName, right: rightName, products: [], person: null, singles: [], ignored: sourceFiles };
+    }
+
     var pp = classifyPersonProductFiles(filenames);
     if (pp.matched) {
       return { type: 'person_product', person: pp.person, singles: pp.singles, products: [], ignored: pp.ignored };
