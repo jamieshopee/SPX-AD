@@ -1,5 +1,14 @@
 # AI-HANDOFF.md
 
+## 四尺寸獨立 2 人版型與自動去背整合完成（2026-10-23）
+
+- Code Commit：`b5037037101b6116e7a40c73a490f192f9d65418`（`feat: add two-person layouts with background removal`）。Docs Commit：Pending。
+- Current Behavior：四個正式尺寸各自使用獨立 `two_persons` 設定；只有完整且唯一的 `_PRODUCT_01_左配品(人)`／`_PRODUCT_02_右配品(人)` pair 進入雙人模式，異常配對拒絕，並與 `three_products`／`person_product` 完全隔離。Alpha visible bounds 使用 `alpha > 0`，依實際選定原圖或 approved processed PNG 重新計算，按可見寬度對齊各自 slot、水平置中並頂部對齊。
+- Transform／State：左右人物使用獨立 Canvas 節點與 Transform，可自由等比例拖曳／縮放、跨中線、重疊及部分畫布裁切；Alpha 可見範圍與共同操作矩形及 Canvas 均須有正面積交集。Job／尺寸／Template 的 layout state 保存與還原沿用既有資料流，Info／QRCode 固定圖層優先。
+- Pipeline：左右各建立一筆既有 `person` role、`mode: two_persons`、`slot: left/right` record；兩筆 Manifest 均 `removeBackground=true`，Resolver 依 Job／role／slot／filename 選取 processed source。approved 優先使用 processed PNG；pending、未核准或缺失時依既有契約 fallback 原圖。Preview／Thumbnail／Export 共用同一來源與狀態資料流。
+- 四尺寸：`1080x1920` 左 `(6,720,530,1200)`、右 `(544,720,530,1200)`、共同 `(6,720,1068,1200)`、左前；`1599x1080` 左 `(771,100,395,980)`、右 `(1176,100,395,980)`、共同 `(771,100,800,980)`、左前；`984x309` 左 `(488,24,180,285)`、右 `(678,24,180,285)`、共同 `(488,24,370,285)`、右前；`3189x3992` 左 `(145,1669,1430,2323)`、右 `(1616,1669,1430,2323)`、共同 `(145,1669,2901,2323)`、右前。
+- Validation：Codex 靜態與針對性自動測試 PASS；Jamie Chrome 實測雙人正常匯入與自動去背 PASS。Safari、Photoshop 外部流程、四尺寸完整視覺對位及完整 Preview／Thumbnail／Export 瀏覽器回歸未完整驗證，未宣稱 PASS。右側欄層級切換 UI、手動換圖 Deferred；雙人 Reset 本階段未實作且未核准為下一階段必做。
+
 ## PNG 4 MB 無損最佳化與超標備援完成（2026-10-21）
 
 - Code Commit：`ee24029cf41636a3ad63ab0afe4d9949f17d867a`（`feat: add lossless PNG optimization with 4MB fallback`）。Docs Commit：Pending。

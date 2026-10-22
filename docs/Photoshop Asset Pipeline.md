@@ -4,6 +4,17 @@ Version: 2026.07.28-existing-transparency-skip
 Last Updated: 2026-07-28
 Scope: Photoshop Asset Pipeline 的操作流程、內部資料契約、Runtime Contract、State Boundary 與 Troubleshooting。此文件描述目前實際行為：Photoshop Automation 與 AI Workflow 已完成；SPX Helper Core 已整合既有 RuntimeCore；Phase 2 Windows Packaging 與 Phase 3 macOS Packaging 均已完成。macOS 正式產品版本現為 `0.6.1`，Local PKG 為 `SPX Helper-0.6.1.pkg`；本輪只重新 Local Packaging、不安裝新版 PKG，既有 Helper 啟動、Existing Transparency、JPG、不透明 PNG、Logo、Runtime Contract 與 Local Packaging Manual Validation 結果均維持 PASS。原 `0.5.5` 與既有 GitHub Release 編號衝突，版本以新增修正 Commit 更正而未改寫已 Push 歷史。Bundle ID、Package ID 與 LaunchAgent 不變；Developer ID／Notarization 為尚未驗證的 Credential-dependent validation。Phase 4 Update／Uninstall 與 Phase 5 Final Validation 尚未開始。Photoshop 實機結果不得延伸為支援所有 Photoshop 版本。
 
+## 2 人版型 Pipeline 整合（Code Commit `b5037037101b6116e7a40c73a490f192f9d65418`）
+
+雙人模式只在完整且唯一的 `_PRODUCT_01_左配品(人)`／`_PRODUCT_02_右配品(人)` pair 通過分類時啟用；異常配對拒絕，不降級為其他模式。此模式與既有三商品及一人一品 Pipeline 隔離，不改寫既有 Photoshop 工作流程、外部服務或其他 Pipeline 行為。
+
+- `asset-pipeline-state.js` 為 left／right 各建立一筆獨立 record，沿用 `role: person`，並以 `mode: two_persons`、`slot: left/right`、Job 與 filename 區分。
+- Manifest 產生兩筆人物素材，兩筆均使用既有 `removeBackground=true` contract。
+- `asset-resolver.js` 依 Job／role／slot／filename 對應左右 processed asset；approved 且有 processed source 時優先使用 processed PNG，pending、未核准、缺失或無有效 processed source 時依既有契約 fallback 原圖。
+- Render payload 使用實際選定來源重新計算 `alpha > 0` visible bounds；不依 RGB 排除白色或近白色、不破壞性裁切原始 PNG，也不改變既有去背工作流程。
+
+雙人核心的 Preview、Thumbnail、Export 共用同一來源選擇與 render state。右側欄前後層級切換 UI、手動換圖 Deferred；雙人 Reset 本階段未實作且未核准為下一階段必做。四尺寸完整視覺對位、完整瀏覽器輸出回歸、Safari 與 Photoshop 外部流程未由本輪文件更新宣稱 PASS；Jamie Chrome 已實測雙人匯入與自動去背成功。
+
 ## Quick Workflow
 
 本節給 Designer / 日常使用者。目前實際流程已自動化；照順序操作即可，不需要理解 Manifest 或 Runtime 技術細節。
