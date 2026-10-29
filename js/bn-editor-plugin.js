@@ -259,9 +259,10 @@
       });
     }
     function setupAccordions(){
-      ['logo','products','personProduct'].forEach(setupAccordion);
+      ['logo','products','personProduct','twoPersons'].forEach(setupAccordion);
     }
     function currentAccordionMode(){
+      if(window._bnTwoPersons && (window._bnTwoPersons.left || window._bnTwoPersons.right)) return 'two_persons';
       if(window._bnPerson || window._bnSingleProd) return 'person_product';
       if(window._bnProducts && window._bnProducts.length) return 'three_products';
       return null;
@@ -271,8 +272,9 @@
       var resolved = mode || null;
       var defaults = {
         logo:true,
-        products: resolved !== 'person_product',
-        personProduct: resolved === 'person_product'
+        products: resolved !== 'person_product' && resolved !== 'two_persons',
+        personProduct: resolved === 'person_product',
+        twoPersons: resolved === 'two_persons'
       };
       Object.keys(defaults).forEach(function(key){
         if(!force && _accordionManual[key]) return;
@@ -752,6 +754,15 @@
         '  <button type="button" class="bn-reset-transform-btn" id="bn-pp-reset-btn" disabled>恢復預設位置</button>',
         '</div>',
         '</div>',
+        '<div class="bn-accordion" data-acc="twoPersons">',
+        '<div class="s-section bn-accordion-title" style="margin-top:8px"><span>雙人（最多2張）</span><span class="bn-acc-arrow">⌄</span></div>',
+        '<div class="bn-section">',
+        '  <div id="bn-two-person-drop" class="bn-drop">＋ 點擊或拖曳上傳人物圖<input type="file" id="bn-two-person-inp" accept=".png,image/png" multiple></div>',
+        '  <div id="bn-two-person-upload-error" class="bn-upload-error" hidden aria-live="polite"></div>',
+        '  <div class="bn-prod-list" id="bn-two-person-list"></div>',
+        '  <button type="button" class="bn-reset-transform-btn" id="bn-two-person-reset-btn" disabled>恢復預設位置</button>',
+        '</div>',
+        '</div>',
       ].join('');
       if(target) scroll.insertBefore(sec, target); else scroll.appendChild(sec);
       setupAccordions();
@@ -949,25 +960,28 @@
       function updateMutualExclusion(){
         var hasProd = !!(window._bnProducts && window._bnProducts.length > 0);
         var hasPP   = !!(window._bnPerson || window._bnSingleProd);
+        var hasTwo  = !!(window._bnTwoPersons && (window._bnTwoPersons.left || window._bnTwoPersons.right));
 
         var ppDrop  = document.getElementById('bn-pp-drop');
         var ppInp   = document.getElementById('bn-pp-inp');
         var ppReset = document.getElementById('bn-pp-reset-btn');
         if(ppDrop){
-          ppDrop.style.opacity       = hasProd ? '0.35' : '1';
-          ppDrop.style.pointerEvents = hasProd ? 'none'  : '';
-          ppDrop.style.cursor        = hasProd ? 'not-allowed' : 'pointer';
+          ppDrop.style.opacity       = (hasProd || hasTwo) ? '0.35' : '1';
+          ppDrop.style.pointerEvents = (hasProd || hasTwo) ? 'none'  : '';
+          ppDrop.style.cursor        = (hasProd || hasTwo) ? 'not-allowed' : 'pointer';
         }
         if(ppReset) ppReset.disabled = !hasPP;
 
         var prodDrop = document.getElementById('bn-prod-drop');
         var prodReset = document.getElementById('bn-prod-reset-btn');
         if(prodDrop){
-          prodDrop.style.opacity       = hasPP ? '0.35' : '1';
-          prodDrop.style.pointerEvents = hasPP ? 'none'  : '';
-          prodDrop.style.cursor        = hasPP ? 'not-allowed' : 'pointer';
+          prodDrop.style.opacity       = (hasPP || hasTwo) ? '0.35' : '1';
+          prodDrop.style.pointerEvents = (hasPP || hasTwo) ? 'none'  : '';
+          prodDrop.style.cursor        = (hasPP || hasTwo) ? 'not-allowed' : 'pointer';
         }
         if(prodReset) prodReset.disabled = !(window._bnProducts && window._bnProducts.length);
+        var twoDrop = document.getElementById('bn-two-person-drop');
+        if(twoDrop){ twoDrop.style.opacity = (hasProd || hasPP) ? '0.35' : '1'; twoDrop.style.pointerEvents = (hasProd || hasPP) ? 'none' : ''; }
         if(typeof window.updateProductShadowControls === 'function') window.updateProductShadowControls();
       }
       window._bnUpdateMutualExclusion = updateMutualExclusion;
@@ -1015,6 +1029,68 @@
           setTimeout(function(){ broadcast({type:'bn-layout-state-request'}); }, 80);
         });
       }
+
+      function twoPersonSlotForFilename(filename){
+        if(/_PRODUCT_01_左配品\(人\)(?:\.[^.]+)?$/u.test(filename)) return 'left';
+        if(/_PRODUCT_02_右配品\(人\)(?:\.[^.]+)?$/u.test(filename)) return 'right';
+        return null;
+      }
+      function renderTwoPersonsList(){
+        var list=document.getElementById('bn-two-person-list');
+        if(!list)return;
+        list.innerHTML='';
+        var state=window._bnTwoPersons||{};
+        var slots=['left','right'].filter(function(slot){return state[slot];});
+        slots.sort(function(a,b){return a===state.front?-1:b===state.front?1:0;});
+        slots.forEach(function(slot,index){
+          var item=state[slot]||{}, row=document.createElement('div'); row.className='bn-prod-item';
+          var img=document.createElement('img'); img.src=item.src||'';
+          var name=document.createElement('span'); name.textContent=item.filename||slot; name.title=item.filename||slot;
+          var move=document.createElement('div'); move.className='bn-prod-move';
+          if(index>0){
+            var up=document.createElement('button'); up.textContent='▲';
+            up.onclick=function(){if(window._bnTwoPersonSetFront){window._bnTwoPersonSetFront(slot);renderTwoPersonsList();}};
+            move.appendChild(up);
+          }
+          if(index<slots.length-1){
+            var down=document.createElement('button'); down.textContent='▼';
+            down.onclick=function(){if(slots[index+1]&&window._bnTwoPersonSetFront){window._bnTwoPersonSetFront(slots[index+1]);renderTwoPersonsList();}};
+            move.appendChild(down);
+          }
+          var rm=document.createElement('button'); rm.textContent='移除'; rm.className='rm';
+          rm.onclick=async function(){if(window._bnTwoPersonManualRemove)await window._bnTwoPersonManualRemove(slot);renderTwoPersonsList();};
+          row.appendChild(img);row.appendChild(name);row.appendChild(move);row.appendChild(rm);list.appendChild(row);
+        });
+        var reset=document.getElementById('bn-two-person-reset-btn');
+        if(reset)reset.disabled=!slots.length;
+      }
+      async function handleTwoPersonFiles(files){
+        for(var i=0;i<files.length;i++){
+          var file=files[i];
+          try{
+            if(!twoPersonSlotForFilename(file.name)) throw new Error('檔名必須符合左／右人物規則。');
+            var validated=await validateManualImageFile(file);
+            if(!window._bnTwoPersonManualUpload) throw new Error('雙人素材流程尚未就緒。');
+            await window._bnTwoPersonManualUpload(file.name,validated.dataUrl);
+          }catch(error){
+            var box=document.getElementById('bn-two-person-upload-error');
+            if(box){box.textContent=error.message||'雙人素材匯入失敗。';box.hidden=false;box.classList.add('show');}
+          }
+        }
+        renderTwoPersonsList();
+      }
+      window._bnRenderTwoPersonsList=renderTwoPersonsList;
+      var twoDrop=document.getElementById('bn-two-person-drop'), twoInp=document.getElementById('bn-two-person-inp');
+      if(twoDrop&&twoInp){
+        twoDrop.addEventListener('click',function(e){if(e.target!==twoInp)twoInp.click();});
+        twoDrop.addEventListener('dragover',function(e){e.preventDefault();twoDrop.classList.add('drag');});
+        twoDrop.addEventListener('dragleave',function(){twoDrop.classList.remove('drag');});
+        twoDrop.addEventListener('drop',function(e){e.preventDefault();twoDrop.classList.remove('drag');handleTwoPersonFiles(Array.from(e.dataTransfer.files));});
+        twoInp.addEventListener('change',function(){handleTwoPersonFiles(Array.from(this.files));this.value='';});
+      }
+      var twoReset=document.getElementById('bn-two-person-reset-btn');
+      if(twoReset)twoReset.addEventListener('click',function(){if(window._bnTwoPersonReset)window._bnTwoPersonReset();});
+      renderTwoPersonsList();
 
       async function handlePersonProductFiles(files){
         var tpl = window.__BN_TEMPLATE__ || {};

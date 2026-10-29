@@ -1226,8 +1226,8 @@
       var leftBox=twoZone.querySelector('[data-two-person-slot="left"]');
       var rightBox=twoZone.querySelector('[data-two-person-slot="right"]');
       twoPersons={
-        left:leftBox ? window.BNBoxTransformUtils.collectBoxTransform(leftBox) : {},
-        right:rightBox ? window.BNBoxTransformUtils.collectBoxTransform(rightBox) : {},
+        left:leftBox ? Object.assign(window.BNBoxTransformUtils.collectBoxTransform(leftBox), {filename:leftBox.dataset.filename||''}) : {},
+        right:rightBox ? Object.assign(window.BNBoxTransformUtils.collectBoxTransform(rightBox), {filename:rightBox.dataset.filename||''}) : {},
         front:twoZone.dataset.front==='right' ? 'right' : 'left'
       };
     }
@@ -1322,14 +1322,14 @@
         ['left','right'].forEach(function(slot){
           var saved=state.twoPersons[slot];
           var box=twoZone.querySelector('[data-two-person-slot="'+slot+'"]');
-          if(box && saved) window.BNBoxTransformUtils.applyBoxTransform(box,saved);
+          if(box && saved && (!saved.filename || saved.filename === box.dataset.filename)) window.BNBoxTransformUtils.applyBoxTransform(box,saved);
         });
         var front=state.twoPersons.front==='right' ? 'right' : 'left';
         var leftBox=twoZone.querySelector('[data-two-person-slot="left"]');
         var rightBox=twoZone.querySelector('[data-two-person-slot="right"]');
-        if(leftBox && rightBox){
-          leftBox.style.zIndex=front==='left'?'23':'22';
-          rightBox.style.zIndex=front==='right'?'23':'22';
+        if(leftBox || rightBox){
+          if(leftBox) leftBox.style.zIndex=front==='left'?'23':'22';
+          if(rightBox) rightBox.style.zIndex=front==='right'?'23':'22';
           twoZone.dataset.front=front;
         }
       }

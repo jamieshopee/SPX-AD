@@ -160,13 +160,16 @@
       Math.min(bottom, rectBottom) - Math.max(top, Number(rect.y)) > 0;
   }
 
+  var TWO_PERSON_MIN_VISIBLE_CANVAS_WIDTH = 80;
+  var TWO_PERSON_MIN_VISIBLE_CANVAS_HEIGHT = 80;
+
   function setTwoPersonFront(zone, front) {
     if (!zone || (front !== 'left' && front !== 'right')) return;
     var left = zone.querySelector('[data-two-person-slot="left"]');
     var right = zone.querySelector('[data-two-person-slot="right"]');
-    if (!left || !right) return;
-    left.style.zIndex = front === 'left' ? '23' : '22';
-    right.style.zIndex = front === 'right' ? '23' : '22';
+    if (!left && !right) return;
+    if (left) left.style.zIndex = front === 'left' ? '23' : '22';
+    if (right) right.style.zIndex = front === 'right' ? '23' : '22';
     zone.dataset.front = front;
   }
 
@@ -182,10 +185,83 @@
     var image = item.image;
     var slot = data.slot === 'right' ? 'right' : 'left';
     var old = zone.querySelector('[data-two-person-slot="' + slot + '"]');
+    var preservedTransform = !data.reset && old && global.BNBoxTransformUtils
+      ? global.BNBoxTransformUtils.collectBoxTransform(old) : null;
+    var oldFilename = old ? String(old.dataset.filename || '') : '';
+    if (preservedTransform && oldFilename && oldFilename !== String(item.filename || '')) {
+      /* A different filename may only use its own default geometry. */
+      preservedTransform = null;
+    }
+    if (preservedTransform) {
+      var oldBaseWidth = Number(old && old.dataset.baseWidth);
+      var oldWidth = parseFloat(preservedTransform.width);
+      var replacementScale = oldBaseWidth > 0 && Number.isFinite(oldWidth)
+        ? oldWidth / oldBaseWidth : 1;
+      if (!Number.isFinite(replacementScale) || replacementScale <= 0) replacementScale = 1;
+      preservedTransform = Object.assign({}, preservedTransform, {
+        width: (Number(target.width) * replacementScale) + 'px',
+        height: (Number(target.height) * replacementScale) + 'px'
+      });
+    }
+    var visibleRectForTransform = function (left, top, width, height) {
+      var targetWidth = Number(target.width);
+      var targetHeight = Number(target.height);
+      var sourceWidth = Number(item.sourceWidth);
+      var sourceHeight = Number(item.sourceHeight);
+      var visible = item.visible || {};
+      var visibleX = Number(visible.x);
+      var visibleY = Number(visible.y);
+      var visibleWidth = Number(visible.width);
+      var visibleHeight = Number(visible.height);
+      var imageLeft = Number(image.left);
+      var imageTop = Number(image.top);
+      var imageWidth = Number(image.width);
+      var imageHeight = Number(image.height);
+      if (![targetWidth, targetHeight, sourceWidth, sourceHeight, left, top, width, height,
+        visibleX, visibleY, visibleWidth, visibleHeight,
+        imageLeft, imageTop, imageWidth, imageHeight].every(Number.isFinite) ||
+          targetWidth <= 0 || targetHeight <= 0 || sourceWidth <= 0 || sourceHeight <= 0 ||
+          width <= 0 || height <= 0 || visibleWidth <= 0 || visibleHeight <= 0 ||
+          imageWidth <= 0 || imageHeight <= 0) return null;
+      var transformedImage = {
+        x: left + ((imageLeft - Number(target.x)) / targetWidth) * width,
+        y: top + ((imageTop - Number(target.y)) / targetHeight) * height,
+        width: (imageWidth / targetWidth) * width,
+        height: (imageHeight / targetHeight) * height
+      };
+      return {
+        x: transformedImage.x + (visibleX / sourceWidth) * transformedImage.width,
+        y: transformedImage.y + (visibleY / sourceHeight) * transformedImage.height,
+        width: (visibleWidth / sourceWidth) * transformedImage.width,
+        height: (visibleHeight / sourceHeight) * transformedImage.height
+      };
+    };
+    var validate = function (left, top, width, height) {
+      var visibleRect = visibleRectForTransform(left, top, width, height);
+      if (!visibleRect) return false;
+      var canvasRight = Math.min(visibleRect.x + visibleRect.width, canvasWidth);
+      var canvasBottom = Math.min(visibleRect.y + visibleRect.height, canvasHeight);
+      var canvasLeft = Math.max(visibleRect.x, 0);
+      var canvasTop = Math.max(visibleRect.y, 0);
+      var canvasIntersectionWidth = canvasRight - canvasLeft;
+      var canvasIntersectionHeight = canvasBottom - canvasTop;
+      return visibleRect &&
+        positiveIntersection(visibleRect.x, visibleRect.y, visibleRect.width, visibleRect.height, operationRect) &&
+        canvasIntersectionWidth >= TWO_PERSON_MIN_VISIBLE_CANVAS_WIDTH &&
+        canvasIntersectionHeight >= TWO_PERSON_MIN_VISIBLE_CANVAS_HEIGHT;
+    };
+    if (preservedTransform && !validate(
+      parseFloat(preservedTransform.left), parseFloat(preservedTransform.top),
+      parseFloat(preservedTransform.width), parseFloat(preservedTransform.height)
+    )) {
+      /* Keep the previous source and Transform when the replacement is invalid. */
+      return false;
+    }
     if (old) old.remove();
     var box = document.createElement('div');
     box.className = 'bn-two-person-transform-box';
     box.dataset.twoPersonSlot = slot;
+    box.dataset.filename = String(item.filename || '');
     box.dataset.baseLeft = String(target.x);
     box.dataset.baseTop = String(target.y);
     box.dataset.baseWidth = String(target.width);
@@ -214,10 +290,6 @@
     imageNode.style.pointerEvents = 'none';
     box.appendChild(imageNode);
     zone.appendChild(box);
-    var validate = function (left, top, width, height) {
-      return positiveIntersection(left, top, width, height, operationRect) &&
-        positiveIntersection(left, top, width, height, { x: 0, y: 0, width: canvasWidth, height: canvasHeight });
-    };
     if (global.BNBoxTransformUtils) {
       global.BNBoxTransformUtils.attachBoxTransform(box, zone, {
         role: 'twoPerson',
@@ -231,9 +303,18 @@
           if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
         }
       });
+      if (preservedTransform) global.BNBoxTransformUtils.applyBoxTransform(box, preservedTransform);
     }
     zone.style.display = 'block';
     if (data.front) setTwoPersonFront(zone, data.front);
+    if (global.parent && global.parent !== global) {
+      global.parent.postMessage({
+        type: 'bn-two-person-source-accepted',
+        slot: slot,
+        filename: item.filename,
+        src: item.src
+      }, '*');
+    }
     if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
   }
 
@@ -339,14 +420,30 @@
         setTwoPersonFront(document.getElementById('bn-zone-two-persons'), data.front);
         if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
       }
+      if (data.type === 'bn-two-person-reset') {
+        (data.items || []).forEach(function(item){ addTwoPersonItem({slot:item.slot, item:item, reset:true}); });
+        setTwoPersonFront(document.getElementById('bn-zone-two-persons'), data.front);
+        if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
+      }
       if (data.type === 'bn-two-person-remove') {
         var twoPersonZone = document.getElementById('bn-zone-two-persons');
         if (twoPersonZone) {
-          twoPersonZone.innerHTML = '';
+          if (data.slot === 'left' || data.slot === 'right') {
+            var removeBox = twoPersonZone.querySelector('[data-two-person-slot="' + data.slot + '"]');
+            if (removeBox) removeBox.remove();
+          } else {
+            twoPersonZone.innerHTML = '';
+          }
           var twoPersonConfig = ((global.__BN_TEMPLATE__ || {}).productZones || {}).twoPersons || {};
           applyStyle(twoPersonZone, twoPersonConfig.style || {});
-          twoPersonZone.dataset.front = twoPersonConfig.defaultFront === 'right' ? 'right' : 'left';
-          twoPersonZone.style.display = 'none';
+          if (data.slot !== 'left' && data.slot !== 'right') {
+            twoPersonZone.dataset.front = twoPersonConfig.defaultFront === 'right' ? 'right' : 'left';
+            twoPersonZone.style.display = 'none';
+          } else if (!twoPersonZone.querySelector('[data-two-person-slot="left"],[data-two-person-slot="right"]')) {
+            twoPersonZone.style.display = 'none';
+          } else {
+            twoPersonZone.style.display = 'block';
+          }
         }
       }
       if (data.type === 'bn-person-add') {

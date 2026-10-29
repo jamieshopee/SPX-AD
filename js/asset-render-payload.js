@@ -67,6 +67,11 @@
   }
 
   async function readSourceDataUrl(options) {
+    var manualSources = options.manualSources || {};
+    var manualKey = String(options.slot || '') + '|' + String(options.filename || '').trim().toLowerCase();
+    if (options.mode !== 'two_persons' && manualSources[manualKey]) {
+      return { src: manualSources[manualKey], source: 'manual', resolved: null };
+    }
     var resolved = findResolvedAsset(options.resolvedAssets, options.role, options.filename, options.slot);
     if (resolved && resolved.dataUrl) {
       return {
@@ -74,6 +79,9 @@
         source: 'processed',
         resolved: resolved
       };
+    }
+    if (options.mode === 'two_persons' && manualSources[manualKey]) {
+      return { src: manualSources[manualKey], source: 'manual', resolved: null };
     }
     var handle = options.getHandle(options.filename);
     if (!handle) return null;
@@ -160,6 +168,7 @@
       var twoSlots = twoCfg.slots || {};
       var alphaBounds = global.BNAssetProcessing && global.BNAssetProcessing.analyzeAlphaBounds;
       var twoPersons = { left: null, right: null, front: twoCfg.defaultFront === 'right' ? 'right' : 'left' };
+      var singlePerson = !!(info.left || info.right) && !(info.left && info.right);
       var slotNames = ['left', 'right'];
 
       if (typeof alphaBounds !== 'function') {
@@ -168,6 +177,7 @@
         for (var slotIndex = 0; slotIndex < slotNames.length; slotIndex++) {
           var slotName = slotNames[slotIndex];
           var slotFilename = info[slotName];
+          if (!slotFilename) continue;
           var slotCfg = twoSlots[slotName] || {};
           try {
             var source = await readSourceDataUrl({
@@ -175,18 +185,23 @@
               role: 'person',
               filename: slotFilename,
               slot: slotName,
+              mode: 'two_persons',
               getHandle: getHandle,
               handleToDataUrl: handleToDataUrl
+              , manualSources: options.manualSources
             });
             if (!source) {
               missing.push(slotFilename);
               continue;
             }
-            var alpha = await alphaBounds(source.src);
+            var twoPersonAlphaThreshold = Number(global.BNAssetProcessing &&
+              global.BNAssetProcessing.TWO_PERSON_VISIBLE_ALPHA_THRESHOLD);
+            var alpha = await alphaBounds(source.src, twoPersonAlphaThreshold);
             var visible = alpha.visible;
-            var targetWidth = Number(slotCfg.width);
-            var targetX = Number(slotCfg.x);
-            var targetY = Number(slotCfg.y);
+            var targetRect = singlePerson ? (twoCfg.operationRect || {}) : slotCfg;
+            var targetWidth = Number(targetRect.width);
+            var targetX = Number(targetRect.x);
+            var targetY = Number(targetRect.y);
             if (!visible || !Number.isFinite(targetWidth) || targetWidth <= 0) {
               errors.push({ filename: slotFilename, code: 'two_person_visible_bounds_invalid' });
               continue;
@@ -202,6 +217,7 @@
             }
             var item = {
               filename: slotFilename,
+              source: source.source,
               src: source.src,
               sourceWidth: alpha.sourceWidth,
               sourceHeight: alpha.sourceHeight,

@@ -62,6 +62,8 @@
     var sourceFiles = (filenames || []).slice();
     var leftName = null;
     var rightName = null;
+    var leftCount = 0;
+    var rightCount = 0;
     var hasTwoPersonMarker = false;
     sourceFiles.forEach(function (filename) {
       var name = String(filename || '');
@@ -70,13 +72,15 @@
           /_PRODUCT_02_右配品(?:\(人\))?/u.test(name)) {
         hasTwoPersonMarker = true;
       }
-      if (/_PRODUCT_01_左配品\(人\)(?:\.[^.]+)?$/u.test(name)) leftName = filename;
-      if (/_PRODUCT_02_右配品\(人\)(?:\.[^.]+)?$/u.test(name)) rightName = filename;
+      if (/_PRODUCT_01_左配品\(人\)\.(?:png|webp)$/iu.test(name)) { leftName = filename; leftCount++; }
+      if (/_PRODUCT_02_右配品\(人\)\.(?:png|webp)$/iu.test(name)) { rightName = filename; rightCount++; }
     });
 
     if (hasTwoPersonMarker) {
-      var exactPair = sourceFiles.length === 2 && leftName && rightName && leftName !== rightName;
-      return exactPair
+      var validSingleOrPair = sourceFiles.length >= 1 && sourceFiles.length <= 2 &&
+        leftCount <= 1 && rightCount <= 1 && (leftCount + rightCount) === sourceFiles.length &&
+        (leftCount === 1 || rightCount === 1);
+      return validSingleOrPair
         ? { type: 'two_persons', left: leftName, right: rightName, products: [], person: null, singles: [], ignored: [] }
         : { type: 'invalid_two_persons', left: leftName, right: rightName, products: [], person: null, singles: [], ignored: sourceFiles };
     }

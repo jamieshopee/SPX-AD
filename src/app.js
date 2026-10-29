@@ -615,6 +615,17 @@ function readLayoutStateFromFrame(frameWindow) {
     }));
     const personZone = doc.getElementById('bn-zone-person');
     const personBox = doc.querySelector('#bn-zone-person .bn-person-transform-box');
+    const twoZone = doc.getElementById('bn-zone-two-persons');
+    const readTwoBox = box => box ? {
+      left: box.style.left || '', top: box.style.top || '', width: box.style.width || '', height: box.style.height || '',
+      rotation: Number(box.dataset.rotation) || 0, zIndex: box.style.zIndex || '',
+      userAdjusted: box.dataset.userAdjusted === '1', filename: box.dataset.filename || '',
+    } : {};
+    const twoPersons = twoZone ? {
+      left: readTwoBox(twoZone.querySelector('[data-two-person-slot="left"]')),
+      right: readTwoBox(twoZone.querySelector('[data-two-person-slot="right"]')),
+      front: twoZone.dataset.front === 'right' ? 'right' : 'left',
+    } : null;
     const single = doc.querySelector('#bn-zone-singleprod .bn-single-product-box');
     const singleProduct = single ? {
       left: single.style.left || '',
@@ -639,6 +650,7 @@ function readLayoutStateFromFrame(frameWindow) {
         userAdjusted: personBox.dataset.userAdjusted === '1',
       } : {},
       singleProduct,
+      ...(twoPersons ? { twoPersons } : {}),
     };
   } catch (error) {
     console.warn('[CC][layoutState] direct frame read failed:', error);
@@ -1158,6 +1170,7 @@ function resetPluginRuntimeState() {
   window._bnPerson = null;
   window._bnSingleProd = null;
   window._bnTwoPersons = null;
+  notifyTwoPersonSidebar();
   singleProductGeometry = null;
   singleProductDrag = null;
   if (dragOverlay) {
@@ -1306,6 +1319,7 @@ async function pickAssetFolder() {
           job,
           loadSeq: productLoadSeq,
           frameWindow: productFrameWindow,
+          layoutKey: layoutStateKeyForRenderContext(job, getActiveRenderContext(job.styleId || '01')),
         } : {});
         await applyQrCodeToCanvas(job);
       }
@@ -1701,9 +1715,20 @@ async function buildMainCanvasProductPayloadForJob(job) {
     imageUtils: window.BNImageUtils,
     productShadowEnabled: job.productShadowEnabled !== false,
     resolvedAssets,
+    manualSources: twoPersonManualSourcesForJob(job),
     createId: (kind, index) => 'cc_refresh_' + Date.now() + '_' + index,
   });
   return applyJobManualRenderStateToPayload(job, payload);
+}
+
+function twoPersonManualSourcesForJob(job) {
+  const result = {};
+  const slots = job?._manualRenderState?.twoPersons || {};
+  ['left', 'right'].forEach(slot => {
+    const item = slots[slot];
+    if (item?.filename && item.src) result[`${slot}|${String(item.filename).trim().toLowerCase()}`] = item.src;
+  });
+  return result;
 }
 
 async function updateMainCanvasImageSourcesForJob(job, reason = '') {
@@ -1723,9 +1748,13 @@ async function updateMainCanvasImageSourcesForJob(job, reason = '') {
       const item = payload.twoPersons?.[slot];
       const img = item ? doc.querySelector(`#bn-zone-two-persons [data-two-person-slot="${slot}"] img.bn-two-person-img`) : null;
       if (!img || !item.src) continue;
-      img.src = item.src;
+      frameWindow.postMessage({
+        type: 'bn-two-person-add',
+        slot,
+        item,
+        front: window._bnTwoPersons?.front || payload.twoPersons?.front,
+      }, '*');
       updatedImages.push(img);
-      if (window._bnTwoPersons?.[slot]) window._bnTwoPersons[slot].src = item.src;
       updated++;
     }
   } else if (payload.type === 'three_products') {
@@ -2031,6 +2060,7 @@ function saveJobManualRenderState(job, filename, slot, role) {
     products: {},
     person: null,
     singleProduct: null,
+    twoPersons: {},
   };
 
   if (role === 'product') {
@@ -2049,15 +2079,22 @@ function saveJobManualRenderState(job, filename, slot, role) {
       baselineRatio: product.baselineRatio,
     };
   } else if (role === 'person') {
-    const person = window._bnPerson;
-    if (info.person !== filename || !person?.src) return false;
-    nextState.person = {
-      filename: info.person,
-      src: person.src,
-      displayWidth: person.displayWidth,
-      ratio: person.ratio,
-      objectFit: person.objectFit,
-    };
+    if (info.type === 'two_persons') {
+      const two = window._bnTwoPersons?.[slot];
+      if (!two || two.filename !== filename || !two.src) return false;
+      nextState.twoPersons = nextState.twoPersons || {};
+      nextState.twoPersons[slot] = { filename, src: two.src };
+    } else {
+      const person = window._bnPerson;
+      if (info.person !== filename || !person?.src) return false;
+      nextState.person = {
+        filename: info.person,
+        src: person.src,
+        displayWidth: person.displayWidth,
+        ratio: person.ratio,
+        objectFit: person.objectFit,
+      };
+    }
   } else if (role === 'singleProduct') {
     const singleProduct = window._bnSingleProd;
     if (!(info.singles || []).includes(filename) || !singleProduct?.src) return false;
@@ -2072,6 +2109,11 @@ function saveJobManualRenderState(job, filename, slot, role) {
       objectFit: singleProduct.objectFit,
     };
     pendingManualSingleRenderCapture = { job, filename };
+  } else if (role === 'twoPerson') {
+    const two = window._bnTwoPersons?.[slot];
+    if (!two || two.filename !== filename || !two.src) return false;
+    nextState.twoPersons = nextState.twoPersons || {};
+    nextState.twoPersons[slot] = { filename, src: two.src };
   } else {
     return false;
   }
@@ -2084,7 +2126,21 @@ function applyJobManualRenderStateToPayload(job, payload) {
   const state = job?._manualRenderState;
   if (!state || !payload) return payload;
 
-  if (payload.type === 'two_persons' || payload.type === 'invalid_two_persons') return payload;
+  if (payload.type === 'invalid_two_persons') return payload;
+
+  if (payload.type === 'two_persons') {
+    const twoState = state.twoPersons || {};
+    ['left', 'right'].forEach(slot => {
+      const manual = twoState[slot];
+      const item = payload.twoPersons?.[slot];
+      if (!manual || !item || manual.filename !== item.filename || !manual.src) return;
+      if (item.source === 'processed') return;
+      item.src = manual.src;
+      const message = (payload.messages || []).find(entry => entry.type === 'bn-two-person-add' && entry.slot === slot);
+      if (message) message.item.src = manual.src;
+    });
+    return payload;
+  }
 
   if (payload.type === 'three_products') {
     (payload.products || []).forEach(product => {
@@ -2153,12 +2209,15 @@ window._bnInvalidateApprovedAssetForManualReplace = function(filename, slot, rol
   const result = window.BNAssetResolver.resolveApprovedAsset(assetPipelineState, {
     jobId,
     role,
+    mode: role === 'person' && slot != null ? 'two_persons' : undefined,
     slot,
     filename,
   });
   const assetKey = result && result.assetKey;
   const record = assetKey ? assetPipelineState.assets[assetKey] : null;
   if (!record) return;
+  if (role === 'person' && slot != null &&
+      (record.mode !== 'two_persons' || String(record.slot) !== String(slot))) return;
   const isSkipped = record.status === 'skipped' || record.review?.decision === 'skipped';
   delete record.processedAsset;
   if (!isSkipped) {
@@ -2166,6 +2225,96 @@ window._bnInvalidateApprovedAssetForManualReplace = function(filename, slot, rol
     delete record.review;
   }
   console.log('[CC][assetPipeline] manual replace invalidated approved record', { assetKey, filename, slot, role, jobId });
+};
+
+function notifyTwoPersonSidebar() {
+  if (typeof window._bnRenderTwoPersonsList === 'function') window._bnRenderTwoPersonsList();
+}
+
+function twoPersonSlotForFilename(filename) {
+  const name = String(filename || '');
+  if (/_PRODUCT_01_左配品\(人\)\.(?:png|webp)$/iu.test(name)) return 'left';
+  if (/_PRODUCT_02_右配品\(人\)\.(?:png|webp)$/iu.test(name)) return 'right';
+  return null;
+}
+
+window._bnTwoPersonManualUpload = async function(filename, src) {
+  const job = activeJob();
+  const slot = twoPersonSlotForFilename(filename);
+  if (!job || !slot || !src) throw new Error('雙人檔名不符合左／右人物規則。');
+  const existingInfo = classifyProducts(job.productFilenames || []);
+  if (existingInfo.type !== 'two_persons' && (job.productFilenames || []).length) {
+    throw new Error('目前工單已有不相容素材，已拒絕混合匯入。');
+  }
+  const current = { left: existingInfo.left || null, right: existingInfo.right || null };
+  if (current[slot] && current[slot] !== filename) throw new Error('該人物 slot 已被其他檔名占用。');
+  await syncActiveLayoutState();
+  const next = { left: current.left, right: current.right };
+  next[slot] = filename;
+  const nextFiles = [next.left, next.right].filter(Boolean);
+  job.productFilenames = nextFiles;
+  job._embeddedAssets = job._embeddedAssets || {};
+  job._embeddedAssets[filename] = { dataUrl: src, category: 'persons', type: dataUrlMime(src, 'image/png') };
+  const configuredFront = activeTemplate?._json?.productZones?.twoPersons?.defaultFront || window.__BN_TEMPLATE__?.productZones?.twoPersons?.defaultFront || 'left';
+  window._bnTwoPersons = window._bnTwoPersons || { front: getJobLayoutState(job)?.twoPersons?.front || configuredFront };
+  window._bnTwoPersons[slot] = { filename, src };
+  if (typeof window._bnInvalidateApprovedAssetForManualReplace === 'function') {
+    window._bnInvalidateApprovedAssetForManualReplace(filename, slot, 'person');
+  }
+  await applyProductsToCanvas(nextFiles, {
+    job,
+    layoutKey: layoutStateKeyForRenderContext(job, getActiveRenderContext(job.styleId || '01')),
+  });
+  updateTemplateModeLabel('two_persons');
+  notifyTwoPersonSidebar();
+  document.dispatchEvent(new CustomEvent('bn-state-dirty'));
+};
+
+window._bnTwoPersonManualRemove = async function(slot) {
+  const job = activeJob();
+  if (!job || (slot !== 'left' && slot !== 'right')) return;
+  await syncActiveLayoutState();
+  const info = classifyProducts(job.productFilenames || []);
+  if (info.type !== 'two_persons') return;
+  const nextFiles = [slot === 'left' ? null : info.left, slot === 'right' ? null : info.right].filter(Boolean);
+  job.productFilenames = nextFiles;
+  if (job._manualRenderState?.twoPersons) delete job._manualRenderState.twoPersons[slot];
+  if (window._bnTwoPersons) delete window._bnTwoPersons[slot];
+  const frameWindow = el.frame?.contentWindow;
+  if (frameWindow) frameWindow.postMessage({ type: 'bn-two-person-remove', slot }, '*');
+  if (!nextFiles.length) {
+    window._bnTwoPersons = null;
+    if (frameWindow) frameWindow.postMessage({ type: 'bn-two-person-remove' }, '*');
+  }
+  updateTemplateModeLabel(nextFiles.length ? 'two_persons' : null);
+  notifyTwoPersonSidebar();
+  document.dispatchEvent(new CustomEvent('bn-state-dirty'));
+};
+
+window._bnTwoPersonSetFront = function(front) {
+  if (front !== 'left' && front !== 'right') return;
+  if (!window._bnTwoPersons) window._bnTwoPersons = {};
+  window._bnTwoPersons.front = front;
+  const frameWindow = el.frame?.contentWindow;
+  if (frameWindow) frameWindow.postMessage({ type: 'bn-two-person-layer-set', front }, '*');
+  document.dispatchEvent(new CustomEvent('bn-state-dirty'));
+};
+
+window._bnTwoPersonReset = async function() {
+  const job = activeJob();
+  const frameWindow = el.frame?.contentWindow;
+  if (!job || !frameWindow) return;
+  const info = classifyProducts(job.productFilenames || []);
+  if (info.type !== 'two_persons') return;
+  await syncActiveLayoutState();
+  const payload = await buildMainCanvasProductPayloadForJob(job);
+  if (!payload || payload.type !== 'two_persons') return;
+  const items = ['left', 'right'].filter(slot => payload.twoPersons?.[slot]).map(slot => ({
+    slot, ...payload.twoPersons[slot]
+  }));
+  const front = getJobLayoutState(job)?.twoPersons?.front || window._bnTwoPersons?.front || payload.twoPersons.front;
+  frameWindow.postMessage({ type: 'bn-two-person-reset', items, front }, '*');
+  notifyTwoPersonSidebar();
 };
 
 window._bnResetCurrentLayoutState = function(kind) {
@@ -2209,6 +2358,7 @@ function clearPersonProductState(updateLabel = true) {
 
 function clearTwoPersonsState(updateLabel = true) {
   window._bnTwoPersons = null;
+  notifyTwoPersonSidebar();
   if (frameReady && el.frame.contentWindow) {
     el.frame.contentWindow.postMessage({ type: 'bn-two-person-remove' }, '*');
   }
@@ -2581,7 +2731,7 @@ async function applyProductMasterLayoutForActiveJob(options = {}) {
     return;
   }
   setJobLayoutState(job, propagated, layoutKey);
-  await applyJobLayoutStateToFrame(job, el.frame?.contentWindow, propagated);
+  await applyJobLayoutStateToFrame(job, el.frame?.contentWindow, propagated, { layoutKey });
   scheduleActiveJobThumbnailUpdate(500);
   setStatus('已套用 Master Layout。', 'success');
 }
@@ -3072,6 +3222,7 @@ async function selectJob(id, options = {}) {
         job,
         loadSeq,
         frameWindow,
+        layoutKey,
       });
       requireCurrentTransaction('products-ready');
       await applyQrCodeToCanvas(job, transaction);
@@ -3084,6 +3235,7 @@ async function selectJob(id, options = {}) {
       if (layoutToApply) {
         setJobLayoutState(job, layoutToApply, layoutKey);
         await applyJobLayoutStateToFrame(job, frameWindow, layoutToApply, {
+          layoutKey,
           skipRequest: !!options.skipLayoutStateRequest,
         });
         requireCurrentTransaction('layout-applied');
@@ -3444,7 +3596,13 @@ async function applyQrCodeToCanvas(job, transaction = null) {
 async function applyProductsToCanvas(productFilenames, options = {}) {
   if (!productFilenames.length) return;
   const transaction = options.job && options.loadSeq != null && options.frameWindow
-    ? { job: options.job, loadSeq: options.loadSeq, frameWindow: options.frameWindow, template: activeTemplate }
+    ? {
+      job: options.job,
+      loadSeq: options.loadSeq,
+      frameWindow: options.frameWindow,
+      template: activeTemplate,
+      layoutKey: options.layoutKey || '',
+    }
     : null;
   const stopStaleProductRender = stage => {
     if (!transaction) return false;
@@ -3466,6 +3624,9 @@ async function applyProductsToCanvas(productFilenames, options = {}) {
 
   const renderTemplate = transaction ? transaction.template : activeTemplate;
   const renderJob = transaction ? transaction.job : activeJob();
+  const renderLayoutKey = options.layoutKey
+    || transaction?.layoutKey
+    || layoutStateKeyForRenderContext(renderJob, getActiveRenderContext(renderJob?.styleId || '01'));
   if (renderTemplate) {
     try { await ensureTemplateJson(renderTemplate, renderJob?.styleId || '01'); } catch (_) {}
   }
@@ -3481,6 +3642,7 @@ async function applyProductsToCanvas(productFilenames, options = {}) {
     imageUtils: window.BNImageUtils,
     productShadowEnabled: renderJob?.productShadowEnabled !== false,
     resolvedAssets,
+    manualSources: twoPersonManualSourcesForJob(renderJob),
     createId: (kind, index) => 'cc_p' + Date.now() + '_' + index,
   });
   if (stopStaleProductRender('payload-built')) return;
@@ -3499,7 +3661,8 @@ async function applyProductsToCanvas(productFilenames, options = {}) {
 
   if (payload.type === 'two_persons') {
     const frameWindow = transaction?.frameWindow || el.frame.contentWindow;
-    if (!payload.twoPersons?.left || !payload.twoPersons?.right || payload.missing.length || payload.errors.length) {
+    const hasPerson = !!(payload.twoPersons?.left || payload.twoPersons?.right);
+    if (!hasPerson || payload.missing.length || payload.errors.length) {
       clearTwoPersonsState(false);
       setStatus('雙人素材無法完整讀取，已拒絕匯入。', 'error');
       return;
@@ -3508,15 +3671,34 @@ async function applyProductsToCanvas(productFilenames, options = {}) {
     updateTemplateModeLabel('two_persons');
     clearThreeProductState(false);
     clearPersonProductState(false);
-    window._bnTwoPersons = {
-      left: payload.twoPersons.left,
-      right: payload.twoPersons.right,
-      front: payload.twoPersons.front,
-    };
+    const savedTwoPersonState = getJobLayoutStateStrict(renderJob, renderLayoutKey);
+    const savedTwoFront = savedTwoPersonState?.twoPersons?.front;
+    if (savedTwoFront === 'left' || savedTwoFront === 'right') payload.twoPersons.front = savedTwoFront;
+    const previousTwo = window._bnTwoPersons || {};
+    window._bnTwoPersons = { left: payload.twoPersons.left, right: payload.twoPersons.right, front: payload.twoPersons.front };
+    notifyTwoPersonSidebar();
+    ['left', 'right'].forEach(slot => {
+      if (!payload.twoPersons[slot] && previousTwo[slot]) frameWindow.postMessage({ type: 'bn-two-person-remove', slot }, '*');
+    });
     for (const message of payload.messages) {
       if (stopStaleProductRender('before-two-person-message')) return;
       frameWindow.postMessage(message, '*');
       await sleep(80);
+    }
+    const savedTwoPersons = savedTwoPersonState?.twoPersons || null;
+    const newTwoPersonState = { front: savedTwoPersons?.front || payload.twoPersons.front };
+    let hasNewTwoPersonState = false;
+    ['left', 'right'].forEach(slot => {
+      const saved = savedTwoPersons?.[slot];
+      const current = payload.twoPersons?.[slot];
+      if (!previousTwo[slot] && saved && current && saved.filename === current.filename) {
+        newTwoPersonState[slot] = saved;
+        hasNewTwoPersonState = true;
+      }
+    });
+    if (hasNewTwoPersonState) {
+      frameWindow.postMessage({ type: 'bn-layout-state-apply', state: { twoPersons: newTwoPersonState } }, '*');
+      await sleep(180);
     }
     updateProductModeLock();
     if (!options.skipThumbnail) scheduleActiveJobThumbnailUpdate(900);
@@ -3699,10 +3881,13 @@ function postTextToFrame(frameWindow, record) {
 }
 
 async function applyJobLayoutStateToFrame(job, frameWindow = el.frame?.contentWindow, stateOverride = null, options = {}) {
-  const state = stateOverride || getJobLayoutState(job);
+  const layoutKey = options.layoutKey
+    || (layoutStateTarget?.jobId === job?.id ? layoutStateTarget.key : '')
+    || layoutStateKeyForRenderContext(job, getActiveRenderContext(job?.styleId || '01'));
+  const state = stateOverride || getJobLayoutStateStrict(job, layoutKey);
   if (!state || !frameWindow) return;
-  batchTraceState('BATCH_TRACE_3_APPLY', 'applyJobLayoutStateToFrame-state-to-apply', job, stableLayoutStateKeyForJob(job), state);
-  traceLayoutState('applyJobLayoutStateToFrame:state-to-apply', job, stableLayoutStateKeyForJob(job), state);
+  batchTraceState('BATCH_TRACE_3_APPLY', 'applyJobLayoutStateToFrame-state-to-apply', job, layoutKey, state);
+  traceLayoutState('applyJobLayoutStateToFrame:state-to-apply', job, layoutKey, state);
   applyLayoutStateToFrameDom(frameWindow, state, 'before-message');
   frameWindow.postMessage({ type: 'bn-layout-state-apply', state }, '*');
   await sleep(180);
@@ -3797,12 +3982,13 @@ async function postProductsToFrame(frameWindow, productFilenames, templateJson, 
     imageUtils: window.BNImageUtils,
     productShadowEnabled: options.job?.productShadowEnabled !== false,
     resolvedAssets: options.resolvedAssets || null,
+    manualSources: twoPersonManualSourcesForJob(options.job || null),
     createId: (kind, index) => 'thumb_p_' + Date.now() + '_' + index,
   });
   applyJobManualRenderStateToPayload(options.job || null, payload);
-  if (payload.type === 'invalid_two_persons' ||
+    if (payload.type === 'invalid_two_persons' ||
       (payload.type === 'two_persons' &&
-        (!payload.twoPersons?.left || !payload.twoPersons?.right || payload.missing.length || payload.errors.length))) {
+        (!(payload.twoPersons?.left || payload.twoPersons?.right) || payload.missing.length || payload.errors.length))) {
     console.warn('[CC][thumb] two-person pair rejected', label);
     return;
   }
@@ -3870,7 +4056,7 @@ async function generateJobThumbnail(job, renderContext = getActiveRenderContext(
     const resolvedAssets = await buildThumbnailResolvedAssets(job);
     await postProductsToFrame(frame.contentWindow, job.productFilenames || [], templateJson, label, { resolvedAssets, job });
     if (job.productFilenames?.length) await sleep(420);
-    await applyJobLayoutStateToFrame(job, frame.contentWindow, savedLayoutState, { skipRequest: true });
+    await applyJobLayoutStateToFrame(job, frame.contentWindow, savedLayoutState, { layoutKey, skipRequest: true });
     await waitForFrameImages(frame.contentWindow, 6000);
     const dataUrl = await captureFromHiddenFrame(frame, HIDDEN_CAPTURE_TIMEOUT, label);
     return dataUrl;
@@ -4237,6 +4423,7 @@ async function selectTemplate(id, options = {}) {
           job,
           loadSeq,
           frameWindow,
+          layoutKey,
         } : {});
         if (loadSeq !== canvasLoadSeq) return;
         await applyQrCodeToCanvas(job);
@@ -4248,7 +4435,7 @@ async function selectTemplate(id, options = {}) {
         if (loadSeq !== canvasLoadSeq) return;
         if (layoutToApply) {
           setJobLayoutState(job, layoutToApply, layoutKey);
-          await applyJobLayoutStateToFrame(job, el.frame.contentWindow, layoutToApply);
+          await applyJobLayoutStateToFrame(job, el.frame.contentWindow, layoutToApply, { layoutKey });
         }
       }).catch(() => {});
     }
@@ -4561,7 +4748,7 @@ async function renderSingleJob(job) {
     traceFrameProductDom('renderSingleJob:after-product-payload-before-layout-apply-dom', el.frame.contentWindow, job, layoutKey);
     batchTraceDom('BATCH_TRACE_4_DOM', 'after-product-payload-before-layout-apply-dom', el.frame.contentWindow, job, layoutKey);
     batchTraceState('BATCH_TRACE_3_APPLY', 'state-to-apply-before-apply', job, layoutKey, savedLayoutState);
-    await applyJobLayoutStateToFrame(job, el.frame.contentWindow, savedLayoutState, { skipRequest: true });
+    await applyJobLayoutStateToFrame(job, el.frame.contentWindow, savedLayoutState, { layoutKey, skipRequest: true });
     await sleep(260);
     traceFrameLayout('renderSingleJob:after-layout-apply-dom', el.frame.contentWindow, job, layoutKey);
     traceFrameProductDom('renderSingleJob:after-layout-apply-dom', el.frame.contentWindow, job, layoutKey);
@@ -4926,6 +5113,18 @@ function cloneJobForExport(job) {
         copy._embeddedAssets[name] = { dataUrl: embedSrc, category: 'products', type: dataUrlMime(embedSrc, 'image/png') };
         return name;
       });
+  } else if (classifyProducts(job.productFilenames || []).type === 'two_persons') {
+    const twoPersonInfo = classifyProducts(job.productFilenames || []);
+    copy.productFilenames = [twoPersonInfo.left, twoPersonInfo.right].filter(Boolean);
+    copy.productFilenames.forEach(filename => {
+      const embedded = job._embeddedAssets?.[filename];
+      if (!embedded?.dataUrl) return;
+      copy._embeddedAssets[filename] = {
+        dataUrl: embedded.dataUrl,
+        category: 'persons',
+        type: embedded.type || dataUrlMime(embedded.dataUrl, 'image/png'),
+      };
+    });
   } else if (window._bnPerson || window._bnSingleProd) {
     copy.productFilenames = [];
     if (window._bnPerson?.src) {
@@ -5738,6 +5937,15 @@ window.addEventListener('message', event => {
     if (event.source === el.frame.contentWindow) onFrameReady();
   }
   if (event.source !== el.frame.contentWindow) return;
+  if (type === 'bn-two-person-source-accepted') {
+    const slot = event.data?.slot;
+    const current = window._bnTwoPersons?.[slot];
+    if ((slot === 'left' || slot === 'right') && current && current.filename === event.data?.filename) {
+      current.src = event.data.src;
+      notifyTwoPersonSidebar();
+    }
+    return;
+  }
   if (type === 'bn-single-product-geometry') {
     singleProductGeometry = event.data.visible === false ? null : event.data;
     const pending = pendingManualSingleRenderCapture;

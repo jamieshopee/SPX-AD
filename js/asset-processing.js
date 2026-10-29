@@ -51,7 +51,11 @@
     });
   }
 
-  function analyzeAlphaBounds(dataUrl) {
+  var TWO_PERSON_VISIBLE_ALPHA_THRESHOLD = 2;
+
+  function analyzeAlphaBounds(dataUrl, alphaThreshold) {
+    var threshold = Number(alphaThreshold);
+    if (!Number.isFinite(threshold) || threshold <= 0) threshold = 0;
     return new Promise(function (resolve) {
       var img = new Image();
       img.onload = function () {
@@ -70,7 +74,8 @@
         for (var y = 0; y < h; y++) {
           for (var x = 0; x < w; x++) {
             var i = (y * w + x) * 4;
-            if (d[i + 3] <= 0) continue;
+            var alpha = d[i + 3];
+            if (threshold > 0 ? alpha < threshold : alpha <= 0) continue;
             if (y < top) top = y;
             if (y > bottom) bottom = y;
             if (x < left) left = x;
@@ -86,7 +91,8 @@
             y: top,
             width: right - left + 1,
             height: bottom - top + 1
-          }
+          },
+          alphaThreshold: threshold
         });
       };
       img.onerror = function () {
@@ -99,6 +105,7 @@
   global.BNAssetProcessing = {
     autoTrim: autoTrim,
     trimImage: autoTrim,
-    analyzeAlphaBounds: analyzeAlphaBounds
+    analyzeAlphaBounds: analyzeAlphaBounds,
+    TWO_PERSON_VISIBLE_ALPHA_THRESHOLD: TWO_PERSON_VISIBLE_ALPHA_THRESHOLD
   };
 })(window);
