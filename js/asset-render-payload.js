@@ -15,6 +15,13 @@
     return Number(a) === Number(b);
   }
 
+  function shadowSettingsFor(settings, role, filename, position) {
+    var root = settings || {};
+    var group = role === 'singleProduct' ? (root.singleProduct || {}) : (root.products || {});
+    var filenameKey = String(filename || '');
+    return group[filenameKey] || group[String(position)] || group.default || null;
+  }
+
   function findResolvedAsset(resolvedAssets, role, filename, slot) {
     var assets = resolvedAssets || {};
     var groups = [];
@@ -137,6 +144,7 @@
     var trim = options.trim || (global.BNAssetProcessing && global.BNAssetProcessing.autoTrim);
     var imageUtils = options.imageUtils || global.BNImageUtils || {};
     var productShadowEnabled = options.productShadowEnabled !== false;
+    var productShadowSettings = options.productShadowSettings || {};
     var resolvedAssets = options.resolvedAssets || null;
     var idPrefix = options.idPrefix || 'asset_p';
     var createId = options.createId || function (kind, index) { return defaultCreateId(idPrefix, index); };
@@ -257,7 +265,7 @@
     if (info.type === 'three_products') {
       var layout = (((templateJson.productZones || {}).threeProducts || {}).defaultLayout) || {};
       var sizeRatios = layout.sizeRatios || templateJson.sizeRatios || [1, 0.85, 0.72];
-      var useAutoShadow = !!layout.autoShadow && productShadowEnabled;
+      var useAutoShadow = false;
 
       for (var i = 0; i < info.products.length; i++) {
         var item = info.products[i];
@@ -275,9 +283,7 @@
             continue;
           }
           var trimmed = await trim(source.src);
-          var processed = useAutoShadow && typeof imageUtils.autoApplyShadow === 'function'
-            ? await imageUtils.autoApplyShadow(trimmed.src, trimmed.ratio)
-            : { src: trimmed.src, ratio: trimmed.ratio, baselineRatio: 1 };
+          var processed = { src: trimmed.src, ratio: trimmed.ratio, baselineRatio: 1 };
           var position = item.position != null ? item.position : i;
           var id = createId('product', i);
           var product = {
@@ -290,7 +296,8 @@
             position: position,
             zOrder: i,
             _slot: item._slot,
-            filename: item.filename
+            filename: item.filename,
+            shadowSettings: shadowSettingsFor(productShadowSettings, 'product', item.filename, position)
           };
           products.push(product);
           messages.push({
@@ -304,7 +311,9 @@
             index: i,
             sizeScale: product.sizeScale,
             position: position,
-            zOrder: i
+            zOrder: i,
+            shadowSettings: product.shadowSettings,
+            shadowEnabled: productShadowEnabled
           });
         } catch (error) {
           errors.push({ filename: item.filename, error: error });
@@ -367,11 +376,6 @@
           var trimmedSingle = await trim(singleSource.src);
           var finalSrc = trimmedSingle.src;
           var finalRatio = trimmedSingle.ratio;
-          if (singleCfg.autoShadow && productShadowEnabled && typeof imageUtils.autoApplyShadow === 'function') {
-            var shadowed = await imageUtils.autoApplyShadow(trimmedSingle.src, trimmedSingle.ratio);
-            finalSrc = shadowed.src;
-            finalRatio = shadowed.ratio;
-          }
           var maxWidth = singleInitialTarget
             ? singleInitialTarget.width
             : (Number(singleCfg.maxWidth) || 0);
@@ -397,7 +401,8 @@
             zoneHeight: singleCfg.maxHeight,
             initialTarget: singleInitialTarget,
             objectFit: 'contain',
-            filename: singleFile
+            filename: singleFile,
+            shadowSettings: shadowSettingsFor(productShadowSettings, 'singleProduct', singleFile, j)
           };
           messages.push({
             type: 'bn-single-product-add',
@@ -407,7 +412,9 @@
             displayH: displayH,
             zoneHeight: singleCfg.maxHeight,
             initialTarget: singleInitialTarget,
-            objectFit: 'contain'
+            objectFit: 'contain',
+            shadowSettings: singleProduct.shadowSettings,
+            shadowEnabled: productShadowEnabled
           });
         } catch (error) {
           errors.push({ filename: singleFile, error: error });

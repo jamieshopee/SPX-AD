@@ -703,6 +703,9 @@
       box.dataset.sizeScale = e.data.sizeScale||1;
       box.dataset.position  = e.data.position !== undefined ? e.data.position : e.data.index || 0;
       box.dataset.baselineRatio = e.data.baselineRatio||1;
+      box._bnShadowSettings = window.BNProductShadowAdapter
+        ? window.BNProductShadowAdapter.normalize(e.data.shadowSettings || {}) : (e.data.shadowSettings || {});
+      box.dataset.shadowEnabled = e.data.shadowEnabled === false ? '0' : '1';
       var pimg = document.createElement('img'); pimg.src = e.data.src;
       pimg.style.cssText = 'width:100%;height:100%;object-fit:contain;pointer-events:none;display:block;';
       box.appendChild(pimg);
@@ -718,7 +721,6 @@
       });
       pzone.appendChild(box);
       setupProdDrag(box, pzone);
-
       var _pos = String(box.dataset.position || '0');
       var _saved = _boxStates[_pos];
       if(_saved){
@@ -747,7 +749,8 @@
           layoutProducts(pzone);
         }
       }
-      setTimeout(notifyLayoutState,30);
+      refreshProductShadows(pzone);
+      notifyLayoutState();
     }
 
     if (e.data.type === 'bn-product-reset-layout' || e.data.type === 'bn-reset-products') {
@@ -767,6 +770,7 @@
         console.log('[reset] products transform cleared');
         layoutProducts(resetZone);
         console.log('[reset] products template layout applied');
+        refreshProductShadows(resetZone);
         notifyLayoutState();
       }
       return;
@@ -808,7 +812,29 @@
         var box = pzone.querySelector('.bn-prod-box[data-id="'+id+'"]');
         if(box) box.style.zIndex = String(total - i + 10);
       });
+      Array.from(pzone.querySelectorAll('.bn-prod-box')).forEach(function(box){
+        if (window.BNProductShadowAdapter && box._bnShadowLayer) {
+          box._bnShadowLayer.style.zIndex = String(Math.max(0, (Number(box.style.zIndex) || 15) - 1));
+        }
+      });
       notifyLayoutState();
+    }
+
+    if (e.data.type === 'bn-product-shadow-settings') {
+      var shadowZone = getProductZone();
+      var shadowBox = shadowZone && shadowZone.querySelector('.bn-prod-box[data-id="' + e.data.id + '"]');
+      if (shadowBox && window.BNProductShadowAdapter) {
+        shadowBox._bnShadowSettings = window.BNProductShadowAdapter.normalize(e.data.settings || {});
+        window.BNProductShadowAdapter.update(shadowBox, shadowBox._bnShadowSettings, e.data.enabled !== false);
+      }
+    }
+
+    if (e.data.type === 'bn-single-product-shadow-settings') {
+      var singleShadowBox = document.querySelector('#bn-zone-singleprod .bn-single-product-box');
+      if (singleShadowBox && window.BNProductShadowAdapter) {
+        singleShadowBox._bnShadowSettings = window.BNProductShadowAdapter.normalize(e.data.settings || {});
+        window.BNProductShadowAdapter.update(singleShadowBox, singleShadowBox._bnShadowSettings, e.data.enabled !== false);
+      }
     }
 
     /* 手動換圖 Bug Fix（Bug #2A/#2B）：只更新既有商品 DOM box 內的圖片
@@ -845,6 +871,7 @@
         });
 
         layoutProducts(pzone);
+        refreshProductShadows(pzone);
       }
       notifyLayoutState();
     }
@@ -910,6 +937,7 @@
         if(bgContainer) bgContainer.style.backgroundImage = '';
         if(bimg2){ bimg2.src=''; bimg2.style.display='none'; bimg2.style.transform=''; }
       }
+      refreshProductShadows(getProductZone());
       return;
     }
 
@@ -1250,6 +1278,13 @@
   }
   window._bnNotifyLayoutState=notifyLayoutState;
 
+  function refreshProductShadows(zone){
+    if(!window.BNProductShadowAdapter || !zone) return;
+    Array.from(zone.querySelectorAll('.bn-prod-box')).forEach(function(box){
+      window.BNProductShadowAdapter.update(box, box._bnShadowSettings || {}, box.dataset.shadowEnabled !== '0');
+    });
+  }
+
   function applyLayoutState(state){
     var zone=getProductZone();
     if(zone&&state&&Array.isArray(state.products)){
@@ -1269,6 +1304,9 @@
         box.dataset.rotation=String(Number(saved.rotation)||0);
         box.style.transform=Number(saved.rotation)?'rotate('+Number(saved.rotation)+'deg)':'';
         if(saved.userAdjusted) box.dataset.userAdjusted='1';
+        if (window.BNProductShadowAdapter) {
+          window.BNProductShadowAdapter.update(box, box._bnShadowSettings || {}, box.dataset.shadowEnabled !== '0');
+        }
       });
     }
     if(state&&state.singleProduct){
@@ -1298,6 +1336,9 @@
         single.style.top=(baseTop+offset)+'px';
         if(window.BNBoxTransformUtils){
           window.BNBoxTransformUtils.applyBoxTransform(single,state.singleProduct);
+        }
+        if (window.BNProductShadowAdapter) {
+          window.BNProductShadowAdapter.update(single, single._bnShadowSettings || {}, single.dataset.shadowEnabled !== '0');
         }
       }
     }
@@ -1359,7 +1400,12 @@
     window.BNBoxTransformUtils.attachBoxTransform(box,zone,{
       configStyle:threeCfg.style||{},
       dragBounds:dragBounds,
-      onChange:notifyLayoutState
+      onChange:function(){
+        if (window.BNProductShadowAdapter) {
+          window.BNProductShadowAdapter.update(box, box._bnShadowSettings || {}, box.dataset.shadowEnabled !== '0');
+        }
+        notifyLayoutState();
+      }
     });
   }
 
@@ -1933,6 +1979,12 @@
     Promise.all(imgs.map(waitForCaptureImage))
       .then(function(){
         console.log('[canvas][capture] images ready');
+        if (window.BNProductShadowAdapter && window.BNProductShadowAdapter.ready) {
+          return window.BNProductShadowAdapter.ready();
+        }
+      })
+      .then(function(){
+        console.log('[canvas][capture] shadows ready');
         if(document.fonts && document.fonts.ready){
           return Promise.race([
             document.fonts.ready.catch(function(err){

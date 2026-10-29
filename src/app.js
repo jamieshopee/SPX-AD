@@ -1714,6 +1714,7 @@ async function buildMainCanvasProductPayloadForJob(job) {
     trim: autoTrim,
     imageUtils: window.BNImageUtils,
     productShadowEnabled: job.productShadowEnabled !== false,
+    productShadowSettings: job.productShadowSettings || {},
     resolvedAssets,
     manualSources: twoPersonManualSourcesForJob(job),
     createId: (kind, index) => 'cc_refresh_' + Date.now() + '_' + index,
@@ -1775,6 +1776,12 @@ async function updateMainCanvasImageSourcesForJob(job, reason = '') {
         runtimeProduct.ratio = product.ratio;
         runtimeProduct.baselineRatio = product.baselineRatio;
       }
+      frameWindow.postMessage({
+        type: 'bn-product-shadow-settings',
+        id: product.id,
+        settings: product.shadowSettings || runtimeProduct?.shadowSettings || {},
+        enabled: job.productShadowEnabled !== false,
+      }, '*');
       updated++;
     }
   } else {
@@ -1796,6 +1803,11 @@ async function updateMainCanvasImageSourcesForJob(job, reason = '') {
         window._bnSingleProd.src = payload.singleProduct.src;
         window._bnSingleProd.ratio = payload.singleProduct.ratio;
       }
+      frameWindow.postMessage({
+        type: 'bn-single-product-shadow-settings',
+        settings: payload.singleProduct.shadowSettings || window._bnSingleProd?.shadowSettings || {},
+        enabled: job.productShadowEnabled !== false,
+      }, '*');
       updated++;
     }
   }
@@ -2462,9 +2474,7 @@ window._bnToggleActiveProductShadow = async function() {
       if (!manual?.manualReplaceRawSrc) continue;
       previousManualProducts[slot] = { ...manual };
       const trimmed = await autoTrim(manual.manualReplaceRawSrc);
-      const processed = nextEnabled && threeAutoShadow
-        ? await window.BNImageUtils.autoApplyShadow(trimmed.src, trimmed.ratio)
-        : { src: trimmed.src, ratio: trimmed.ratio, baselineRatio: 1 };
+      const processed = { src: trimmed.src, ratio: trimmed.ratio, baselineRatio: 1 };
       preparedManualProducts[slot] = {
         ...manual,
         src: processed.src,
@@ -2476,9 +2486,7 @@ window._bnToggleActiveProductShadow = async function() {
     if (manualState?.singleProduct?.manualReplaceRawSrc) {
       const manual = manualState.singleProduct;
       const trimmed = await autoTrim(manual.manualReplaceRawSrc);
-      const processed = nextEnabled && singleAutoShadow
-        ? await window.BNImageUtils.autoApplyShadow(trimmed.src, trimmed.ratio)
-        : { src: trimmed.src, ratio: trimmed.ratio };
+      const processed = { src: trimmed.src, ratio: trimmed.ratio };
       preparedSingleProduct = {
         ...manual,
         src: processed.src,
@@ -3066,6 +3074,7 @@ function createJob(data = {}) {
     // 空值／非法網址維持原始字串，讓使用者能看到並修正。
     qrCodeUrl:        (window.BNQrCodeUrl?.normalize(data.qrCodeUrl || '')) || (data.qrCodeUrl || ''),
     productShadowEnabled: data.productShadowEnabled !== false,
+    productShadowSettings: data.productShadowSettings || {},
     logoWhiteBackgroundEnabled: data.logoWhiteBackgroundEnabled !== false,
     logoFilenames:    data.logoFilenames    || [],
     productFilenames: data.productFilenames || [],
@@ -3641,6 +3650,7 @@ async function applyProductsToCanvas(productFilenames, options = {}) {
     trim: autoTrim,
     imageUtils: window.BNImageUtils,
     productShadowEnabled: renderJob?.productShadowEnabled !== false,
+    productShadowSettings: renderJob?.productShadowSettings || {},
     resolvedAssets,
     manualSources: twoPersonManualSourcesForJob(renderJob),
     createId: (kind, index) => 'cc_p' + Date.now() + '_' + index,
@@ -3723,6 +3733,7 @@ async function applyProductsToCanvas(productFilenames, options = {}) {
         sizeScale: product.sizeScale,
         position: product.position,
         zOrder: product.zOrder,
+        shadowSettings: product.shadowSettings || null,
         _slot: product._slot,
       });
       if (stopStaleProductRender('before-product-message-' + i)) return;
@@ -3766,6 +3777,7 @@ async function applyProductsToCanvas(productFilenames, options = {}) {
           displayH: payload.singleProduct.displayH,
           zoneHeight: payload.singleProduct.zoneHeight,
           objectFit: payload.singleProduct.objectFit,
+          shadowSettings: payload.singleProduct.shadowSettings || null,
         };
         frameWindow.postMessage(message, '*');
         console.log('[CC] bn-single-product-add ratio=' + payload.singleProduct.ratio.toFixed(3));
@@ -3981,6 +3993,7 @@ async function postProductsToFrame(frameWindow, productFilenames, templateJson, 
     trim: autoTrim,
     imageUtils: window.BNImageUtils,
     productShadowEnabled: options.job?.productShadowEnabled !== false,
+    productShadowSettings: options.job?.productShadowSettings || {},
     resolvedAssets: options.resolvedAssets || null,
     manualSources: twoPersonManualSourcesForJob(options.job || null),
     createId: (kind, index) => 'thumb_p_' + Date.now() + '_' + index,
@@ -5052,6 +5065,7 @@ function serializeJobBase(job) {
     qrCodeUrl:        job.qrCodeUrl || '',
     outputFilename:   job.outputFilename || '',
     productShadowEnabled: job.productShadowEnabled !== false,
+    productShadowSettings: job.productShadowSettings || {},
     logoWhiteBackgroundEnabled: job.logoWhiteBackgroundEnabled !== false,
     layoutState:      getJobLayoutState(job),
     layoutStates:     exportableLayoutStatesForJob(job),
@@ -5517,6 +5531,7 @@ async function stageStateImports(fileList) {
         disclaimer: saved.disclaimer || '',
         qrCodeUrl: saved.qrCodeUrl || '',
         productShadowEnabled: saved.productShadowEnabled !== false,
+        productShadowSettings: saved.productShadowSettings || {},
         logoWhiteBackgroundEnabled: saved.logoWhiteBackgroundEnabled !== false,
         outputFilename: saved.outputFilename || '',
         logoFilenames: (saved.logoAssetIds || []).map(id => assetsById.get(id)?.name || id),
@@ -5931,6 +5946,26 @@ document.addEventListener('keydown', e => {
 });
 
 // ── postMessage 接收 ──────────────────────────────────
+document.addEventListener('bn-product-shadow-settings', event => {
+  const job = activeJob();
+  const detail = event.detail || {};
+  if (!job || !detail.settings) return;
+  job.productShadowSettings = job.productShadowSettings || { products: {}, singleProduct: {} };
+  job.productShadowSettings.products = job.productShadowSettings.products || {};
+  job.productShadowSettings.singleProduct = job.productShadowSettings.singleProduct || {};
+  if (detail.role === 'singleProduct') {
+    const key = String(detail.filename || 'singleProduct');
+    job.productShadowSettings.singleProduct[key] = { ...detail.settings };
+    if (window._bnSingleProd) window._bnSingleProd.shadowSettings = { ...detail.settings };
+  } else {
+    const key = String(detail.filename || ('position:' + (detail.position ?? 0)));
+    job.productShadowSettings.products[key] = { ...detail.settings };
+    const product = (window._bnProducts || []).find(item => item.filename === detail.filename || Number(item.position) === Number(detail.position));
+    if (product) product.shadowSettings = { ...detail.settings };
+  }
+  document.dispatchEvent(new CustomEvent('bn-state-dirty'));
+});
+
 window.addEventListener('message', event => {
   const { type } = event.data || {};
   if (type === 'bn-iframe-ready') {

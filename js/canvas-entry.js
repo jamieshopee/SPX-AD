@@ -132,7 +132,17 @@
     if (!style) return;
     var background = document.getElementById('底圖');
     var info = document.getElementById('下方資訊');
-    if (background && style.background) background.src = style.background;
+    function refreshProductShadows() {
+      if (!global.BNProductShadowAdapter) return;
+      document.querySelectorAll('.bn-prod-box, .bn-single-product-box').forEach(function (box) {
+        global.BNProductShadowAdapter.update(box, box._bnShadowSettings || {}, box.dataset.shadowEnabled !== '0');
+      });
+    }
+    if (background && style.background) {
+      background.addEventListener('load', refreshProductShadows, { once: true });
+      background.src = style.background;
+      refreshProductShadows();
+    }
     if (info && style.infoGraphic) info.src = style.infoGraphic;
     var mappings = [
       ['.主標可08個字以內', style.headlineColor],
@@ -571,6 +581,12 @@
               if (typeof syncSingleProductGeometry === 'function') syncSingleProductGeometry(box, productZone);
             };
             img.src = data.src;
+            box._bnShadowSettings = global.BNProductShadowAdapter
+              ? global.BNProductShadowAdapter.normalize(data.shadowSettings || box._bnShadowSettings || {}) : (data.shadowSettings || box._bnShadowSettings || {});
+            box.dataset.shadowEnabled = data.shadowEnabled === false ? '0' : '1';
+            if (global.BNProductShadowAdapter) {
+              global.BNProductShadowAdapter.update(box, box._bnShadowSettings, box.dataset.shadowEnabled !== '0');
+            }
           })(existingSingleBox);
           return;
         }
@@ -625,6 +641,9 @@
         box.style.zIndex = '20';
         box.dataset.bnTransformRole = 'singleProduct';
         box.dataset.ratio = String(data.ratio || 1);
+        box._bnShadowSettings = global.BNProductShadowAdapter
+          ? global.BNProductShadowAdapter.normalize(data.shadowSettings || {}) : (data.shadowSettings || {});
+        box.dataset.shadowEnabled = data.shadowEnabled === false ? '0' : '1';
         box.dataset.baseLeft = String(baseLeft);
         box.dataset.baseTop = String(baseTop);
         box.dataset.baseWidth = String(displayWidth);
@@ -662,6 +681,9 @@
           box.appendChild(handle);
         });
         productZone.appendChild(box);
+        if (global.BNProductShadowAdapter) {
+          global.BNProductShadowAdapter.update(box, box._bnShadowSettings, box.dataset.shadowEnabled !== '0');
+        }
         if (global.BNBoxTransformUtils) {
           var singleDragBounds = Object.assign({}, singleDefaults.dragBounds || {}, {
             minVisibleRatioX: 1,
@@ -673,6 +695,9 @@
             dragBounds: singleDragBounds,
             onChange: function () {
               syncSingleProductGeometry(box, productZone);
+              if (global.BNProductShadowAdapter) {
+                global.BNProductShadowAdapter.update(box, box._bnShadowSettings || {}, box.dataset.shadowEnabled !== '0');
+              }
               if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
             }
           };
@@ -695,6 +720,9 @@
           if (global.BNBoxTransformUtils && data.transform) {
             global.BNBoxTransformUtils.applyBoxTransform(box, data.transform);
             syncSingleProductGeometry(box, productZone);
+          }
+          if (global.BNProductShadowAdapter) {
+            global.BNProductShadowAdapter.update(box, box._bnShadowSettings || {}, box.dataset.shadowEnabled !== '0');
           }
         }, 0);
       }
@@ -768,6 +796,9 @@
           console.log('[reset] singleProduct transform cleared');
           syncSingleProductGeometry(resetBox, resetZone);
           console.log('[reset] singleProduct template layout applied');
+          if (global.BNProductShadowAdapter) {
+            global.BNProductShadowAdapter.update(resetBox, resetBox._bnShadowSettings || {}, resetBox.dataset.shadowEnabled !== '0');
+          }
           if (global._bnNotifyLayoutState) global._bnNotifyLayoutState();
         }
       }
@@ -794,7 +825,11 @@
       applyAssets(template);
       return loadScript('js/box-transform-utils.js?v=20260701t');
     }).then(function () {
-      return loadScript('js/layout-runtime.js?v=20260714-qrcode-a');
+      return loadScript('js/product-shadow-core.js?v=20261029a');
+    }).then(function () {
+      return loadScript('js/product-shadow-adapter.js?v=20261029a');
+    }).then(function () {
+      return loadScript('js/layout-runtime.js?v=20261029a');
     }).catch(function (error) {
       console.warn('[Canvas] 初始化失敗。', error);
     });

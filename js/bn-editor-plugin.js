@@ -47,6 +47,12 @@
 .bn-reset-transform-btn{margin-top:6px;width:100%;background:transparent;border:1px solid var(--border,#30363d);border-radius:7px;color:var(--text2,#8b949e);font-size:11px;padding:7px 8px;cursor:pointer;transition:.12s}
 .bn-reset-transform-btn:hover{border-color:var(--accent,#1f6feb);color:var(--accent,#1f6feb)}
 .bn-reset-transform-btn:disabled{opacity:.35;cursor:not-allowed;border-color:var(--border,#30363d);color:var(--text3,#687090)}
+.bn-shadow-panel{flex-basis:100%;padding:8px;background:rgba(0,0,0,.16);border-top:1px solid var(--border,#30363d);display:grid;gap:5px}
+.bn-shadow-title{font-size:11px;font-weight:700;color:var(--text,#dde3f0)}
+.bn-shadow-control{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--text2,#8b949e)}
+.bn-shadow-control span{width:78px;flex:none}.bn-shadow-control input,.bn-shadow-control select{flex:1;min-width:0}
+.bn-shadow-control input[type=color]{height:22px}.bn-shadow-advanced{margin-top:3px}.bn-shadow-advanced summary{font-size:10px;cursor:pointer;color:var(--text2,#8b949e)}
+.bn-shadow-advanced-body{display:grid;gap:5px;padding-top:5px}
 .bn-logo-bg-control{display:flex;align-items:center;gap:8px;margin-top:6px;min-width:0;white-space:nowrap}
 .bn-logo-bg-label{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text2,#8b949e);font-size:11px}
 .bn-logo-bg-options{display:flex;align-items:center;gap:8px;flex:0 0 auto}
@@ -718,6 +724,74 @@
     /* ── slot 追蹤（insertProductUI + renderProdList 共用，必須在外層）── */
     var _slotted   = {};  /* {0:item, 1:item, 2:item} */
     var _unslotted = [];  /* 無編號的商品 */
+    var openShadowKey = null;
+    var SHADOW_DEFAULTS = {
+      colorMode:'auto', manualColor:'#53000b', light:'right', angle:35,
+      offsetXRatio:0, offsetYRatio:0, scaleX:1, scaleY:1,
+      softPct:1.5, fade:82, squash:0.41, shearFactor:0.55, tailMid:0.34,
+      tailMidAlpha:0.68, tailBlurPct:6.5, tailBlurStart:0.27, tailBlurSpan:0.36,
+      contactUpPct:1.5, contactDownPct:0.8, contactAlpha:0.7,
+      contactBlurXPct:2, clipBelowPx:5, darken:0.6
+    };
+    var SHADOW_RANGES = [
+      ['softPct','柔邊',0,6,0.1],['fade','陰影長度',20,140,1],['squash','壓扁',0.1,1,0.01],
+      ['shearFactor','斜切係數',0.2,1,0.01],['tailMid','淡出中段',0.05,0.95,0.01],
+      ['tailMidAlpha','中段濃度',0,1,0.01],['tailBlurPct','尾端模糊',0,15,0.1],
+      ['tailBlurStart','模糊起點',0,0.9,0.01],['tailBlurSpan','模糊漸變',0.05,1,0.01],
+      ['contactUpPct','接地往上',0,5,0.1],['contactDownPct','接地往下',0,4,0.1],
+      ['contactAlpha','接地濃度',0,1,0.01],['contactBlurXPct','接地模糊',0,8,0.1],
+      ['clipBelowPx','下緣裁切',0,20,1]
+    ];
+    function shadowKey(p){ return String(p.filename || ('position:' + (p.position == null ? 0 : p.position))); }
+    function shadowSettings(p){ return Object.assign({}, SHADOW_DEFAULTS, p.shadowSettings || {}); }
+    function shadowInput(label,key,s,type,min,max,step){
+      return '<label class="bn-shadow-control"><span>'+label+'</span><input data-shadow-key="'+key+'" type="'+type+'" value="'+s[key]+'"'+
+        (min !== undefined ? ' min="'+min+'" max="'+max+'" step="'+step+'"' : '')+'></label>';
+    }
+    function broadcastProductShadow(p,settings){
+      var enabled=typeof window._bnGetActiveProductShadowEnabled!=='function' || window._bnGetActiveProductShadowEnabled();
+      broadcast({type:'bn-product-shadow-settings',id:p.id,settings:settings,enabled:enabled});
+      document.dispatchEvent(new CustomEvent('bn-product-shadow-settings',{detail:{role:'product',filename:p.filename,position:p.position,settings:settings}}));
+      markStateDirty();
+    }
+    function broadcastSingleProductShadow(p,settings){
+      var enabled=typeof window._bnGetActiveProductShadowEnabled!=='function' || window._bnGetActiveProductShadowEnabled();
+      broadcast({type:'bn-single-product-shadow-settings',settings:settings,enabled:enabled});
+      document.dispatchEvent(new CustomEvent('bn-product-shadow-settings',{detail:{role:'singleProduct',filename:p.filename,settings:settings}}));
+      markStateDirty();
+    }
+    function buildShadowPanel(p, role){
+      var s=shadowSettings(p), panel=document.createElement('div');
+      panel.className='bn-shadow-panel'; panel.dataset.shadowPanel=shadowKey(p);
+      if(role==='singleProduct') panel.id='bn-pp-shadow-panel';
+      panel.innerHTML='<div class="bn-shadow-title">影子調整</div>'+
+        '<label class="bn-shadow-control"><span>陰影顏色</span><select data-shadow-key="colorMode"><option value="auto">自動偵測</option><option value="manual">手動指定</option></select></label>'+
+        shadowInput('陰影色','manualColor',s,'color')+shadowInput('自動壓暗比例','darken',s,'range',0,1,0.01)+
+        '<label class="bn-shadow-control"><span>光源角度</span><select data-shadow-key="light"><option value="off">關</option><option value="left">左</option><option value="top">中</option><option value="right">右</option><option value="custom">自訂</option></select></label>'+
+        shadowInput('自訂角度','angle',s,'range',-60,60,1)+shadowInput('陰影左右','offsetXRatio',s,'range',-0.3,0.3,0.01)+
+        shadowInput('陰影上下','offsetYRatio',s,'range',-0.3,0.3,0.01)+shadowInput('陰影寬度','scaleX',s,'range',0.5,1.5,0.01)+
+        shadowInput('陰影長度','scaleY',s,'range',0.5,1.5,0.01)+
+        '<details class="bn-shadow-advanced"><summary>進階參數</summary><div class="bn-shadow-advanced-body">'+
+        SHADOW_RANGES.map(function(r){ return shadowInput(r[1],r[0],s,'range',r[2],r[3],r[4]); }).join('')+
+        '</div></details><button type="button" class="bn-reset-transform-btn bn-shadow-reset">恢復影子預設值</button>';
+      panel.querySelectorAll('[data-shadow-key]').forEach(function(el){
+        el.value=String(s[el.dataset.shadowKey]);
+        el.addEventListener('input',function(){
+          var next=shadowSettings(p), key=el.dataset.shadowKey;
+          next[key]=el.type==='range' ? Number(el.value) : el.value;
+          p.shadowSettings=next;
+          var color=panel.querySelector('[data-shadow-key="manualColor"]'); if(color) color.disabled=next.colorMode!=='manual';
+          if(role==='singleProduct') broadcastSingleProductShadow(p,next); else broadcastProductShadow(p,next);
+        });
+      });
+      panel.querySelector('[data-shadow-key="manualColor"]').disabled=s.colorMode!=='manual';
+      panel.querySelector('.bn-shadow-reset').addEventListener('click',function(){
+        p.shadowSettings=Object.assign({},SHADOW_DEFAULTS); openShadowKey=shadowKey(p);
+        if(role==='singleProduct') { var pp=document.getElementById('bn-pp-shadow-panel'); if(pp) { pp.replaceWith(buildShadowPanel(p,role)); } broadcastSingleProductShadow(p,p.shadowSettings); }
+        else { renderProdList(); broadcastProductShadow(p,p.shadowSettings); }
+      });
+      return panel;
+    }
 
     /* ── 商品上傳（直接帶入，不彈跳視窗）── */
     function insertProductUI(){
@@ -750,6 +824,8 @@
         '    <input type="file" id="bn-pp-inp" accept=".png,image/png" multiple style="display:none">',
         '  </div>',
         '  <div id="bn-pp-upload-error" class="bn-upload-error" hidden aria-live="polite"></div>',
+        '  <button type="button" class="bn-reset-transform-btn" id="bn-pp-shadow-adjust-btn" disabled>影子調整</button>',
+        '  <div id="bn-pp-shadow-panel-host"></div>',
         '  <button type="button" class="bn-reset-transform-btn" id="bn-pp-shadow-btn" disabled>關閉商品影子</button>',
         '  <button type="button" class="bn-reset-transform-btn" id="bn-pp-reset-btn" disabled>恢復預設位置</button>',
         '</div>',
@@ -848,9 +924,7 @@
         var validated = await validateManualImageFile(file);
         var rawSrc = validated.dataUrl;
         var src = rawSrc;
-        var useAutoShadow = !!(tpl && tpl.productZones && tpl.productZones.threeProducts &&
-                               tpl.productZones.threeProducts.defaultLayout &&
-                               tpl.productZones.threeProducts.defaultLayout.autoShadow);
+        var useAutoShadow = false;
         var trimmed;
         try{
           trimmed = autoTrim(validated.image);
@@ -971,6 +1045,8 @@
           ppDrop.style.cursor        = (hasProd || hasTwo) ? 'not-allowed' : 'pointer';
         }
         if(ppReset) ppReset.disabled = !hasPP;
+        var ppShadowAdjust = document.getElementById('bn-pp-shadow-adjust-btn');
+        if(ppShadowAdjust) ppShadowAdjust.disabled = !window._bnSingleProd;
 
         var prodDrop = document.getElementById('bn-prod-drop');
         var prodReset = document.getElementById('bn-prod-reset-btn');
@@ -995,6 +1071,13 @@
       var ppInp  = document.getElementById('bn-pp-inp');
       var ppShadowBtn = document.getElementById('bn-pp-shadow-btn');
       var ppResetBtn = document.getElementById('bn-pp-reset-btn');
+      var ppShadowAdjustBtn = document.getElementById('bn-pp-shadow-adjust-btn');
+      var ppShadowPanelHost = document.getElementById('bn-pp-shadow-panel-host');
+      if(ppShadowAdjustBtn) ppShadowAdjustBtn.addEventListener('click',function(){
+        if(!window._bnSingleProd) return;
+        if(ppShadowPanelHost.firstChild){ ppShadowPanelHost.innerHTML=''; return; }
+        ppShadowPanelHost.appendChild(buildShadowPanel(window._bnSingleProd,'singleProduct'));
+      });
 
       var _ppDragN = 0; /* dragenter counter — 防子元素 dragleave 誤觸 */
       ppDrop.addEventListener('click', function(e){ if(e.target !== ppInp) ppInp.click(); });
@@ -1129,7 +1212,7 @@
               /* 保留既有可靠 Template source、shadow 與尺寸計算。 */
               var reliableTpl = typeof window._bnGetActiveTemplateJson === 'function' ? window._bnGetActiveTemplateJson() : null;
               var singleDefaultsReliable = (((reliableTpl || {}).productZones || {}).singleProduct || {}).defaultLayout || singleDefaults;
-              if(singleDefaultsReliable.autoShadow && (typeof window._bnGetActiveProductShadowEnabled !== 'function' || window._bnGetActiveProductShadowEnabled())){
+              if(false && singleDefaultsReliable.autoShadow && (typeof window._bnGetActiveProductShadowEnabled !== 'function' || window._bnGetActiveProductShadowEnabled())){
                 try{
                   var shadowed = await autoApplyShadow(src, ratio);
                   src = shadowed.src; ratio = shadowed.ratio;
@@ -1138,8 +1221,8 @@
                 }
               }
               var maxW = singleDefaultsReliable.maxWidth, maxH = singleDefaultsReliable.maxHeight;
-              preparedState = {src:src, manualReplaceRawSrc:validated.dataUrl, ratio:ratio, displayW:maxW, displayH:maxH, zoneHeight:maxH, objectFit:'contain'};
-              preparedMessage = {type:'bn-single-product-add', src:src, ratio:ratio, displayW:maxW, displayH:maxH, zoneHeight:maxH, objectFit:'contain'};
+              preparedState = {src:src, manualReplaceRawSrc:validated.dataUrl, ratio:ratio, displayW:maxW, displayH:maxH, zoneHeight:maxH, objectFit:'contain', shadowSettings:window._bnSingleProd?.shadowSettings || null};
+              preparedMessage = {type:'bn-single-product-add', src:src, ratio:ratio, displayW:maxW, displayH:maxH, zoneHeight:maxH, objectFit:'contain', shadowSettings:preparedState.shadowSettings, shadowEnabled:(typeof window._bnGetActiveProductShadowEnabled!=='function'||window._bnGetActiveProductShadowEnabled())};
             }
 
             /* validate／prepare 全部成功後才切換 mode 並 Commit。 */
@@ -1168,6 +1251,7 @@
         if(window._bnSingleProd){
           var p = window._bnSingleProd;
           broadcast({type:'bn-single-product-add', src:p.src, ratio:p.ratio,
+            shadowSettings:p.shadowSettings||null, shadowEnabled:(typeof window._bnGetActiveProductShadowEnabled!=='function'||window._bnGetActiveProductShadowEnabled()),
             displayW:p.displayW, displayH:p.displayH, zoneHeight:p.zoneHeight, objectFit:p.objectFit||'contain',
             offsetX:p.offsetX || 0, offsetY:p.offsetY || 0,
             transform:p.transform || null});
@@ -1199,10 +1283,7 @@
 
       /* 檢查 template 是否啟用 autoShadow */
       var tpl = window.__BN_TEMPLATE__;
-      var useAutoShadow = !!(tpl && tpl.productZones && tpl.productZones.threeProducts &&
-                             tpl.productZones.threeProducts.defaultLayout &&
-                             tpl.productZones.threeProducts.defaultLayout.autoShadow) &&
-                            (typeof window._bnGetActiveProductShadowEnabled !== 'function' || window._bnGetActiveProductShadowEnabled());
+      var useAutoShadow = false;
 
       var threeProductDefaults = (((tpl || {}).productZones || {}).threeProducts || {}).defaultLayout || {};
       var templateSizeRatios = (tpl && tpl.sizeRatios) || threeProductDefaults.sizeRatios;
@@ -1236,7 +1317,7 @@
         if(item.baseSrc) prod.baseSrc = item.baseSrc;
         if(item.meta) prod.meta = JSON.parse(JSON.stringify(item.meta));
         window._bnProducts.push(prod);
-        broadcast({type:'bn-product-add',id:id,src:src,ratio:item.ratio||1,baselineRatio:baselineRatio,name:item.name,index:i,sizeScale:sizeScale,position:pos,layoutById:item.layouts||null,layout:item.layout||null});
+        broadcast({type:'bn-product-add',id:id,src:src,ratio:item.ratio||1,baselineRatio:baselineRatio,name:item.name,index:i,sizeScale:sizeScale,position:pos,layoutById:item.layouts||null,layout:item.layout||null,shadowSettings:item.shadowSettings||null,shadowEnabled:(typeof window._bnGetActiveProductShadowEnabled!=='function'||window._bnGetActiveProductShadowEnabled())});
         await new Promise(function(r){setTimeout(r,50);});
       }
       renderProdList();
@@ -1297,7 +1378,15 @@
           if(slot!==null&&slot!==undefined){ delete _slotted[slot]; }
           else{ _unslotted=_unslotted.filter(function(u){return u.name!==p.name;}); }
           window._bnProducts=window._bnProducts.filter(function(x){return x.id!==p.id;});
+          if(openShadowKey===shadowKey(p)) openShadowKey=null;
           renderProdList();updateTemplateModeLabel(window._bnProducts.length ? undefined : null);broadcast({type:'bn-product-remove',id:p.id});markStateDirty();
+        });
+
+        var shadowBtn=document.createElement('button'); shadowBtn.textContent='影子調整'; shadowBtn.className='bn-shadow-toggle';
+        shadowBtn.addEventListener('click',function(e){
+          e.preventDefault(); e.stopPropagation();
+          openShadowKey = openShadowKey===shadowKey(p) ? null : shadowKey(p);
+          renderProdList();
         });
 
         /* 上移/下移：只調整 zOrder（視覺堆疊／誰蓋住誰），不得調整 position
@@ -1341,8 +1430,9 @@
         moveWrap.appendChild(upBtn);
         moveWrap.appendChild(downBtn);
 
-        row.appendChild(img);row.appendChild(infoWrap);row.appendChild(moveWrap);row.appendChild(rmBtn);
+        row.appendChild(img);row.appendChild(infoWrap);row.appendChild(moveWrap);row.appendChild(shadowBtn);row.appendChild(rmBtn);
         list.appendChild(row);
+        if(openShadowKey===shadowKey(p)) list.appendChild(buildShadowPanel(p));
       });
       /* 商品清單更新後同步互鎖狀態 */
       if(typeof window._bnUpdateMutualExclusion === 'function') window._bnUpdateMutualExclusion();
@@ -1457,7 +1547,7 @@
           broadcast({type:'bn-product-remove',id:p.id});
           setTimeout(function(){
             var idx = window._bnProducts.indexOf(p);
-            broadcast({type:'bn-product-add',id:p.id,src:p.src,ratio:p.ratio,baselineRatio:p.baselineRatio||1,name:p.name,index:idx,sizeScale:p.sizeScale||1,position:p.position||0,layoutById:p.layouts||null,layout:p.layout||null});
+          broadcast({type:'bn-product-add',id:p.id,src:p.src,ratio:p.ratio,baselineRatio:p.baselineRatio||1,name:p.name,index:idx,sizeScale:p.sizeScale||1,position:p.position||0,layoutById:p.layouts||null,layout:p.layout||null,shadowSettings:p.shadowSettings||null,shadowEnabled:(typeof window._bnGetActiveProductShadowEnabled!=='function'||window._bnGetActiveProductShadowEnabled())});
           },50);
         }
       });
@@ -1766,7 +1856,7 @@
           broadcastTo(id,{type:'bn-logo',dataUrl:window._bnLogoDataUrl});
         }
         /* 先送 product-add，再送 zorder */
-        window._bnProducts.forEach(function(p,idx){broadcastTo(id,{type:'bn-product-add',id:p.id,src:p.src,ratio:p.ratio,baselineRatio:p.baselineRatio||1,name:p.name,index:idx,sizeScale:p.sizeScale,position:p.position||0,zOrder:p.zOrder||0,layoutById:p.layouts||null,layout:p.layout||null});});
+        window._bnProducts.forEach(function(p,idx){broadcastTo(id,{type:'bn-product-add',id:p.id,src:p.src,ratio:p.ratio,baselineRatio:p.baselineRatio||1,name:p.name,index:idx,sizeScale:p.sizeScale,position:p.position||0,zOrder:p.zOrder||0,layoutById:p.layouts||null,layout:p.layout||null,shadowSettings:p.shadowSettings||null,shadowEnabled:(typeof window._bnGetActiveProductShadowEnabled!=='function'||window._bnGetActiveProductShadowEnabled())});});
         setTimeout(function(){
           var order=window._bnProducts.slice().sort(function(a,b){return (a.zOrder||0)-(b.zOrder||0);}).map(function(p){return p.id;});
           broadcastTo(id,{type:'bn-product-zorder',order:order});
