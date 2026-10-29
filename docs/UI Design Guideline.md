@@ -6,6 +6,8 @@ Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
 
+- **Iona_shadow_v3 商品影子控制 UI（功能 Commit `f4bae23250ccd73708c18eade8e37cd85697addb`，`f4bae23`）**：三商品各商品與 1 人＋1 品的商品在商品清單每列「移除」左側提供「影子調整」，設定直接在該列下方展開且同時最多一張；縮圖、名稱、上下排序、移除與既有操作保留。每張商品獨立保存 Iona 影子控制項，包含 `colorMode`、`manualColor`、`light`、`angle`、`offsetXRatio`、`offsetYRatio`、`scaleX`、`scaleY`、`darken`、`softPct`、`fade`、`squash`、`shearFactor`、`tailMid`、`tailMidAlpha`、`tailBlurPct`、`tailBlurStart`、`tailBlurSpan`、`contactUpPct`、`contactDownPct`、`contactAlpha`、`contactBlurXPct`、`clipBelowPx`；options、範圍、step 與預設值依 `js/bn-editor-plugin.js` 的 `SHADOW_DEFAULTS`／`SHADOW_RANGES`。Iona rotation slider 不導入，沿用 SPX AD 商品 rotation。Global `productShadowEnabled` 仍獨立於 per-product settings；auto 取目前 `#底圖` 背景像素並依 Iona HSL darken，manual 保留手動色票。初始匯入、re-layout、換圖、Reset、transform 與必要背景變更同步刷新影子；Jamie Chrome Manual Validation PASS；Docs Commit：Pending。
+
 - **雙人編輯器控制與可見範圍完成（Code Commit `b3fec6a1a5113bdb033e6dd2aa4bf1c2ee77e67c`，`b3fec6a`）**：右側新增獨立雙人 Accordion，最多兩張人物，支援上傳、同檔名置換、個別移除、縮圖清單、上下排序與整組 Reset；排序只改人物 front／z-index，不交換 slot、filename 或 Transform。單張使用共同 operationRect，雙張使用左右 slot rect；人物可獨立拖曳、wheel 等比縮放、重疊及合法部分裁切。雙人專用 alpha>=2 bounds 同時供初始 width-first 與 drag／wheel 邊界驗證；每張人物與 Canvas 的有效交集寬、高各須至少 `80` 原始 Canvas 像素，operationRect 仍只要求正面積交集。alpha>=2 為外接矩形，不宣稱對所有透明洞提供數學保證。既有四尺寸座標、default front、Layout State／跨版位修正與其他模式 UI 不變。Jamie Chrome Manual Validation PASS；Safari、ZIP／批次輸出及完整跨瀏覽器回歸未宣稱 PASS。
 
 - **2 人版型核心狀態（Code Commit `b5037037101b6116e7a40c73a490f192f9d65418`，歷史 baseline）**：本條記錄初始雙人 render／state 核心；右側控制、single／pair、alpha>=2 與 80px 可見範圍目前以本節上方 `b3fec6a` 條目為準。既有三商品與 1人＋1品 UI 規則不變。
@@ -16,7 +18,7 @@ Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 - **Logo 白底單行 Radio UI（Code Commits `507a11423b8a03a8b9c9fd58d240bc1fe3cedb3c`、`3fa5b7a3119696e903b5a181e0d4ccf08255f326`）**：Logo Accordion 內使用單行「Logo 白底　◉ 開啟　○ 關閉」互斥 Radio。預設選取「開啟」，選取狀態依 active Job 的 `logoWhiteBackgroundEnabled` 同步；沿用既有 toggle handler、深色樣式與右側欄寬度，不新增 Tooltip、Modal 或其他控制項。Browser Validation 與 Jamie Manual Validation PASS。
 
-- **Job-scoped 商品影子開關（Commit `7c3bc27`）**：右側「商品圖」與「1人＋1品」Accordion 各新增一顆按鈕，位於各自「恢復預設位置」上方。兩顆按鈕共用 active Job 的 `productShadowEnabled`、同一 handler 與同一 UI update；有影子顯示「關閉商品影子」，無影子顯示「開啟商品影子」。三商品按鈕只在 Job 有商品時可用；1人＋1品按鈕只在有 Single Product 時可用，Person 不參與 enabled 判斷。Job 切換時按鈕與 Canvas 同步；既有 Accordion defaults、互斥、Reset 與商品清單規則不變。Jamie Manual Validation PASS。
+- **Job-scoped 商品影子全域開關（Commit `7c3bc27`，歷史 baseline）**：右側「商品圖」與「1人＋1品」Accordion 的既有按鈕仍共用 active Job 的 `productShadowEnabled`；目前 per-product「影子調整」、Iona renderer 與背景取樣規則以本節上方 `f4bae23` 條目為準。兩顆按鈕仍不建立第二套 Shadow state，Person 不參與 enabled 判斷。
 - **右側欄手動 Master Layout 控制移除（Commit `a41913a`）**：右側控制面板不再建立或顯示「更新 Master Layout」、「套用 Master Layout」及兩者專用容器；不得以 CSS 隱藏或先建立再移除。底層 capture／propagation、Smart Layout Modal 與 Job／Template 切換時的自動 propagation 維持不變；「恢復預設位置」正常顯示且底部不保留多餘空白。Browser Validation 與 Jamie Manual Validation PASS。
 - **右側欄手動換圖 inline error（Commit `8cb7c27c71d664ececb6b57487e921a3f0c44839`）**：Logo、商品圖、1人＋1品各自使用 Upload Box 正下方的具名紅色 transient error；不使用 Modal、不常駐、不保留空白。再次選檔、成功換圖或切換 Job 時清除，且錯誤只存在 DOM。圖片驗證與預處理全部成功後才更新既有 UI／Canvas state；Jamie Manual Validation 全部 PASS。
 - **AI Workflow 單向審核與 Header 狀態收斂（Commit `8eefbb0924121f3a199c547186306c5eeb722a31`）**：Header 入口順序更新；素材審核只在 `FirstReview`／`SecondReview` 顯示，Photoshop 實際執行時顯示處理中，`Completed` 顯示「AI 去背完成」。Decision Area 第一輪為核准／重新去背／之後手動換圖，第二輪為核准／之後手動換圖；未完成時 Close／Esc 不得離開。Manual Validation A1–E2 與 Code Review 全部 PASS。
@@ -254,6 +256,12 @@ Accordion 規則：
 - 1人＋1品區塊：Job 有 Single Product 時啟用；Person 不參與 enabled 判斷，也不受操作影響。
 - 目前有影子時文字為「關閉商品影子」；目前無影子時文字為「開啟商品影子」。兩顆按鈕是同一 Job 狀態的兩個 UI 入口，不得建立兩套 Shadow state。
 - 點擊後沿用既有商品 refresh，Canvas 立即反映；不得重設商品位置、大小、旋轉、前後順序或 Reset enabled 條件。
+
+商品清單每列的影子操作規則：
+
+- 「影子調整」固定放在「移除」左側；點擊只展開該商品下方的完整 Iona 影子控制項，其他商品的控制項收合。
+- 控制項與商品縮圖、名稱、▲／▼排序及移除同列保留；展開或收合不改變商品 identity、z-order、transform 或全域 `productShadowEnabled`。
+- 「恢復影子預設值」只重設該商品的影子參數，不觸發「恢復預設位置」；每商品設定可獨立保存並隨商品 identity 還原。三商品與 1 人＋1 品的商品適用，Person、two_persons、Logo 與其他模式不適用。
 
 右側控制面板不提供「更新 Master Layout」或「套用 Master Layout」按鈕，也不建立兩者專用的空白容器。底層 Master Layout 與 Smart Layout 自動 propagation 不屬於本項 UI 移除範圍。
 

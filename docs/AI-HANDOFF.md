@@ -1,5 +1,14 @@
 # AI-HANDOFF.md
 
+## Iona_shadow_v3 商品影子整合完成（2026-10-29）
+
+- Code Commit：`f4bae23250ccd73708c18eade8e37cd85697addb`（`f4bae23`，`feat: integrate Iona product shadow rendering`）。Parent：`c2e5ec839e95d4ce895bfc07b0755c69cc98aa97`。Docs Commit：Pending。
+- Current Behavior：三商品各商品與 1 人＋1 品的 Single Product 使用 `js/product-shadow-core.js` 的 Iona_shadow_v3 alpha 輪廓 renderer，產生接觸影子與主影子；Person、雙人、Logo 與其他模式不使用此功能。SPX AD 既有商品旋轉仍由既有 transform 操作提供，不新增 Iona Demo 旋轉滑桿。
+- UI／State：右側商品清單在「移除」左側提供「影子調整」，設定在該商品下方 inline 展開，同時最多一張；每張商品獨立保存 Iona 控制項。`productShadowEnabled` 仍是全域 Job 開關，個別 `light=off` 只關閉該商品；「恢復影子預設值」不觸發位置 Reset。Project State version 維持 `5`，新增 additive `productShadowSettings`，`layoutStates` 不變，舊案缺欄位使用 Iona 預設值。
+- Render Flow：`js/product-shadow-adapter.js` 依 `#底圖` 實際圖片及商品 geometry 建立取樣 canvas，`auto` 沿用 Iona `resolveColor()`、HSL darken 與 alpha 輪廓；背景樣式變更、初始 placement、重新排版、換圖、Reset、拖曳、縮放與旋轉會同步重繪。Main Canvas、Thumbnail、Batch、單張 PNG 共用同一 renderer 與 render-ready 等待，4MB PNG 流程不變。
+- Bug Fixes：初始影子位置錯誤的根因是後續整組排版只重繪新增商品，修正為依最終 geometry 刷新商品 shadows；背景色未變的根因是樣式切換只更新 `#底圖.src` 未通知 shadow redraw，修正為背景載入／切換後同步重繪。Iona 取樣與 HSL darken 維持原始演算法。
+- Validation：Jamie Chrome Manual Validation PASS，涵蓋三商品、1 人＋1 品、四尺寸、初始位置、auto／manual 顏色、影子控制、Transform、全域開關、Thumbnail、Batch、單張 PNG Export 與既有輸出流程。未宣稱未執行的自動化、Node.js 或其他瀏覽器驗證。
+
 ## 雙人編輯器控制與可見範圍完成（2026-10-29）
 
 - Code Commit：`b3fec6a1a5113bdb033e6dd2aa4bf1c2ee77e67c`（`b3fec6a`，`feat: complete two-person editor controls and visibility bounds`）。Docs Commit：Pending。

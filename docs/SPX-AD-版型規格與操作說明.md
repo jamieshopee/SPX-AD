@@ -6,6 +6,8 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 
 ## What's New
 
+- **Iona_shadow_v3 商品影子整合（功能 Commit `f4bae23250ccd73708c18eade8e37cd85697addb`，`f4bae23`）**：三商品各商品與 1 人＋1 品的商品使用 Iona alpha-outline 接觸影子與主影子；不適用人物、雙人、Logo 或其他模式。每張商品的「影子調整」位於「移除」左側，設定於該列下方展開且同時最多一張；每張商品獨立保存 `colorMode`、`manualColor`、`light`、`angle`、`offsetXRatio`、`offsetYRatio`、`scaleX`、`scaleY`、`darken`、`softPct`、`fade`、`squash`、`shearFactor`、`tailMid`、`tailMidAlpha`、`tailBlurPct`、`tailBlurStart`、`tailBlurSpan`、`contactUpPct`、`contactDownPct`、`contactAlpha`、`contactBlurXPct`、`clipBelowPx`；實際選項、範圍、step 與預設值以 `js/bn-editor-plugin.js` 的 `SHADOW_DEFAULTS`／`SHADOW_RANGES` 定義為準。保留 SPX AD 商品 rotation，不新增 Iona rotation slider。`auto` 取目前 `#底圖` 與商品位置的實際背景像素，沿用 Iona HSL `darken`；`manual` 保留手動色票。初始匯入、re-layout、換圖、Reset、拖曳、縮放、旋轉及背景樣式變更同步重繪；Main Canvas、Thumbnail、Batch、單張 PNG Export 共用 shadow renderer 與 render-ready 等待。Global `productShadowEnabled`、Project State v5 additive `productShadowSettings`、舊案 defaults、四尺寸與 4 MB PNG 流程均保留。兩輪 Bug Fix 已修正初始 re-layout 影子未刷新與實際 `#底圖` 取樣／背景變更刷新問題；Jamie Chrome Manual Validation PASS。Docs Commit：Pending；未宣稱未執行的自動化或 Node.js 驗證。
+
 - **雙人編輯器控制與可見範圍完成（Code Commit `b3fec6a1a5113bdb033e6dd2aa4bf1c2ee77e67c`，`b3fec6a`）**：`two_persons` 右側獨立 Accordion 最多兩張人物，支援左右人物上傳、同檔名置換、個別移除、上下排序與整組 Reset；排序只改 front／z-index，不交換 slot、filename、位置或縮放。單張使用共同 operationRect，雙張使用左右 slot rect；左右可獨立拖曳、wheel 等比縮放、重疊及合法部分裁切。雙人專用 alpha>=2 bounds 同時供初始 width-first 縮放、可見頂部對齊與 drag／wheel 邊界驗證；Canvas 交集寬、高各須至少 `80` 原始 Canvas 像素，與 operationRect 仍須正面積交集。alpha>=2 為外接矩形，不宣稱對所有透明洞提供逐像素數學保證。Layout State restore 使用目前 activePlacement／current render layout key；Project State／JSON schema 不變。四尺寸正式幾何與 default front 沿用下表。Jamie Chrome Manual Validation PASS；Safari、Photoshop 外部流程、完整四尺寸視覺對位及完整 Preview／Thumbnail／Export 瀏覽器回歸未宣稱 PASS。
 
 - **四尺寸獨立 2 人版型與自動去背（Code Commit `b5037037101b6116e7a40c73a490f192f9d65418`，歷史 baseline）**：本條記錄初始 `two_persons` 核心、完整 pair 分類與 alpha>0 幾何；single／pair、alpha>=2、80px Canvas 交集、右側控制與目前驗證狀態以本節上方 `b3fec6a` 條目為準。四尺寸正式座標表保留不變。
@@ -26,7 +28,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 
 - **Logo 白底開關、透明背景自動縮放與單行 Radio UI（Code Commits `507a11423b8a03a8b9c9fd58d240bc1fe3cedb3c`、`3fa5b7a3119696e903b5a181e0d4ccf08255f326`）**：每個 Job 獨立保存 `logoWhiteBackgroundEnabled`，新 Job 與舊 Project State v5 缺欄位時預設開啟，Project Export／Import 會保存與還原。Logo Accordion 顯示單行「Logo 白底　◉ 開啟　○ 關閉」互斥 Radio，並依目前 Job 同步。白底開啟維持原本排版；關閉時背景透明，使用既有裁切後有效內容在原始 LOGO 範圍內等比最大化，不保留 `horizontalPadding`／`verticalPadding`，不裁切、不拉伸、不超出範圍；多張 Logo 保留排序、固定 gap、圓角並整組縮放，垂直置中。`1080×1920`、`3189×3992` 水平置中，`1599×1080`、`984×309` 水平靠左至原始 LOGO 範圍左緣；不以主標字形像素左緣為對齊基準，也不實作文字 Range 測量。特殊 Logo zone 不受影響。Browser Validation 與 Jamie Manual Validation PASS。
 
-- **每個 Job 獨立控制商品影子（Commit `7c3bc27`）**：新 Job 預設開啟商品影子；使用者可在右側商品圖或 1人＋1品區塊針對目前 Job 關閉並重新開啟。三商品與 Single Product 共用此狀態，不同 Job 可各自不同；Person、Logo、背景與 Info Graphic 不受影響。Direct Import、Photoshop approved assets 與手動換圖都遵守目前 Job 設定。`productShadowEnabled` 保存於 Project State v5 的 Job root，單張暫存與完整專案逐 Job single-state JSON 都會保存；舊 version 5 JSON 缺欄位時預設開啟。Shadow 是 render payload 中烘焙進圖片 data URL 的效果，不是 CSS；既有 Shadow 視覺與 Template `autoShadow` 未修改。Browser Validation 與 Jamie Manual Validation PASS。
+- **每個 Job 的商品影子全域開關（Commit `7c3bc27`，歷史 baseline）**：`productShadowEnabled` 的 Job root 保存、舊案缺欄位預設開啟，以及三商品／Single Product 共用全域開關語意仍保留；目前商品影子 renderer、per-product settings、實際背景取樣與 UI 以本節上方 `f4bae23` 條目為準。
 - **正式 Banner 字型遷移至 WOFF2（Commit `df623db42faab41bf651e4cb226fd7c677b2f0cd`）**：正式 Banner 字型已由舊 `.ttf` 改為 `.woff2`，四尺寸 Template、Canvas 動態 `@font-face` 與離線 Registry 已同步。字型家族、300／400／700 字重 mapping、文字尺寸、位置、換行與 Style 規則不變；舊 TTF 已移除。Browser、單張 PNG、2 筆工單完整專案／Batch、舊 Project JSON、Project State v5 single-state JSON、Registry 離線載入邏輯與 Jamie Manual Validation 全部 PASS；不影響 SPX Helper、Photoshop Automation 或 AI Workflow。
 - **右側欄手動 Master Layout 控制移除（Commit `a41913a`）**：控制面板不再顯示「更新 Master Layout」與「套用 Master Layout」，避免使用者手動建立或套用 Master Layout；「恢復預設位置」維持正常。底層 Master Layout capture／propagation、Smart Layout Modal，以及 Job／Template 切換時的自動 propagation 流程均維持不變。Browser Validation 與 Jamie Manual Validation PASS。
 - **新版正式工單 CSV Import 相容與完整專案 ZIP 命名（Commit `42bc8d28949d3152216eff4369fddde6751f8515`）**：新版讀取 H3 Placement、O Job ID、I Style、J 原廠視覺排除、K／L／M 文字、P 商品 filenames、Q Logo filenames、R 輸出檔名與 S 第一個 exact `縮短網址`；J trim 後非空的 row 直接 skip。legacy CSV mapping 與 exact `QRcode` 保留。正式「下載完整專案」外層檔名改為 `SPX AD_MM-DD.zip`，ZIP 內容與其他下載命名不變。Browser Validation、legacy regression 與 Jamie Manual Validation PASS。
@@ -300,7 +302,9 @@ CSV 欄位：
 
 只有 1 張商品 PNG 時，三商品版型會在既有 `threeProducts` 整體區域內依最終素材比例等比 contain，水平與垂直幾何置中；寬或高先達邊界即停止，不變形、不裁切。正常 2～3 張商品的排列規則不變。
 
-每個 Job 的三商品共用商品影子狀態。新 Job 預設開啟；右側「商品圖」區塊可按「關閉商品影子」或「開啟商品影子」，主品、左配品、右配品會同步更新。此操作不改變商品 id、角色、前後順序、位置、尺寸或旋轉；切換 Job 後依各 Job 自己的狀態顯示。
+每個 Job 的三商品保留共用的 `productShadowEnabled` 全域開關。新 Job 預設開啟；右側「商品圖」與「1人＋1品」區塊的既有開關分別控制目前可用的商品集合，關閉時不顯示影子但保留各商品參數，不改變商品 id、角色、前後順序、位置、尺寸或旋轉；切換 Job 後依各 Job 自己的狀態顯示。每張商品另有獨立 `productShadowSettings`，按「影子調整」可在該列下方展開，最多同時展開一張；「恢復影子預設值」只重設該商品影子參數，不觸發商品「恢復預設位置」。
+
+影子控制項完整沿用 Iona Demo 已實作項目：`colorMode`（auto/manual，default `auto`）、`manualColor`（default `#53000b`）、`light`（off/left/top/right/custom，default `right`）、`angle`（-60..60，step 1，default 35）、`offsetXRatio`（-0.3..0.3，step 0.01，default 0）、`offsetYRatio`（-0.3..0.3，step 0.01，default 0）、`scaleX`（0.5..1.5，step 0.01，default 1）、`scaleY`（0.5..1.5，step 0.01，default 1）、`darken`（0..1，step 0.01，default 0.6）、`softPct`（0..6，step 0.1，default 1.5）、`fade`（20..140，step 1，default 82）、`squash`（0.1..1，step 0.01，default 0.41）、`shearFactor`（0.2..1，step 0.01，default 0.55）、`tailMid`（0.05..0.95，step 0.01，default 0.34）、`tailMidAlpha`（0..1，step 0.01，default 0.68）、`tailBlurPct`（0..15，step 0.1，default 6.5）、`tailBlurStart`（0..0.9，step 0.01，default 0.27）、`tailBlurSpan`（0.05..1，step 0.01，default 0.36）、`contactUpPct`（0..5，step 0.1，default 1.5）、`contactDownPct`（0..4，step 0.1，default 0.8）、`contactAlpha`（0..1，step 0.01，default 0.7）、`contactBlurXPct`（0..8，step 0.1，default 2）、`clipBelowPx`（0..20，step 1，default 5）；以上對應 `js/bn-editor-plugin.js` 的 `SHADOW_DEFAULTS` 與 `SHADOW_RANGES`。Iona Demo 的 rotation slider 不導入；商品旋轉仍使用 SPX AD 既有操作。`auto` 以目前 `#底圖` 實際背景像素及商品位置取樣，沿用 Iona HSL darken；`manual` 使用每商品手動色票。
 
 右側控制面板不提供「更新 Master Layout」或「套用 Master Layout」手動操作。Master Layout 仍由既有底層能力與 Smart Layout 自動 propagation 流程使用；Job／Template 切換不會重新產生這兩個按鈕。
 
@@ -328,7 +332,7 @@ SingleProduct：
 - 初始尺寸由 `singleProduct.maxWidth / maxHeight` 控制。
 - 當只有 1 張商品 PNG 且沒有任何人物素材時，商品使用 Person＋SingleProduct 的整體 bounding union 進行初始等比 contain 與水平／垂直置中；匯入後未旋轉 box 可在同一合併區域內自由拖曳，並完整保持於區域內。四尺寸合併區域為：`984×309`（`x488 y24 w370 h285`）、`1080×1920`（`x50 y720 w1025 h1200`）、`1599×1080`（`x771 y100 w800 h980`）、`3189×3992`（`x145 y1669 w2900 h2323`）。
 - 上述特殊初始排版沿用既有 `autoTrim()`、Shadow 最終 ratio 與等比縮放；有 Person、非單張商品或未符合特殊條件時，維持原本 SingleProduct 區域與排列行為。layoutState restore 仍直接套用儲存位置，旋轉仍依未旋轉 box 邊界規則。
-- Template `singleProduct.autoShadow` 允許 Shadow 時，是否實際顯示再由目前 Job 的 `productShadowEnabled` 控制；新 Job 預設開啟。
+- Single Product 的商品影子由 Iona renderer 與目前 Job 的 `productShadowEnabled`／該商品 `productShadowSettings` 控制；新 Job 預設開啟。Template 的既有 `singleProduct.autoShadow` 欄位仍保留於規格資料，但不新增另一套影子控制流程。
 - 支援拖曳、縮放、旋轉與恢復預設位置。
 
 右側「1人＋1品」區塊的商品影子按鈕只控制 Single Product，與「商品圖」區塊共用同一 Job 狀態。Person 不受影響；開關 Shadow 不改變 Single Product 的位置、尺寸、旋轉或 handles。

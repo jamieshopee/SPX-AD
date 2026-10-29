@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## Iona_shadow_v3 商品影子整合完成 - 2026-10-29
+
+Status：**Code Completed；Jamie Chrome Manual Validation PASS；Docs Commit：Pending**
+Code Commit：`f4bae23250ccd73708c18eade8e37cd85697addb`（`f4bae23`）
+Commit subject：`feat: integrate Iona product shadow rendering`
+Parent：`c2e5ec839e95d4ce895bfc07b0755c69cc98aa97`
+
+### Changed Behavior
+
+- 三商品版型的各商品，以及 1 人＋1 品版型的 Single Product，改由 `js/product-shadow-core.js` 使用 Iona_shadow_v3 的商品 alpha 輪廓繪製接觸影子與主影子；不再由原本固定橢圓影子或 payload 烘焙影子取代。人物、雙人、Logo 與其他模式不適用。
+- 商品清單在「移除」左側新增「影子調整」；設定於該商品下方展開，同時最多展開一張。每張商品獨立保存 `productShadowSettings`，控制項、選項、範圍、step 與預設值以 `js/bn-editor-plugin.js` 為準：`colorMode`（`auto`／`manual`）、`manualColor`（預設 `#53000b`）、`light`（`off`／`left`／`top`／`right`／`custom`）、`angle`（-60～60，step 1，預設 35）、`offsetXRatio`／`offsetYRatio`（-0.3～0.3，step 0.01，預設 0）、`scaleX`／`scaleY`（0.5～1.5，step 0.01，預設 1）、`darken`（0～1，step 0.01，預設 0.6），以及進階 `softPct`（0～6，0.1，1.5）、`fade`（20～140，1，82）、`squash`（0.1～1，0.01，0.41）、`shearFactor`（0.2～1，0.01，0.55）、`tailMid`（0.05～0.95，0.01，0.34）、`tailMidAlpha`（0～1，0.01，0.68）、`tailBlurPct`（0～15，0.1，6.5）、`tailBlurStart`（0～0.9，0.01，0.27）、`tailBlurSpan`（0.05～1，0.01，0.36）、`contactUpPct`（0～5，0.1，1.5）、`contactDownPct`（0～4，0.1，0.8）、`contactAlpha`（0～1，0.01，0.7）、`contactBlurXPct`（0～8，0.1，2）、`clipBelowPx`（0～20，1，5）。Iona Demo 的商品旋轉滑桿不重複導入，商品旋轉沿用 SPX AD 既有操作。
+- `auto` 模式由 `js/product-shadow-adapter.js` 依目前 `#底圖` 實際圖片、`object-fit`／`object-position` 與商品位置建立背景取樣 canvas，沿用 Iona `resolveColor()` 的 HSL darken；樣式背景切換後同步重繪。`manual` 模式仍使用手動指定顏色。
+- 商品初始匯入、整組重新排版、換圖、Reset、拖曳、縮放、旋轉及背景變更會依最終 geometry 同步重繪影子；初始位置不依賴固定延遲。兩項已修正問題的根因為：新增後重新排版只重繪當次商品，以及樣式切換只更新 `#底圖.src` 未通知 shadow redraw。
+- 保留全域 `productShadowEnabled`、個別商品影子設定與「恢復影子預設值」行為；Project State v5 只新增 additive `productShadowSettings`，`layoutStates` 結構與舊案相容語意不變，舊案缺欄位使用 Iona 預設值。
+- Main Canvas、Thumbnail、Batch 與單張 PNG Export 共用同一 shadow renderer、settings 與 render-ready 等待；既有四尺寸、4MB PNG 無損最佳化與備援流程維持不變。
+
+### Validation / Scope Boundary
+
+- Jamie Chrome Manual Validation PASS：三商品、1 人＋1 品、四正式尺寸、初始位置、背景自動取色、手動選色、影子調整、拖曳／縮放／旋轉、全域開關、Thumbnail、Batch、單張 PNG Export 與既有輸出流程。
+- 未宣稱未執行的自動化、Node.js 或跨瀏覽器驗證。未修改 `docs/DOCUMENTATION.md`、Template／Registry、人物、雙人、Logo、其他影像功能或輸出邏輯。
+
 ## 雙人編輯器控制與可見範圍完成 - 2026-10-29
 
 Status：**Completed — Codex Code Final Integrity Review PASS；`git diff --check` PASS；隔離頁面載入 PASS；Jamie Chrome Manual Validation PASS；Safari、ZIP／批次輸出及其他未執行回歸未宣稱**
