@@ -6,7 +6,9 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 
 ## What's New
 
-- **四尺寸獨立 2 人版型與自動去背（Code Commit `b5037037101b6116e7a40c73a490f192f9d65418`）**：完整唯一 `_PRODUCT_01_左配品(人)`／`_PRODUCT_02_右配品(人)` pair 才會進入 `two_persons`；異常配對拒絕，且不與三商品或 1人＋1品混用。左右人物依實際原圖或 approved processed PNG 的 `alpha > 0` visible bounds，以可見寬度對齊各自定位框、水平置中、最高可見點頂部對齊；可獨立拖曳／等比例縮放、跨中線、重疊及部分裁切，但可見範圍必須同時與共同操作矩形及 Canvas 有正面積交集。四尺寸定位與前後層級依下表，layout state 依 Job／尺寸／Template 保存還原。
+- **雙人編輯器控制與可見範圍完成（Code Commit `b3fec6a1a5113bdb033e6dd2aa4bf1c2ee77e67c`，`b3fec6a`）**：`two_persons` 右側獨立 Accordion 最多兩張人物，支援左右人物上傳、同檔名置換、個別移除、上下排序與整組 Reset；排序只改 front／z-index，不交換 slot、filename、位置或縮放。單張使用共同 operationRect，雙張使用左右 slot rect；左右可獨立拖曳、wheel 等比縮放、重疊及合法部分裁切。雙人專用 alpha>=2 bounds 同時供初始 width-first 縮放、可見頂部對齊與 drag／wheel 邊界驗證；Canvas 交集寬、高各須至少 `80` 原始 Canvas 像素，與 operationRect 仍須正面積交集。alpha>=2 為外接矩形，不宣稱對所有透明洞提供逐像素數學保證。Layout State restore 使用目前 activePlacement／current render layout key；Project State／JSON schema 不變。四尺寸正式幾何與 default front 沿用下表。Jamie Chrome Manual Validation PASS；Safari、Photoshop 外部流程、完整四尺寸視覺對位及完整 Preview／Thumbnail／Export 瀏覽器回歸未宣稱 PASS。
+
+- **四尺寸獨立 2 人版型與自動去背（Code Commit `b5037037101b6116e7a40c73a490f192f9d65418`，歷史 baseline）**：本條記錄初始 `two_persons` 核心、完整 pair 分類與 alpha>0 幾何；single／pair、alpha>=2、80px Canvas 交集、右側控制與目前驗證狀態以本節上方 `b3fec6a` 條目為準。四尺寸正式座標表保留不變。
 
 | 尺寸 | 左定位框 | 右定位框 | 共同操作矩形 | 預設前方 |
 |---|---|---|---|---|
@@ -15,7 +17,7 @@ Scope: Banner 版型結構、Style 視覺樣式、素材命名、Template 參數
 | `984x309` | `(488,24,180,285)` | `(678,24,180,285)` | `(488,24,370,285)` | 右 |
 | `3189x3992` | `(145,1669,1430,2323)` | `(1616,1669,1430,2323)` | `(145,1669,2901,2323)` | 右 |
 
-- 雙人前後層級核心已支援，但右側欄切換 UI Deferred；手動換圖 Deferred；雙人 Reset 本階段未實作且未核准為下一階段必做。Info／QRCode 固定圖層優先，未新增 Placement、Template 選項或臨時控制。Jamie Chrome 已實測雙人正常匯入與自動去背；Safari、Photoshop 外部流程、四尺寸完整視覺對位及完整 Preview／Thumbnail／Export 瀏覽器回歸未完整驗證。
+- 歷史 baseline：當時雙人前後層級核心已支援，但右側欄切換 UI、手動換圖與雙人 Reset 尚未納入；目前控制項、alpha>=2 與 80px 可見範圍以本節上方 `b3fec6a` 條目為準。Info／QRCode 固定圖層優先，未新增 Placement 或 Template 選項。Safari、Photoshop 外部流程、四尺寸完整視覺對位及完整 Preview／Thumbnail／Export 瀏覽器回歸未完整驗證。
 
 - **PNG 4 MB 無損最佳化與超標備援（Code Commit `ee24029cf41636a3ad63ab0afe4d9949f17d867a`）**：四個正式尺寸 `1080×1920`、`3189×3992`、`1599×1080`、`984×309` 的單張最終 PNG 下載與批次產圖 ZIP 內最終 PNG，每張上限為 `4,000,000 bytes`。原始 PNG 達標時直接保留原始 bytes；超標時才進行真正無損最佳化，驗證 PNG 格式、原始尺寸、RGBA／alpha 與實際 bytes，只有最佳化後達標才視為正式輸出。最佳化失敗、仍超標或結果變大時保留原始 PNG並明確標示「待人工壓縮」，不改變畫布尺寸、解析度、透明度、文字、Logo、人物或商品配置。
 - 單張超標備援會明確警告檔案超過上限且不屬於正式達標輸出。批次 ZIP 中，達標 PNG／JSON 維持原本位置與 basename 配對；待人工壓縮的原始 PNG／JSON 放入 `待人工壓縮/`，根目錄附 `輸出狀況.txt`，完成畫面顯示達標、待人工壓縮與真正輸出失敗數量。此規則不適用完整專案 ZIP／`exportProjectZip()`、processed assets、Photoshop Automation、SPX Helper、Preview 或 Project State。

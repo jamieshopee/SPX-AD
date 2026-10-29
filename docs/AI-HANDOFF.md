@@ -1,13 +1,22 @@
 # AI-HANDOFF.md
 
-## 四尺寸獨立 2 人版型與自動去背整合完成（2026-10-23）
+## 雙人編輯器控制與可見範圍完成（2026-10-29）
 
-- Code Commit：`b5037037101b6116e7a40c73a490f192f9d65418`（`feat: add two-person layouts with background removal`）。Docs Commit：Pending。
-- Current Behavior：四個正式尺寸各自使用獨立 `two_persons` 設定；只有完整且唯一的 `_PRODUCT_01_左配品(人)`／`_PRODUCT_02_右配品(人)` pair 進入雙人模式，異常配對拒絕，並與 `three_products`／`person_product` 完全隔離。Alpha visible bounds 使用 `alpha > 0`，依實際選定原圖或 approved processed PNG 重新計算，按可見寬度對齊各自 slot、水平置中並頂部對齊。
+- Code Commit：`b3fec6a1a5113bdb033e6dd2aa4bf1c2ee77e67c`（`b3fec6a`，`feat: complete two-person editor controls and visibility bounds`）。Docs Commit：Pending。
+- Current Behavior：`two_persons` 右側獨立 Accordion 最多兩張人物，支援左／右人物上傳、精確同檔名置換、個別移除、縮圖清單、上下排序與整組 Reset；排序只改 front／z-index，不交換 left/right slot、filename 或 Transform。單張使用共同 `operationRect`，雙張使用各自 left/right slot rect；左右可獨立拖曳、wheel 等比縮放、跨中線、重疊與合法部分裁切。Reset 依目前存在人物重算預設幾何，不清除素材或改變 front。
+- Geometry：四尺寸既有設定不變：`1080x1920` 左 `(6,720,530,1200)`、右 `(544,720,530,1200)`、共同 `(6,720,1068,1200)`、左前；`1599x1080` 左 `(771,100,395,980)`、右 `(1176,100,395,980)`、共同 `(771,100,800,980)`、左前；`984x309` 左 `(488,24,180,285)`、右 `(678,24,180,285)`、共同 `(488,24,370,285)`、右前；`3189x3992` 左 `(145,1669,1430,2323)`、右 `(1616,1669,1430,2323)`、共同 `(145,1669,2901,2323)`、右前。
+- Visibility：雙人專用 `alpha >= 2` bounds 同時供初始 width-first 縮放、可見最高點頂部對齊及 drag／wheel validator；排除 alpha=1 極低透明度殘留。每張人物的有效可見範圍與 Canvas 交集寬、高各須至少 `80` 個原始 Canvas 像素，且與共同 `operationRect` 仍須有正面積交集。`80px` 不適用 operationRect、其他版型或 CSS 顯示像素；alpha>=2 外接矩形不是逐像素 occupancy，不宣稱對所有透明洞提供數學保證。其他模式及全域 alpha>0 規則不變。
+- State：同一 Job 切換版位時以目前 activePlacement／current render layout key 還原 Layout State，不使用原始 `job.placementId` 取代目前 render context；已修復 `1080x1920` → `984x309` 人物消失問題。既有 Project State／JSON schema 相容性保留。
+- Validation：Codex Code Final Integrity Review、`git diff --check` 與隔離頁面載入 PASS；Jamie Chrome Manual Validation PASS。Safari、ZIP／批次輸出及其他未實際執行的完整跨瀏覽器回歸未宣稱 PASS。Docs Commit：Pending。
+
+## 四尺寸獨立 2 人版型與自動去背整合完成（2026-10-23，歷史 baseline）
+
+- Code Commit：`b5037037101b6116e7a40c73a490f192f9d65418`（`feat: add two-person layouts with background removal`）。本節記錄初始核心 baseline；目前控制與可見範圍以 `b3fec6a` 條目為準。Docs Commit：Pending。
+- Historical baseline（目前已由 `b3fec6a` 更新）：四個正式尺寸各自使用獨立 `two_persons` 設定；當時完整且唯一的 `_PRODUCT_01_左配品(人)`／`_PRODUCT_02_右配品(人)` pair 進入雙人模式，Alpha visible bounds 使用 `alpha > 0`。目前 single／pair、alpha>=2 與控制行為以本文件上方 current-state 條目為準。
 - Transform／State：左右人物使用獨立 Canvas 節點與 Transform，可自由等比例拖曳／縮放、跨中線、重疊及部分畫布裁切；Alpha 可見範圍與共同操作矩形及 Canvas 均須有正面積交集。Job／尺寸／Template 的 layout state 保存與還原沿用既有資料流，Info／QRCode 固定圖層優先。
 - Pipeline：左右各建立一筆既有 `person` role、`mode: two_persons`、`slot: left/right` record；兩筆 Manifest 均 `removeBackground=true`，Resolver 依 Job／role／slot／filename 選取 processed source。approved 優先使用 processed PNG；pending、未核准或缺失時依既有契約 fallback 原圖。Preview／Thumbnail／Export 共用同一來源與狀態資料流。
 - 四尺寸：`1080x1920` 左 `(6,720,530,1200)`、右 `(544,720,530,1200)`、共同 `(6,720,1068,1200)`、左前；`1599x1080` 左 `(771,100,395,980)`、右 `(1176,100,395,980)`、共同 `(771,100,800,980)`、左前；`984x309` 左 `(488,24,180,285)`、右 `(678,24,180,285)`、共同 `(488,24,370,285)`、右前；`3189x3992` 左 `(145,1669,1430,2323)`、右 `(1616,1669,1430,2323)`、共同 `(145,1669,2901,2323)`、右前。
-- Validation：Codex 靜態與針對性自動測試 PASS；Jamie Chrome 實測雙人正常匯入與自動去背 PASS。Safari、Photoshop 外部流程、四尺寸完整視覺對位及完整 Preview／Thumbnail／Export 瀏覽器回歸未完整驗證，未宣稱 PASS。右側欄層級切換 UI、手動換圖 Deferred；雙人 Reset 本階段未實作且未核准為下一階段必做。
+- Validation（歷史 baseline）：Codex 靜態與針對性自動測試 PASS；Jamie Chrome 實測雙人正常匯入與自動去背 PASS。當時右側欄層級切換 UI、手動換圖與雙人 Reset 尚未納入；目前狀態以本文件上方 `b3fec6a` 條目為準。Safari、Photoshop 外部流程、四尺寸完整視覺對位及完整 Preview／Thumbnail／Export 瀏覽器回歸未完整驗證，未宣稱 PASS。
 
 ## PNG 4 MB 無損最佳化與超標備援完成（2026-10-21）
 

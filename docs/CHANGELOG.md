@@ -1,6 +1,20 @@
 # CHANGELOG
 
-## 四尺寸獨立 2 人版型與自動去背整合 - 2026-10-23
+## 雙人編輯器控制與可見範圍完成 - 2026-10-29
+
+Status：**Completed — Codex Code Final Integrity Review PASS；`git diff --check` PASS；隔離頁面載入 PASS；Jamie Chrome Manual Validation PASS；Safari、ZIP／批次輸出及其他未執行回歸未宣稱**
+Code Commit：`b3fec6a1a5113bdb033e6dd2aa4bf1c2ee77e67c`（`b3fec6a`）
+Commit subject：`feat: complete two-person editor controls and visibility bounds`
+Docs Commit：Pending
+
+### Changed Behavior
+
+- `two_persons` 新增獨立右側 Accordion，最多兩張人物，支援左右人物上傳、精確同檔名置換、個別移除、縮圖清單、上下排序與整組「恢復預設位置」；排序只改 front／z-index，不交換 left/right slot、filename、位置或縮放。單張使用共同 `operationRect`，雙張使用左右 slot rect；Info／QRCode 固定位於人物上層。
+- 左右人物可獨立拖曳與 wheel 等比縮放，允許跨中線、重疊與合法部分裁切。Reset 依當下存在人物重算初始幾何，不移除素材、不改變 front。四尺寸既有定位框、共同 operationRect 與 default front 維持不變：`1080x1920` 左 `(6,720,530,1200)`、右 `(544,720,530,1200)`、共同 `(6,720,1068,1200)`、左前；`3189x3992` 左 `(145,1669,1430,2323)`、右 `(1616,1669,1430,2323)`、共同 `(145,1669,2901,2323)`、右前；`1599x1080` 左 `(771,100,395,980)`、右 `(1176,100,395,980)`、共同 `(771,100,800,980)`、左前；`984x309` 左 `(488,24,180,285)`、右 `(678,24,180,285)`、共同 `(488,24,370,285)`、右前。
+- 雙人專用 alpha>=2 有效外接矩形同時用於初始 width-first 縮放、可見頂部對齊及拖曳／wheel 邊界驗證，排除 alpha=1 極低透明度殘留。每張人物的有效範圍與 Canvas 交集寬、高各須至少 `80` 原始 Canvas 像素，恰好 80 允許，低於 80 拒絕；與 operationRect 仍須正面積交集。80px 不套用 operationRect、其他版型或 CSS 顯示像素。alpha>=2 為外接矩形，不宣稱能對所有透明洞提供逐像素數學保證。
+- 同一 Job 跨版位切換時，Layout State restore 使用目前 activePlacement／current render layout key，不再以原始 job.placementId 套用錯誤 transform；Project State／JSON schema 維持相容。
+
+## 四尺寸獨立 2 人版型與自動去背整合 - 2026-10-23（歷史 baseline）
 
 Status：**Completed — Codex 靜態／針對性測試 PASS；Jamie Chrome 匯入與自動去背 PASS；Safari、Photoshop 外部流程及完整瀏覽器回歸未宣稱**
 Code Commit：`b5037037101b6116e7a40c73a490f192f9d65418`
@@ -10,7 +24,7 @@ Docs Commit：Pending
 ### Changed Behavior
 
 - 四尺寸新增獨立 `two_persons` 模式；只有完整且唯一的 `_PRODUCT_01_左配品(人)`（left）與 `_PRODUCT_02_右配品(人)`（right）pair 進入此模式，缺漏、重複或檔名不完整時拒絕，不靜默降級。與既有 `three_products`、`person_product` 的分類、Transform、圖層、狀態及輸出規則隔離。
-- Alpha visible bounds 僅採 `alpha > 0`，以非破壞性方式處理，不因白色或近白色像素裁切；依實際選定原圖或 approved processed PNG 重新計算。初始置入以可見寬度對齊 slot 寬度、水平置中、最高可見點頂部對齊，不使用 contain 或因高度超出而自動縮小。
+- Alpha visible bounds 在此歷史 baseline 僅採 `alpha > 0`；目前雙人專用 alpha>=2 與 80px Canvas 交集規則以本文件上方 2026-10-29 條目為準。初始置入仍以可見寬度對齊、水平置中、最高可見點頂部對齊，不使用 contain 或因高度超出而自動縮小。
 - 左右人物各自獨立 Transform，可自由等比例拖曳／縮放、跨中線、重疊及部分畫布裁切；Alpha 可見範圍與共同操作矩形及 Canvas 均須有正面積交集。layout state 依 Job／尺寸／Template 保存與還原，Preview／Thumbnail／Export 共用一致來源與狀態。
 
 ### Geometry / Layer Defaults
@@ -25,7 +39,7 @@ Docs Commit：Pending
 ### Background Removal / Boundary
 
 - 左右各建立一筆既有 `person` role、`mode: two_persons`、`slot: left/right` Pipeline record；Manifest 兩筆均 `removeBackground=true`。Resolver 依 Job／role／slot／filename 對應 processed PNG；approved 優先使用 processed，pending／未核准／缺失時依既有契約 fallback 原圖。
-- 雙人前後層級核心已支援，但右側欄切換 UI Deferred；手動換圖 Deferred；雙人 Reset 本階段未實作且未核准為下一階段必做；未新增臨時控制、Placement 或 Template 選項。Info／QRCode 固定圖層優先。
+- 此歷史 baseline 尚未包含右側欄控制、手動換圖與雙人 Reset；目前 UI 與控制狀態以本文件上方 2026-10-29 條目為準。未新增臨時控制、Placement 或 Template 選項；Info／QRCode 固定圖層優先。
 
 ### Validation
 

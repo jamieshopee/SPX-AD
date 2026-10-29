@@ -1,14 +1,16 @@
 # Architecture
 
 Version: v0.6.1（Product Host `0.6.1`；Runtime Productization Phase 3 macOS Packaging Completed；Next: Phase 4 — Update + Uninstall）
-Last Updated: 2026-10-21
+Last Updated: 2026-10-29
 Scope: 最新系統架構、Render Flow、Template / Style / Project State / Asset Pipeline 邊界、新增 Style 流程，以及 SPX Helper / Photoshop Automation / AI Workflow / QR Code 架構。
 
 SPX Helper Core（功能 Commit `9a71794`）、Runtime Productization Phase 1 Foundation（功能 Commit `51c4828`）、Phase 2 Windows Packaging（功能 Commit `9240504`）與 Phase 3 macOS Packaging（功能 Commit `ee55dd527a00361f1155ba45713ff2ce3957b06c`）均已完成。Phase 3 以 PyInstaller 建立 `SPX Helper.app`，並由 PKG 固定安裝到 `/Applications/SPX Helper.app`；LaunchAgent 提供登入自動啟動。macOS local build／install 與 Jamie Manual Validation 已完成，正式 GitHub Pages → SPX Helper → Photoshop → Processed PNG PASS。Developer ID signing 與 Apple Notarization 因缺少 credentials 尚未驗證。下一步為尚未開始的 Phase 4 Update + Uninstall；Phase 5 Final Validation 亦尚未開始。
 
 ## What's New
 
-- **四尺寸獨立 2 人版型與自動去背整合（功能 Commit `b5037037101b6116e7a40c73a490f192f9d65418`）**：新增隔離的 `two_persons` render／state 分支，不混用 `three_products` 或 `person_product` 的 slot、Transform、圖層、狀態與輸出規則。完整唯一 pair 以 `_PRODUCT_01_左配品(人)`／`_PRODUCT_02_右配品(人)` 分類；左右各自使用 `person` role、`mode: two_persons`、`slot: left/right` 進入既有 Pipeline、Manifest 與 Resolver。approved processed source 優先，否則 fallback original；實際來源以 `alpha > 0` visible bounds 計算寬度優先、水平置中、頂部對齊的初始幾何。左右 Transform 與 layout state 獨立保存／還原，Preview／Thumbnail／Export 共用同一 render payload。右側欄層級切換 UI、手動換圖與雙人 Reset 不在本次實作；Info／QRCode 固定圖層仍優先。
+- **雙人編輯器控制與可見範圍完成（功能 Commit `b3fec6a1a5113bdb033e6dd2aa4bf1c2ee77e67c`）**：`two_persons` 使用獨立右側 Accordion，最多兩張人物，支援左右人物上傳、同檔名置換、個別移除、排序與 Reset；排序只改雙人 front／z-index，不交換 slot、filename 或 Transform。單張使用共同 `operationRect`，雙張使用 left/right slot rect；左右可獨立拖曳與 wheel 等比縮放，允許重疊及合法部分裁切。四尺寸座標與 default front 沿用既有正式設定：`1080x1920` 左 `(6,720,530,1200)`、右 `(544,720,530,1200)`、共同 `(6,720,1068,1200)`、左前；`3189x3992` 左 `(145,1669,1430,2323)`、右 `(1616,1669,1430,2323)`、共同 `(145,1669,2901,2323)`、右前；`1599x1080` 左 `(771,100,395,980)`、右 `(1176,100,395,980)`、共同 `(771,100,800,980)`、左前；`984x309` 左 `(488,24,180,285)`、右 `(678,24,180,285)`、共同 `(488,24,370,285)`、右前。雙人專用 alpha>=2 visible bounds 同時供初始 width-first 幾何與 transform 邊界驗證；與 Canvas 交集寬、高各須至少 `80` 原始 Canvas 像素，並與 operationRect 保持正面積交集。alpha>=2 為外接矩形，不提供逐像素透明洞的數學保證；其他模式及全域 alpha>0 規則不變。Layout State restore 以目前 activePlacement／current render layout key 為準，避免使用原始 job.placementId 造成跨版位污染。Jamie Chrome Manual Validation PASS；Safari、ZIP／批次輸出及未執行的完整回歸未宣稱 PASS。Project State／JSON schema 未變更。**
+
+- **四尺寸獨立 2 人版型與自動去背整合（功能 Commit `b5037037101b6116e7a40c73a490f192f9d65418`，歷史 baseline）**：新增隔離的 `two_persons` render／state 分支，不混用 `three_products` 或 `person_product` 的 slot、Transform、圖層、狀態與輸出規則。當時完整 pair、alpha>0 與核心 render/state 已完成；右側控制與有效可見範圍後續由 `b3fec6a` 完成，current state 以本節上方條目為準。
 
 - **PNG 4 MB 無損最佳化與超標備援（功能 Commit `ee24029cf41636a3ad63ab0afe4d9949f17d867a`）**：四個正式尺寸 `1080×1920`、`3189×3992`、`1599×1080`、`984×309` 的單張最終 PNG 與 Batch ZIP 最終 PNG 共用 `src/app.js` 的最終 PNG 準備／驗證邊界。原始 PNG `<= 4,000,000 bytes` 時直接保留原始 bytes；超標才沿用既有 `captureFromCanvasFrame()` PNG data URL，解碼暫時 RGBA 後呼叫 `UPNG.encode([rgba.buffer], width, height, 0, undefined, true)`，並驗證 PNG magic bytes、IHDR 尺寸、RGBA／alpha pixel-exact 與實際 Blob bytes。只有驗證成功且結果 `<= 4,000,000 bytes` 才輸出最佳化 PNG；結果變大、仍超標、失敗或驗證未通過時保留原始 PNG 作為待人工壓縮備援。Batch 逐張序列處理，備援 PNG／JSON 放入 `待人工壓縮/`，根目錄輸出 `輸出狀況.txt`；`exportProjectZip()`、processed assets、Photoshop Automation、SPX Helper、Preview、Project State、Renderer 與 iframe capture contract 不在此邊界。UPNG／pako 與授權檔來自 SPX 參考專案 `快速取件/js/vendor/`；不使用有損壓縮、indexed quantization、palette 降色、dithering、Worker 或 WASM。Codex 自動化測試與 Jamie Manual Validation PASS；Safari／Chrome 個別結果未宣稱 PASS。
 

@@ -6,7 +6,9 @@ Scope: 控制台 UI、互動、視覺語言與 Template / Style 命名規範。
 
 ## What's New
 
-- **2 人版型核心狀態（Code Commit `b5037037101b6116e7a40c73a490f192f9d65418`）**：雙人核心 render／state 已支援四尺寸獨立定位、Transform、圖層與保存還原；右側欄前後層級切換 UI Deferred，手動換圖 Deferred，雙人 Reset 本階段未實作且未核准為下一階段必做。未新增臨時控制、Placement 或 Template 選項；既有三商品與 1人＋1品 UI 規則不變。Jamie Chrome 雙人匯入與自動去背 PASS；Safari、Photoshop 外部流程及完整瀏覽器回歸未宣稱。
+- **雙人編輯器控制與可見範圍完成（Code Commit `b3fec6a1a5113bdb033e6dd2aa4bf1c2ee77e67c`，`b3fec6a`）**：右側新增獨立雙人 Accordion，最多兩張人物，支援上傳、同檔名置換、個別移除、縮圖清單、上下排序與整組 Reset；排序只改人物 front／z-index，不交換 slot、filename 或 Transform。單張使用共同 operationRect，雙張使用左右 slot rect；人物可獨立拖曳、wheel 等比縮放、重疊及合法部分裁切。雙人專用 alpha>=2 bounds 同時供初始 width-first 與 drag／wheel 邊界驗證；每張人物與 Canvas 的有效交集寬、高各須至少 `80` 原始 Canvas 像素，operationRect 仍只要求正面積交集。alpha>=2 為外接矩形，不宣稱對所有透明洞提供數學保證。既有四尺寸座標、default front、Layout State／跨版位修正與其他模式 UI 不變。Jamie Chrome Manual Validation PASS；Safari、ZIP／批次輸出及完整跨瀏覽器回歸未宣稱 PASS。
+
+- **2 人版型核心狀態（Code Commit `b5037037101b6116e7a40c73a490f192f9d65418`，歷史 baseline）**：本條記錄初始雙人 render／state 核心；右側控制、single／pair、alpha>=2 與 80px 可見範圍目前以本節上方 `b3fec6a` 條目為準。既有三商品與 1人＋1品 UI 規則不變。
 
 - **PNG 4 MB 輸出狀態與超標備援（Code Commit `ee24029cf41636a3ad63ab0afe4d9949f17d867a`）**：四個正式尺寸的單張最終 PNG 與 Batch ZIP 最終 PNG 以實際 bytes 套用 `4,000,000 bytes` 上限。單張無損最佳化失敗或仍超標時，下載動作顯示明確的超標／待人工壓縮警告，不把備援檔案標示為正式達標。Batch 完成狀態顯示達標、待人工壓縮與真正輸出失敗數量，並列出待處理版位；待人工壓縮的原始 PNG／JSON 位置與 `輸出狀況.txt` 由輸出規格定義。Preview、Canvas 編輯操作與其他 Project／Export UI 不受影響。Jamie Manual Validation PASS；Safari／Chrome 個別結果未宣稱 PASS。
 
