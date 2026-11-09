@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## 一鍵關閉商品影子回歸修正 - 2026-11-09
+
+Status：**Code Completed；Jamie Chrome Manual Validation PASS；Docs Commit：Pending**
+Code Commit：`abcb7f85c8d6f7867be84271c2a400278d1d1a19`（`abcb7f8`）
+Commit subject：`fix: restore global product shadow toggle`
+Parent：`c80a21bd660d01d6e3ff585917bb74f4eb9e49cc`
+
+### Root Cause
+
+- 右側欄「一鍵關閉商品影子」按鈕的 UI 狀態可以切換，但 Main Canvas 影子未消失。`src/app.js` 的 `updateMainCanvasImageSourcesForJob()` 重建商品 payload 時產生暫時商品 ID，與 Main Canvas 現有商品 box 的 runtime ID 不一致；`bn-product-shadow-settings` 因而無法定位既有商品，未能更新 shadow layer。
+
+### Fix / Scope
+
+- 修正為 `id: box.dataset.id || product.id`，優先沿用畫布既有商品 ID。全域 `productShadowEnabled` 關閉時立即移除商品影子，重新開啟時恢復原有影子；個別商品影子設定與既有 `light=off` 語意不變。
+- 本修正只涉及三商品與 1 人＋1 品商品的既有全域影子開關狀態同步，不修改 Iona shadow core／adapter、個別參數、背景自動取色、手動選色、Project State v5、四尺寸或 Preview／Thumbnail／Batch／PNG Export 的既有語意。
+
+### Validation
+
+- Jamie Chrome Manual Validation PASS：全域關閉後 Main Canvas 影子立即消失，重新開啟後影子恢復。未將本次一行 ID 對應修正延伸宣稱為其他未單獨驗證項目的 PASS。
+
 ## Iona_shadow_v3 商品影子整合完成 - 2026-10-29
 
 Status：**Code Completed；Jamie Chrome Manual Validation PASS；Docs Commit：Pending**

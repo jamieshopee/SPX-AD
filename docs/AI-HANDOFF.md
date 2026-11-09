@@ -1,5 +1,12 @@
 # AI-HANDOFF.md
 
+## 一鍵關閉商品影子回歸修正（2026-11-09）
+
+- Code Commit：`abcb7f85c8d6f7867be84271c2a400278d1d1a19`（`abcb7f8`，`fix: restore global product shadow toggle`）。Parent：`c80a21bd660d01d6e3ff585917bb74f4eb9e49cc`。Docs Commit：Pending。
+- Root Cause：`src/app.js` 的 `updateMainCanvasImageSourcesForJob()` 重建 payload 時使用暫時商品 ID；Main Canvas 既有商品 box 使用不同的 runtime ID，導致 `bn-product-shadow-settings` 找不到既有商品，shadow layer 未被更新。
+- Fix：改用 `id: box.dataset.id || product.id`，優先沿用既有畫布商品 ID。全域 `productShadowEnabled` 關閉時可立即移除商品影子，重新開啟時恢復原有影子；三商品與 1 人＋1 品商品的個別影子設定、`light=off` 語意及既有 Iona renderer 不變。
+- Validation：Jamie Chrome Manual Validation PASS，已確認右側欄全域關閉後畫布影子立即消失，重新開啟後影子恢復。本修正未改變 Iona 核心、Project State v5、背景取色、手動選色、四尺寸或既有 Preview／Thumbnail／Batch／PNG Export 語意。
+
 ## Iona_shadow_v3 商品影子整合完成（2026-10-29）
 
 - Code Commit：`f4bae23250ccd73708c18eade8e37cd85697addb`（`f4bae23`，`feat: integrate Iona product shadow rendering`）。Parent：`c2e5ec839e95d4ce895bfc07b0755c69cc98aa97`。Docs Commit：Pending。
