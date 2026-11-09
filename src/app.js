@@ -1778,7 +1778,7 @@ async function updateMainCanvasImageSourcesForJob(job, reason = '') {
       }
       frameWindow.postMessage({
         type: 'bn-product-shadow-settings',
-        id: product.id,
+        id: box.dataset.id || product.id,
         settings: product.shadowSettings || runtimeProduct?.shadowSettings || {},
         enabled: job.productShadowEnabled !== false,
       }, '*');
